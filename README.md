@@ -61,10 +61,15 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 | Barra | `DIV` | Divide o penúltimo valor pelo valor do topo, com resultado inteiro. |
 | Espiral | `MOD` | Calcula o resto da divisão entre os dois valores do topo. |
 | Traço | `NEG` | Inverte o sinal do valor no topo da pilha. |
+| Portal | `WARP` | Salta para outro `WARP` com a mesma intensidade. |
+| Círculo modificado | `INT_MOD` | Aplica uma operação à intensidade do selo-alvo. |
+| Quadrado modificado | `INT_SET` | Aguarda qualquer runa que produza um inteiro e o aplica ao selo-alvo. |
 | Triângulo | `PRINT` | Mostra o valor no Oráculo. |
 | Cruz (X) | `HALT` | Encerra a execução. |
 | Quadrado | `STORE` | Guarda o topo da pilha em uma posição de memória. |
 | Forquilha | `LOAD` | Lê uma posição de memória para a pilha. |
+
+Para uma runa nova poder alimentar um `INT_SET`, ela deve produzir seu valor no topo da pilha e declarar `"result_type": "int"` no catálogo. Assim o `INT_SET` não precisa ser alterado a cada selo numérico novo.
 
 ## Como executar
 
@@ -96,7 +101,29 @@ scripts/
 
 ## Bytecode `RUNE`
 
-O formato binário começa com a assinatura `RUNE`, seguida por uma versão, quantidade de instruções e os opcodes. Instruções que recebem operando — como `PUSH`, `STORE` e `LOAD` — carregam mais um byte com o valor de `0` a `255`.
+O formato binário começa com a assinatura `RUNE`, seguida por uma versão, quantidade de instruções e os opcodes. Cada instrução carrega sua intensidade de `0` a `255`; em instruções como `PUSH`, `STORE`, `LOAD` e `WARP`, essa intensidade também é o operando numérico.
+
+Cada instrução ocupa dois bytes: `[opcode][intensidade]`. Por exemplo, `PUSH 006` é `01 06` em hexadecimal, ou `00000001 00000110` em binário. Selos que não usam operando ainda carregam o segundo byte como intensidade visual.
+
+| Instrução | Opcode (hex) | Opcode (binário) |
+| --- | --- | --- |
+| `PUSH` | `01` | `00000001` |
+| `ADD` | `02` | `00000010` |
+| `SUB` | `03` | `00000011` |
+| `MUL` | `04` | `00000100` |
+| `PRINT` | `05` | `00000101` |
+| `HALT` | `06` | `00000110` |
+| `STORE` | `07` | `00000111` |
+| `LOAD` | `08` | `00001000` |
+| `DROP` | `09` | `00001001` |
+| `DUP` | `0A` | `00001010` |
+| `SWAP` | `0B` | `00001011` |
+| `DIV` | `0C` | `00001100` |
+| `MOD` | `0D` | `00001101` |
+| `NEG` | `0E` | `00001110` |
+| `WARP` | `0F` | `00001111` |
+| `INT_MOD` | `10` | `00010000` |
+| `INT_SET` | `11` | `00010001` |
 
 ## Próximos passos
 

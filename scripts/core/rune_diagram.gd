@@ -43,6 +43,36 @@ func add_connection(from: Vector2, to: Vector2) -> bool:
 	return true
 
 
+## Move uma junção inteira sem alterar a ordem, os selos ou as intensidades
+## das células que chegam ou saem dela.
+func move_anchor(from: Vector2, to: Vector2) -> bool:
+	if from.is_equal_approx(to):
+		return false
+	var moved_any := false
+	var updated_connections: Array[Dictionary] = []
+	for raw_connection in connections:
+		var connection: Dictionary = raw_connection.duplicate(true)
+		var connection_from: Vector2 = connection["from"]
+		var connection_to: Vector2 = connection["to"]
+		if connection_from.is_equal_approx(from):
+			connection["from"] = to
+			moved_any = true
+		if connection_to.is_equal_approx(from):
+			connection["to"] = to
+			moved_any = true
+		var updated_from: Vector2 = connection["from"]
+		var updated_to: Vector2 = connection["to"]
+		# Não criamos células de comprimento zero nem duplicamos uma célula.
+		if updated_from.is_equal_approx(updated_to):
+			return false
+		updated_connections.append(connection)
+	if not moved_any or _has_duplicate_connections(updated_connections):
+		return false
+	record_current_state()
+	connections = updated_connections
+	return true
+
+
 func remove_connections(indices: Array[int]) -> bool:
 	var valid_indices: Array[int] = []
 	for raw_index in indices:
@@ -103,3 +133,19 @@ func redo() -> bool:
 
 func _has_connection(index: int) -> bool:
 	return index >= 0 and index < connections.size()
+
+
+func _has_duplicate_connections(candidates: Array[Dictionary]) -> bool:
+	for first_index in range(candidates.size()):
+		var first: Dictionary = candidates[first_index]
+		var first_from: Vector2 = first["from"]
+		var first_to: Vector2 = first["to"]
+		for second_index in range(first_index + 1, candidates.size()):
+			var second: Dictionary = candidates[second_index]
+			var second_from: Vector2 = second["from"]
+			var second_to: Vector2 = second["to"]
+			var same_direction := first_from.is_equal_approx(second_from) and first_to.is_equal_approx(second_to)
+			var opposite_direction := first_from.is_equal_approx(second_to) and first_to.is_equal_approx(second_from)
+			if same_direction or opposite_direction:
+				return true
+	return false

@@ -13,34 +13,40 @@ func compile(connections: Array) -> Dictionary:
 	if connections.is_empty():
 		return {"ok": false, "errors": ["Não há conexões para compilar."], "warnings": warnings}
 
-	var ordered_indices := _linearize(connections, errors)
+	var sequences := _linearize_sequences(connections, errors, warnings)
 	if not errors.is_empty():
 		return {"ok": false, "errors": errors, "warnings": warnings}
 
 	var instructions: Array[Dictionary] = []
-	for connection_index in ordered_indices:
-		var connection: Dictionary = connections[connection_index]
-		var kind := str(connection.get("symbol", ""))
-		if kind.is_empty():
-			errors.append("A ligação %d não possui um selo." % (connection_index + 1))
-			continue
-		var symbol := RuneCatalog.symbol_data(kind)
-		var opcode := int(symbol.get("opcode", -1))
-		if opcode < 0:
-			errors.append("Selo desconhecido na ligação %d." % (connection_index + 1))
-			continue
-		var instruction := {"opcode": opcode, "connection_index": connection_index}
-		if bool(symbol.get("takes_operand", false)):
-			instruction["operand"] = clampi(int(connection.get("intensity", 128)), 0, 255)
-		instructions.append(instruction)
+	var inserted_halts := 0
+	for sequence_index in range(sequences.size()):
+		var sequence: Array = sequences[sequence_index]
+		var instruction_start := instructions.size()
+		for connection_index in sequence:
+			var connection: Dictionary = connections[connection_index]
+			var kind := str(connection.get("symbol", ""))
+			if kind.is_empty():
+				continue
+			var symbol := RuneCatalog.symbol_data(kind)
+			var opcode := int(symbol.get("opcode", -1))
+			if opcode < 0:
+				errors.append("Selo desconhecido na ligação %d." % (connection_index + 1))
+				continue
+			var intensity := clampi(int(connection.get("intensity", 128)), 0, 255)
+			var instruction := {"opcode": opcode, "connection_index": connection_index, "sequence_index": sequence_index, "intensity": intensity}
+			if bool(symbol.get("takes_operand", false)):
+				instruction["operand"] = intensity
+			instructions.append(instruction)
+		if instructions.size() > instruction_start and int(instructions.back()["opcode"]) != RuneCatalog.OPCODE_HALT:
+			instructions.append({"opcode": RuneCatalog.OPCODE_HALT, "implicit": true, "sequence_index": sequence_index})
+			inserted_halts += 1
 
 	if not errors.is_empty():
 		return {"ok": false, "errors": errors, "warnings": warnings}
 	if instructions.is_empty():
 		return {"ok": false, "errors": ["Não há selos para compilar."], "warnings": warnings}
-	if int(instructions.back()["opcode"]) != RuneCatalog.OPCODE_HALT:
-		instructions.append({"opcode": RuneCatalog.OPCODE_HALT, "implicit": true})
-		warnings.append("HALT foi inserido automaticamente no fim do ritual.")
+	if inserted_halts > 0:
+		warnings.append("HALT foi inserido automaticamente no fim de %d sequência(s)." % inserted_halts)
 
 	return {"ok": true, "instructions": instructions, "bytecode": RuneBytecode.encode(instructions), "errors": errors, "warnings": warnings}
 
@@ -60,7 +66,7 @@ func export_binary(connections: Array, path: String) -> Dictionary:
 	return result
 
 
-func _linearize(connections: Array, errors: Array[String]) -> Array[int]:
+func _linearize_sequences(connections: Array, errors: Array[String], warnings: Array[String]) -> Array:
 	var incoming_points := {}
 	for raw_connection in connections:
 		var connection: Dictionary = raw_connection
@@ -75,13 +81,24 @@ func _linearize(connections: Array, errors: Array[String]) -> Array[int]:
 	if starts.is_empty():
 		errors.append("Não foi encontrado um ponto inicial: o ritual contém um ciclo.")
 		return []
+	var sequences: Array = []
+	var remaining_starts: Array[int] = starts.duplicate()
 	if starts.size() > 1:
-		errors.append("Existem %d sequências desconectadas; conecte-as antes de compilar." % starts.size())
-		return []
+		warnings.append("Foram encontradas %d sequências; o ritual começou pela sequência mais à esquerda." % starts.size())
+	while not remaining_starts.is_empty():
+		var start_index := _leftmost_start(connections, remaining_starts)
+		remaining_starts.erase(start_index)
+		var sequence := _linearize_from_start(connections, start_index, errors)
+		if not errors.is_empty():
+			return []
+		sequences.append(sequence)
+	return sequences
 
+
+func _linearize_from_start(connections: Array, start_index: int, errors: Array[String]) -> Array[int]:
 	var ordered: Array[int] = []
+	var current_index := start_index
 	var visited := {}
-	var current_index := starts[0]
 	while true:
 		if visited.has(current_index):
 			errors.append("Ciclo encontrado na ligação %d." % (current_index + 1))
@@ -103,9 +120,20 @@ func _linearize(connections: Array, errors: Array[String]) -> Array[int]:
 			break
 		current_index = next_indices[0]
 
-	if ordered.size() != connections.size() and errors.is_empty():
-		errors.append("Há ligações fora da sequência principal do ritual.")
 	return ordered
+
+
+func _leftmost_start(connections: Array, starts: Array[int]) -> int:
+	var chosen_index := starts[0]
+	var chosen_connection: Dictionary = connections[chosen_index]
+	var chosen_point: Vector2 = chosen_connection["from"]
+	for candidate_index in starts:
+		var candidate_connection: Dictionary = connections[candidate_index]
+		var candidate_point: Vector2 = candidate_connection["from"]
+		if candidate_point.x < chosen_point.x or (is_equal_approx(candidate_point.x, chosen_point.x) and candidate_point.y < chosen_point.y):
+			chosen_index = candidate_index
+			chosen_point = candidate_point
+	return chosen_index
 
 
 func _point_key(point: Vector2) -> String:

@@ -2,12 +2,13 @@ class_name AtelierRuneBytecode
 extends RefCounted
 
 ## Formato binário do Atelier: "RUNE" + versão + quantidade + instruções.
-## Cada instrução ocupa 1 byte; instruções com operando recebem mais 1 byte.
+## Cada instrução carrega opcode e intensidade. Quando a instrução recebe
+## operando, a intensidade também é o seu valor numérico.
 
 const RuneCatalog = preload("res://scripts/core/rune_catalog.gd")
 
 const MAGIC := [0x52, 0x55, 0x4e, 0x45] # RUNE
-const VERSION := 1
+const VERSION := 2
 const HEADER_SIZE := 7
 
 
@@ -22,8 +23,8 @@ static func encode(instructions: Array) -> PackedByteArray:
 	for instruction in instructions:
 		var opcode := int(instruction.get("opcode", 0))
 		bytes.append(opcode & 0xff)
-		if RuneCatalog.takes_operand(opcode):
-			bytes.append(clampi(int(instruction.get("operand", 0)), 0, 255))
+		var intensity := clampi(int(instruction.get("intensity", instruction.get("operand", 0))), 0, 255)
+		bytes.append(intensity)
 	return bytes
 
 
@@ -48,13 +49,14 @@ static func decode(bytes: PackedByteArray) -> Dictionary:
 		if RuneCatalog.symbol_for_opcode(opcode).is_empty():
 			errors.append("Opcode desconhecido: 0x%02X." % opcode)
 			break
-		var instruction := {"opcode": opcode}
+		if cursor >= bytes.size():
+			errors.append("Intensidade ausente para %s." % RuneCatalog.name_for_opcode(opcode))
+			break
+		var intensity := bytes[cursor]
+		cursor += 1
+		var instruction := {"opcode": opcode, "intensity": intensity}
 		if RuneCatalog.takes_operand(opcode):
-			if cursor >= bytes.size():
-				errors.append("Operando ausente para %s." % RuneCatalog.name_for_opcode(opcode))
-				break
-			instruction["operand"] = bytes[cursor]
-			cursor += 1
+			instruction["operand"] = intensity
 		instructions.append(instruction)
 	if not errors.is_empty():
 		return {"ok": false, "errors": errors}

@@ -9,6 +9,7 @@ extends Control
 const RuneCatalog = preload("res://scripts/core/rune_catalog.gd")
 const RuneDiagram = preload("res://scripts/core/rune_diagram.gd")
 const RuneCompiler = preload("res://scripts/core/rune_compiler.gd")
+const RuneBytecode = preload("res://scripts/core/rune_bytecode.gd")
 const RuneVM = preload("res://scripts/core/rune_vm.gd")
 
 const PANEL_TAB_SIZE := 42.0
@@ -28,6 +29,7 @@ const DOT_RADIUS := 3.4
 const DOT_HIT_RADIUS := 14.0
 const LINE_HIT_RADIUS := 30.0
 const SYMBOL_DRAG_THRESHOLD := 8.0
+const ANCHOR_MOVE_DRAG_THRESHOLD := 6.0
 const RECT_SELECT_DRAG_THRESHOLD := 6.0
 const ANCHOR_SNAP_DURATION := 0.13
 const SYMBOL_SETTLE_DURATION := 0.20
@@ -35,6 +37,9 @@ const HOVER_DELAY := 0.07
 const HOVER_FADE_DURATION := 0.14
 const SYMBOL_HOVER_DELAY := 0.12
 const SYMBOL_HOVER_FADE_DURATION := 0.20
+const EXECUTION_MIN_RPS := 1.0
+const EXECUTION_MAX_RPS := 100.0
+const EXECUTION_HIGHLIGHT_FADE_DURATION := 0.22
 
 const BACKGROUND := Color("050506")
 const CANVAS_BACKGROUND := Color("07070a")
@@ -42,7 +47,8 @@ const PANEL_BACKGROUND := Color("09090c")
 const PANEL_INNER := Color("111017")
 const PANEL_BORDER := Color("706e75")
 const PANEL_ACCENT := Color("9f9ca5")
-const GRID_DOT := Color("ff2034")
+const GRID_DOT := Color(0.24, 0.61, 0.73, 0.26)
+const GRID_DOT_HOVER := Color(0.40, 0.76, 0.86, 0.55)
 const RUNE_LINE_COLOR := Color("cdbb8c")
 const CELL_BORDER := Color("a29fa8")
 const TEXT_PRIMARY := Color("d0cdd4")
@@ -80,7 +86,16 @@ var left_command_scroll := 0.0
 var left_command_scroll_target := 0.0
 var selected_connection := -1
 var selected_connections: Array[int] = []
+var selected_symbol_connection := -1
 var ritual_running := false
+var execution_speed_rps := EXECUTION_MIN_RPS
+var execution_instructions: Array[Dictionary] = []
+var execution_state: Dictionary = {}
+var execution_instruction_cursor := 0
+var execution_step_elapsed := 0.0
+var execution_connection := -1
+var execution_highlight_ends_at := 0.0
+var execution_intensity_overrides: Dictionary = {}
 
 var drag_mode := ""
 var line_start_world := Vector2.ZERO
@@ -102,6 +117,10 @@ var anchor_snap_active := false
 var anchor_snap_from := Vector2.ZERO
 var anchor_snap_target := Vector2.ZERO
 var anchor_snap_started_at := 0.0
+var anchor_move_source := Vector2.ZERO
+var anchor_move_target := Vector2.ZERO
+var anchor_move_target_valid := false
+var anchor_move_press_screen := Vector2.ZERO
 var symbol_settle_active := false
 var symbol_settle_kind := ""
 var symbol_settle_from := Vector2.ZERO
@@ -135,12 +154,14 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if not anchor_snap_active and not symbol_settle_active and not _hover_transition_active() and not _left_scroll_is_moving():
+	if not anchor_snap_active and not symbol_settle_active and not _hover_transition_active() and not _left_scroll_is_moving() and not ritual_running and not _execution_highlight_active():
 		return
 	animation_clock += delta
 	_update_left_command_scroll(delta)
 	if anchor_snap_active and animation_clock - anchor_snap_started_at >= ANCHOR_SNAP_DURATION:
 		_complete_anchor_snap()
+	if ritual_running:
+		_advance_ritual(delta)
 	queue_redraw()
 
 
@@ -178,6 +199,12 @@ func _gui_input(event: InputEvent) -> void:
 					var target: Vector2 = candidate["point"]
 					if not target.is_equal_approx(line_start_world):
 						_begin_anchor_snap(target)
+		elif drag_mode == "anchor_pending":
+			if pointer_screen.distance_to(anchor_move_press_screen) >= ANCHOR_MOVE_DRAG_THRESHOLD:
+				drag_mode = "move_anchor"
+				_update_anchor_move_target()
+		elif drag_mode == "move_anchor":
+			_update_anchor_move_target()
 		elif drag_mode == "selection_pending":
 			if pointer_screen.distance_to(selection_rect_start) >= RECT_SELECT_DRAG_THRESHOLD:
 				drag_mode = "selection"
@@ -199,6 +226,8 @@ func _gui_input(event: InputEvent) -> void:
 				_set_connection_symbol(dragged_symbol_source, "", false)
 		elif drag_mode == "intensity":
 			_update_selected_intensity(pointer_screen)
+		elif drag_mode == "execution_speed":
+			_update_execution_speed(pointer_screen)
 		elif drag_mode.begins_with("resize_"):
 			_resize_panel(pointer_screen)
 		queue_redraw()
@@ -256,8 +285,24 @@ func _gui_input(event: InputEvent) -> void:
 			accept_event()
 			return
 		if _play_button_rect().has_point(pointer_screen):
-			_run_ritual()
+			if not ritual_running:
+				_run_ritual()
 			queue_redraw()
+			accept_event()
+			return
+		if _stop_button_rect().has_point(pointer_screen):
+			if ritual_running:
+				_stop_ritual()
+			queue_redraw()
+			accept_event()
+			return
+		if _execution_speed_slider_rect().grow(6.0).has_point(pointer_screen):
+			drag_mode = "execution_speed"
+			_update_execution_speed(pointer_screen)
+			queue_redraw()
+			accept_event()
+			return
+		if ritual_running:
 			accept_event()
 			return
 		var resize_handle := _resize_handle_at(pointer_screen)
@@ -289,7 +334,7 @@ func _gui_input(event: InputEvent) -> void:
 		elif _is_canvas_position(pointer_screen):
 			var current_symbol := _symbol_at(pointer_screen)
 			if current_symbol >= 0:
-				_select_connection(current_symbol, event.ctrl_pressed)
+				_select_connection(current_symbol, event.ctrl_pressed, true)
 				if not event.ctrl_pressed and _is_connection_selected(current_symbol):
 					drag_mode = "symbol_pending"
 					dragged_symbol_source = current_symbol
@@ -298,10 +343,14 @@ func _gui_input(event: InputEvent) -> void:
 			else:
 				var start_candidate := _grid_point_at(pointer_screen)
 				if start_candidate.has("point"):
-					_deselect_connection()
-					drag_mode = "connect"
-					line_start_world = start_candidate["point"]
-					hovered_connection = -1
+					var start_point: Vector2 = start_candidate["point"]
+					if _is_anchor_point(start_point):
+						_begin_anchor_move(start_point)
+					else:
+						_deselect_connection()
+						drag_mode = "connect"
+						line_start_world = start_point
+						hovered_connection = -1
 				else:
 					var line_connection := _connection_near(pointer_screen)
 					if line_connection >= 0:
@@ -318,6 +367,8 @@ func _gui_input(event: InputEvent) -> void:
 					var end_point: Vector2 = end_candidate["point"]
 					if not end_point.is_equal_approx(line_start_world):
 						_add_connection(line_start_world, end_point)
+		elif drag_mode == "move_anchor":
+			_complete_anchor_move()
 		elif drag_mode == "symbol":
 			_place_active_symbol()
 		elif drag_mode == "intensity":
@@ -327,7 +378,7 @@ func _gui_input(event: InputEvent) -> void:
 		elif drag_mode == "selection_pending" and not selection_rect_additive:
 			_deselect_connection()
 		elif drag_mode == "left_scroll_pending" and left_scroll_pressed_connection >= 0:
-			_select_connection(left_scroll_pressed_connection, left_scroll_additive)
+			_select_connection(left_scroll_pressed_connection, left_scroll_additive, true)
 		_reset_drag()
 
 	queue_redraw()
@@ -335,10 +386,18 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _run_ritual() -> void:
-	ritual_running = true
+	if ritual_running:
+		_stop_ritual()
+		return
 	execution_output.clear()
 	execution_errors.clear()
 	execution_warnings.clear()
+	execution_instructions.clear()
+	execution_state = {}
+	execution_instruction_cursor = 0
+	execution_step_elapsed = 0.0
+	execution_connection = -1
+	execution_intensity_overrides.clear()
 	var compilation := compiler.compile(connections)
 	for warning in compilation.get("warnings", []):
 		execution_warnings.append(str(warning))
@@ -346,17 +405,109 @@ func _run_ritual() -> void:
 		for error in compilation.get("errors", []):
 			execution_errors.append(str(error))
 		bottom_panel_open = true
-		ritual_running = false
 		return
 
 	last_bytecode = compilation["bytecode"]
-	var execution := vm.run(last_bytecode)
-	for line in execution.get("output", []):
-		execution_output.append(str(line))
-	for error in execution.get("errors", []):
-		execution_errors.append(str(error))
+	var decoded: Dictionary = RuneBytecode.decode(last_bytecode)
+	if not bool(decoded["ok"]):
+		for error in decoded["errors"]:
+			execution_errors.append(str(error))
+		bottom_panel_open = true
+		return
+	var bytecode_instructions: Array = decoded["instructions"]
+	var compiled_instructions: Array = compilation["instructions"]
+	for instruction_index in range(bytecode_instructions.size()):
+		var bytecode_instruction: Dictionary = bytecode_instructions[instruction_index]
+		var source_instruction: Dictionary = compiled_instructions[instruction_index]
+		var animated_instruction: Dictionary = bytecode_instruction.duplicate(true)
+		if source_instruction.has("connection_index"):
+			var connection_index := int(source_instruction["connection_index"])
+			var instruction_intensity := clampi(int(source_instruction.get("intensity", animated_instruction.get("intensity", 128))), 0, 255)
+			animated_instruction["connection_index"] = connection_index
+			animated_instruction["intensity"] = instruction_intensity
+		execution_instructions.append(animated_instruction)
+	_refresh_execution_intensity_overrides()
+	execution_state = vm.create_state()
+	vm.configure_program(execution_state, execution_instructions)
+	if bool(execution_state["halted"]):
+		for error in execution_state["errors"]:
+			execution_errors.append(str(error))
+		bottom_panel_open = true
+		return
 	bottom_panel_open = true
+	ritual_running = true
+	_execute_next_ritual_step()
+
+
+func _advance_ritual(delta: float) -> void:
+	execution_step_elapsed += delta
+	var step_duration := _execution_step_duration()
+	while ritual_running and execution_step_elapsed >= step_duration:
+		execution_step_elapsed -= step_duration
+		_execute_next_ritual_step()
+		step_duration = _execution_step_duration()
+
+
+func _execute_next_ritual_step() -> void:
+	if execution_instruction_cursor >= execution_instructions.size():
+		ritual_running = false
+		return
+	var instruction_index := execution_instruction_cursor
+	var instruction: Dictionary = execution_instructions[instruction_index]
+	execution_instruction_cursor += 1
+	execution_connection = int(instruction.get("connection_index", -1))
+	execution_highlight_ends_at = animation_clock + _execution_step_duration()
+	var output: Array = execution_state["output"]
+	var errors: Array = execution_state["errors"]
+	var output_count := output.size()
+	var error_count := errors.size()
+	vm.step(instruction, execution_state, instruction_index)
+	_refresh_execution_intensity_overrides()
+	for output_index in range(output_count, output.size()):
+		execution_output.append(str(output[output_index]))
+	for error_index in range(error_count, errors.size()):
+		execution_errors.append(str(errors[error_index]))
+	var jump_target := int(execution_state["jump_target"])
+	if jump_target >= 0:
+		execution_instruction_cursor = jump_target
+	if not errors.is_empty() or bool(execution_state["halted"]):
+		ritual_running = false
+		execution_highlight_ends_at = animation_clock + _execution_step_duration()
+
+
+func _stop_ritual() -> void:
 	ritual_running = false
+	execution_instructions.clear()
+	execution_connection = -1
+	execution_highlight_ends_at = animation_clock
+	execution_warnings.append("Execução interrompida.")
+
+
+func _execution_step_duration() -> float:
+	return 1.0 / maxf(execution_speed_rps, EXECUTION_MIN_RPS)
+
+
+func _execution_highlight_active() -> bool:
+	return execution_connection >= 0 and animation_clock < execution_highlight_ends_at
+
+
+func _execution_highlight_alpha() -> float:
+	if execution_connection < 0:
+		return 0.0
+	if ritual_running:
+		return 1.0
+	var fade_duration := minf(EXECUTION_HIGHLIGHT_FADE_DURATION, _execution_step_duration())
+	return clampf((execution_highlight_ends_at - animation_clock) / maxf(fade_duration, 0.001), 0.0, 1.0)
+
+
+func _refresh_execution_intensity_overrides() -> void:
+	execution_intensity_overrides.clear()
+	for raw_instruction in execution_instructions:
+		var instruction: Dictionary = raw_instruction
+		if not instruction.has("connection_index"):
+			continue
+		var connection_index := int(instruction["connection_index"])
+		execution_intensity_overrides[connection_index] = clampi(int(instruction.get("intensity", instruction.get("operand", 128))), 0, 255)
 
 
 func export_current_ritual(path: String) -> Dictionary:
@@ -401,7 +552,7 @@ func _draw_grid(canvas_rect: Rect2) -> void:
 			if is_hovered:
 				var highlight_alpha := _hover_alpha(point_hover_started_at)
 				radius = lerpf(radius, 5.0 * zoom, highlight_alpha)
-				color = color.lerp(Color("db5250"), highlight_alpha)
+				color = color.lerp(GRID_DOT_HOVER, highlight_alpha)
 			draw_circle(screen_point, radius, color)
 
 
@@ -449,12 +600,15 @@ func _draw_connections() -> void:
 		var from_screen := _world_to_screen(from_point)
 		var to_screen := _world_to_screen(to_point)
 		var has_symbol := not str(connection.get("symbol", "")).is_empty()
-		var intensity := _connection_intensity(connection)
+		var intensity := _display_connection_intensity(index, connection)
 		if _is_connection_selected(index):
 			var selection_glow := RUNE_LINE_COLOR.lightened(0.45)
 			selection_glow.a = 0.20
 			draw_line(from_screen, to_screen, selection_glow, 3.2 * zoom, true)
 			_draw_rounded_segment_caps(from_screen, to_screen, selection_glow, 1.6 * zoom)
+		var execution_alpha := _execution_highlight_alpha() if index == execution_connection else 0.0
+		if execution_alpha > 0.0:
+			_draw_execution_connection_glow(from_screen, to_screen, execution_alpha)
 		if index == animated_hover_connection:
 			var highlight_alpha := _hover_alpha(connection_hover_started_at)
 			var soft_glow := RUNE_LINE_COLOR.lightened(0.35)
@@ -476,6 +630,9 @@ func _draw_connections() -> void:
 				_draw_symbol_hover_glow(kind, symbol_position, rune_color, _symbol_hover_alpha())
 			if _is_connection_selected(index):
 				_draw_symbol_selection_glow(kind, symbol_position, rune_color)
+			if execution_alpha > 0.0:
+				_draw_execution_symbol_glow(kind, symbol_position, rune_color, execution_alpha)
+				rune_color = rune_color.lerp(Color("fff2b2"), 0.72 * execution_alpha)
 			_draw_rune(kind, symbol_position, zoom, rune_color)
 
 
@@ -580,10 +737,33 @@ func _preferred_screen_side(normal: Vector2) -> Vector2:
 
 
 func _draw_connection_preview() -> void:
-	if drag_mode != "connect":
+	if drag_mode == "connect":
+		var start_screen := _world_to_screen(line_start_world)
+		draw_line(start_screen, _anchor_snap_endpoint(), Color("73dcff"), 3.0 * zoom, true)
+	elif drag_mode == "move_anchor":
+		_draw_anchor_move_preview()
+
+
+func _draw_anchor_move_preview() -> void:
+	if not anchor_move_target_valid:
 		return
-	var start_screen := _world_to_screen(line_start_world)
-	draw_line(start_screen, _anchor_snap_endpoint(), Color("73dcff"), 3.0 * zoom, true)
+	var preview_color := Color("73dcff")
+	var glow_color := preview_color
+	glow_color.a = 0.18
+	for connection in connections:
+		var from_point: Vector2 = connection["from"]
+		var to_point: Vector2 = connection["to"]
+		if not from_point.is_equal_approx(anchor_move_source) and not to_point.is_equal_approx(anchor_move_source):
+			continue
+		var preview_from := anchor_move_target if from_point.is_equal_approx(anchor_move_source) else from_point
+		var preview_to := anchor_move_target if to_point.is_equal_approx(anchor_move_source) else to_point
+		var from_screen := _world_to_screen(preview_from)
+		var to_screen := _world_to_screen(preview_to)
+		draw_line(from_screen, to_screen, glow_color, 8.0 * zoom, true)
+		_draw_rounded_segment_caps(from_screen, to_screen, glow_color, 4.0 * zoom)
+		draw_line(from_screen, to_screen, preview_color, 2.5 * zoom, true)
+		_draw_rounded_segment_caps(from_screen, to_screen, preview_color, 1.25 * zoom)
+	draw_circle(_world_to_screen(anchor_move_target), 4.2 * zoom, preview_color, true, -1.0, true)
 
 
 func _draw_selection_rectangle() -> void:
@@ -624,6 +804,36 @@ func _complete_anchor_snap() -> void:
 	hovered_connection = -1
 
 
+func _begin_anchor_move(source: Vector2) -> void:
+	_deselect_connection()
+	drag_mode = "anchor_pending"
+	anchor_move_source = source
+	anchor_move_target = source
+	anchor_move_target_valid = false
+	anchor_move_press_screen = pointer_screen
+	hovered_connection = -1
+
+
+func _update_anchor_move_target() -> void:
+	anchor_move_target_valid = false
+	var candidate := _grid_point_at(pointer_screen)
+	if not candidate.has("point"):
+		return
+	var target: Vector2 = candidate["point"]
+	if target.is_equal_approx(anchor_move_source):
+		return
+	anchor_move_target = target
+	anchor_move_target_valid = true
+
+
+func _complete_anchor_move() -> void:
+	if not anchor_move_target_valid:
+		return
+	if diagram.move_anchor(anchor_move_source, anchor_move_target):
+		_clear_diagram_animations()
+		_update_hover()
+
+
 func _draw_dragged_symbol() -> void:
 	if drag_mode == "symbol" and not active_symbol.is_empty():
 		_draw_rune(active_symbol, pointer_screen, zoom, Color("ffe0a3"))
@@ -654,6 +864,23 @@ func _draw_symbol_hover_glow(kind: String, symbol_position: Vector2, rune_color:
 		return
 	var glow_color := rune_color.lightened(0.30)
 	_draw_rune_aura(kind, symbol_position, glow_color, 3.6 * zoom, 0.016 * highlight_alpha)
+
+
+func _draw_execution_connection_glow(from_screen: Vector2, to_screen: Vector2, highlight_alpha: float) -> void:
+	var outer_glow := Color("ffe8a8")
+	outer_glow.a = 0.17 * highlight_alpha
+	draw_line(from_screen, to_screen, outer_glow, 9.0 * zoom, true)
+	_draw_rounded_segment_caps(from_screen, to_screen, outer_glow, 4.5 * zoom)
+	var inner_glow := Color("fff4cd")
+	inner_glow.a = 0.80 * highlight_alpha
+	draw_line(from_screen, to_screen, inner_glow, 3.1 * zoom, true)
+	_draw_rounded_segment_caps(from_screen, to_screen, inner_glow, 1.55 * zoom)
+
+
+func _draw_execution_symbol_glow(kind: String, symbol_position: Vector2, rune_color: Color, highlight_alpha: float) -> void:
+	var glow_color := rune_color.lerp(Color("fff2b2"), 0.72)
+	_draw_rune_aura(kind, symbol_position, glow_color, 6.2 * zoom, 0.048 * highlight_alpha)
+	_draw_rune_aura(kind, symbol_position, glow_color, 2.8 * zoom, 0.085 * highlight_alpha)
 
 
 func _draw_rune_aura(kind: String, center: Vector2, aura_color: Color, spread: float, alpha: float) -> void:
@@ -727,14 +954,14 @@ func _draw_left_panel() -> void:
 		if row.end.y > list_rect.position.y and row.position.y < list_rect.end.y:
 			draw_rect(row, PANEL_INNER, true)
 			draw_rect(row, Color("83d9ee") if _is_connection_selected(connection_index) else PANEL_BORDER, false, 1.0)
-			var intensity := _connection_intensity(connection)
+			var intensity := _display_connection_intensity(connection_index, connection)
 			_draw_rune(kind, row.position + Vector2(28.0, 29.0), 0.82, _intensity_color(intensity))
 			draw_string(ThemeDB.fallback_font, row.position + Vector2(56.0, 25.0), str(data["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, TEXT_PRIMARY)
-			var extra := ""
-			if kind == "ORB":
-				extra = "valor: %d" % intensity
-			else:
-				extra = "%s · %03d" % [str(data["extra"]), intensity]
+			var extra := str(data["extra"])
+			# Só mostramos o número quando a intensidade participa da instrução
+			# como operando; nos outros selos ele é apenas visual.
+			if RuneCatalog.takes_operand(int(data.get("opcode", -1))):
+				extra = "%s: %03d" % [extra, intensity]
 			draw_string(ThemeDB.fallback_font, row.position + Vector2(56.0, 45.0), extra, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, TEXT_MUTED)
 			draw_line(row.position + Vector2(8.0, 49.0), row.position + Vector2(row.size.x - 8.0, 49.0), Color("3d3b42"), 1.0, true)
 		row_y += LEFT_COMMAND_ROW_HEIGHT
@@ -860,7 +1087,9 @@ func _draw_top_panel() -> void:
 	var panel := _top_panel_rect()
 	_draw_arcane_frame(panel)
 	_draw_toggle_button(_top_toggle_rect(), "up" if top_panel_open else "down")
+	_draw_execution_speed_control()
 	_draw_play_button(_play_button_rect())
+	_draw_stop_button(_stop_button_rect())
 	if not top_panel_open:
 		draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 16.0, 27.0), "SELOS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
 		return
@@ -981,17 +1210,37 @@ func _draw_toggle_button(rect: Rect2, direction: String) -> void:
 
 func _draw_play_button(rect: Rect2) -> void:
 	var center := rect.get_center()
-	var accent := Color("8be5fc") if ritual_running else Color("b8b4be")
+	var accent := Color("53515a") if ritual_running else Color("b8b4be")
 	draw_rect(rect, Color("111720") if ritual_running else Color("17151d"), true)
 	draw_rect(rect, accent, false, 1.0)
 	draw_arc(center, 11.0, 0.0, TAU, 16, accent.darkened(0.45), 1.0, true)
-	if ritual_running:
-		draw_rect(Rect2(center - Vector2(4.0, 4.0), Vector2(8.0, 8.0)), accent, true)
-	else:
-		var a := center + Vector2(-3.0, -6.0)
-		var b := center + Vector2(6.0, 0.0)
-		var c := center + Vector2(-3.0, 6.0)
-		draw_colored_polygon(PackedVector2Array([a, b, c]), accent)
+	var a := center + Vector2(-3.0, -6.0)
+	var b := center + Vector2(6.0, 0.0)
+	var c := center + Vector2(-3.0, 6.0)
+	draw_colored_polygon(PackedVector2Array([a, b, c]), accent)
+
+
+func _draw_stop_button(rect: Rect2) -> void:
+	var center := rect.get_center()
+	var accent := Color("ff7981") if ritual_running else Color("53515a")
+	draw_rect(rect, Color("211216") if ritual_running else Color("17151d"), true)
+	draw_rect(rect, accent, false, 1.0)
+	draw_arc(center, 11.0, 0.0, TAU, 16, accent.darkened(0.45), 1.0, true)
+	draw_rect(Rect2(center - Vector2(4.0, 4.0), Vector2(8.0, 8.0)), accent, true)
+
+
+func _draw_execution_speed_control() -> void:
+	var slider := _execution_speed_slider_rect()
+	if slider.size.x <= 0.0:
+		return
+	var displayed_speed := roundi(execution_speed_rps)
+	draw_string(ThemeDB.fallback_font, slider.position + Vector2(0.0, -7.0), "%d RPS" % displayed_speed, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, TEXT_MUTED)
+	draw_line(slider.position, Vector2(slider.end.x, slider.position.y), Color("302e35"), 3.0, true)
+	var amount := (execution_speed_rps - EXECUTION_MIN_RPS) / (EXECUTION_MAX_RPS - EXECUTION_MIN_RPS)
+	var marker_position := Vector2(slider.position.x + slider.size.x * amount, slider.position.y)
+	draw_line(slider.position, marker_position, Color("8be5fc"), 3.0, true)
+	draw_circle(marker_position, 5.0, Color("0a0f14"), true)
+	draw_arc(marker_position, 5.0, 0.0, TAU, 16, Color("8be5fc"), 1.3, true)
 
 
 func _draw_resize_handles() -> void:
@@ -1080,6 +1329,22 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 		"DASH":
 			draw_line(center + Vector2(-r * 0.92, 0.0), center + Vector2(r * 0.92, 0.0), color, main_stroke, true)
 			draw_line(center + Vector2(-r * 0.38, -r * 0.42), center + Vector2(r * 0.38, -r * 0.42), color, fine_stroke, true)
+		"WARP":
+			draw_arc(center, r * 0.84, PI * 0.14, TAU * 0.86, 20, color, main_stroke, true)
+			draw_arc(center, r * 0.48, PI * 1.14, TAU * 1.86, 16, color, fine_stroke, true)
+			draw_line(center + Vector2(-r * 0.46, 0.0), center + Vector2(r * 0.28, 0.0), color, fine_stroke, true)
+			draw_line(center + Vector2(r * 0.28, 0.0), center + Vector2(r * 0.03, -r * 0.23), color, fine_stroke, true)
+			draw_line(center + Vector2(r * 0.28, 0.0), center + Vector2(r * 0.03, r * 0.23), color, fine_stroke, true)
+		"INT_MOD":
+			draw_arc(center, r * 0.82, 0.0, TAU, 20, color, main_stroke, true)
+			draw_line(center + Vector2(-r * 0.42, 0.0), center + Vector2(r * 0.42, 0.0), color, fine_stroke, true)
+			draw_line(center + Vector2(0.0, -r * 0.42), center + Vector2(0.0, r * 0.42), color, fine_stroke, true)
+			draw_circle(center, r * 0.14, color)
+		"INT_SET":
+			var set_rect := Rect2(center - Vector2(r * 0.64, r * 0.64), Vector2(r * 1.28, r * 1.28))
+			draw_rect(set_rect, color, false, main_stroke, true)
+			draw_line(center + Vector2(-r * 0.33, 0.0), center + Vector2(r * 0.33, 0.0), color, fine_stroke, true)
+			draw_circle(center + Vector2(r * 0.46, 0.0), r * 0.12, color)
 
 
 func _is_canvas_position(screen_position: Vector2) -> bool:
@@ -1153,7 +1418,25 @@ func _toggle_panel(panel: String) -> void:
 
 
 func _play_button_rect() -> Rect2:
+	return Rect2(size.x - 110.0, 6.0, 30.0, 30.0)
+
+
+func _stop_button_rect() -> Rect2:
 	return Rect2(size.x - 74.0, 6.0, 30.0, 30.0)
+
+
+func _execution_speed_slider_rect() -> Rect2:
+	var right_edge := _play_button_rect().position.x - 12.0
+	var left_edge := maxf(_top_panel_rect().position.x + 118.0, right_edge - 126.0)
+	return Rect2(left_edge, 28.0, maxf(right_edge - left_edge, 0.0), 6.0)
+
+
+func _update_execution_speed(screen_position: Vector2) -> void:
+	var slider := _execution_speed_slider_rect()
+	if slider.size.x <= 0.0:
+		return
+	var amount := clampf((screen_position.x - slider.position.x) / slider.size.x, 0.0, 1.0)
+	execution_speed_rps = clampf(round(lerpf(EXECUTION_MIN_RPS, EXECUTION_MAX_RPS, amount)), EXECUTION_MIN_RPS, EXECUTION_MAX_RPS)
 
 
 func _resize_handle_at(screen_position: Vector2) -> String:
@@ -1223,6 +1506,12 @@ func _intensity_value_rect() -> Rect2:
 
 func _connection_intensity(connection: Dictionary) -> int:
 	return clampi(int(connection.get("intensity", 128)), 0, 255)
+
+
+func _display_connection_intensity(connection_index: int, connection: Dictionary) -> int:
+	if execution_intensity_overrides.has(connection_index):
+		return clampi(int(execution_intensity_overrides[connection_index]), 0, 255)
+	return _connection_intensity(connection)
 
 
 func _intensity_color(intensity: int) -> Color:
@@ -1300,10 +1589,11 @@ func _cancel_intensity_text_edit() -> void:
 func _deselect_connection() -> void:
 	selected_connection = -1
 	selected_connections.clear()
+	selected_symbol_connection = -1
 	_cancel_intensity_text_edit()
 
 
-func _select_connection(index: int, additive := false) -> void:
+func _select_connection(index: int, additive := false, select_symbol := false) -> void:
 	if index < 0 or index >= connections.size():
 		return
 	if additive:
@@ -1315,6 +1605,10 @@ func _select_connection(index: int, additive := false) -> void:
 		selected_connections.clear()
 		selected_connections.append(index)
 	_update_primary_selection()
+	if select_symbol and selected_connections.size() == 1 and selected_connection == index:
+		selected_symbol_connection = index
+	else:
+		selected_symbol_connection = -1
 
 
 func _is_connection_selected(index: int) -> bool:
@@ -1323,6 +1617,8 @@ func _is_connection_selected(index: int) -> bool:
 
 func _update_primary_selection() -> void:
 	selected_connection = selected_connections[0] if selected_connections.size() == 1 else -1
+	if selected_symbol_connection != selected_connection:
+		selected_symbol_connection = -1
 	_cancel_intensity_text_edit()
 
 
@@ -1348,6 +1644,7 @@ func _select_connections_in_rect(rect: Rect2, additive: bool) -> void:
 		if _connection_intersects_selection_rect(index, rect) and not selected_connections.has(index):
 			selected_connections.append(index)
 	_update_primary_selection()
+	selected_symbol_connection = -1
 
 
 func _connection_intersects_selection_rect(index: int, rect: Rect2) -> bool:
@@ -1365,6 +1662,12 @@ func _connection_intersects_selection_rect(index: int, rect: Rect2) -> bool:
 
 func _delete_selected_connections() -> void:
 	if selected_connections.is_empty():
+		return
+	if selected_connections.size() == 1 and selected_symbol_connection == selected_connection:
+		if diagram.set_symbol(selected_symbol_connection, ""):
+			_deselect_connection()
+			_clear_diagram_animations()
+			queue_redraw()
 		return
 	if diagram.remove_connections(selected_connections):
 		_deselect_connection()
@@ -1399,13 +1702,14 @@ func _update_hover() -> void:
 	if hover_point_valid:
 		hover_world = candidate["point"]
 	var is_rectangle_selecting := drag_mode == "selection" or drag_mode == "selection_pending"
-	if _is_canvas_position(pointer_screen) and drag_mode != "connect" and not is_rectangle_selecting:
+	var is_moving_anchor := drag_mode == "anchor_pending" or drag_mode == "move_anchor"
+	if _is_canvas_position(pointer_screen) and drag_mode != "connect" and not is_moving_anchor and not is_rectangle_selecting:
 		hovered_symbol = _symbol_at(pointer_screen)
 	else:
 		hovered_symbol = -1
 	# Durante a criação, a linha embaixo do cursor não deve competir com o
 	# feedback magnético da âncora.
-	if drag_mode == "connect" or is_rectangle_selecting or not _is_canvas_position(pointer_screen) or hovered_symbol >= 0:
+	if drag_mode == "connect" or is_moving_anchor or is_rectangle_selecting or not _is_canvas_position(pointer_screen) or hovered_symbol >= 0:
 		hovered_connection = -1
 	else:
 		hovered_connection = _connection_near(pointer_screen)
@@ -1516,7 +1820,7 @@ func _connection_near(screen_position: Vector2) -> int:
 func _place_active_symbol() -> void:
 	var target := _connection_near(pointer_screen)
 	if target >= 0:
-		_select_connection(target)
+		_select_connection(target, false, true)
 		if dragged_symbol_source >= 0:
 			if target == dragged_symbol_source:
 				_set_connection_symbol(target, active_symbol, false)
@@ -1583,6 +1887,10 @@ func _reset_drag() -> void:
 	symbol_drag_start_snapshot = []
 	symbol_press_screen = Vector2.ZERO
 	anchor_snap_active = false
+	anchor_move_source = Vector2.ZERO
+	anchor_move_target = Vector2.ZERO
+	anchor_move_target_valid = false
+	anchor_move_press_screen = Vector2.ZERO
 	selection_rect = Rect2()
 	selection_rect_additive = false
 	left_scroll_pressed_connection = -1
