@@ -43,6 +43,70 @@ func add_connection(from: Vector2, to: Vector2) -> bool:
 	return true
 
 
+## Insere um grupo de células como uma única ação de histórico.
+func append_connections(new_connections: Array) -> Array[int]:
+	if new_connections.is_empty():
+		return []
+	var candidates: Array[Dictionary] = []
+	for existing_connection in connections:
+		candidates.append(existing_connection.duplicate(true))
+	var normalized_connections: Array[Dictionary] = []
+	for raw_connection in new_connections:
+		if not (raw_connection is Dictionary):
+			return []
+		var source: Dictionary = raw_connection
+		var raw_from: Variant = source.get("from")
+		var raw_to: Variant = source.get("to")
+		if not (raw_from is Vector2) or not (raw_to is Vector2):
+			return []
+		var from: Vector2 = raw_from
+		var to: Vector2 = raw_to
+		if from.is_equal_approx(to):
+			return []
+		var normalized := {
+			"from": from,
+			"to": to,
+			"symbol": str(source.get("symbol", "")),
+			"intensity": clampi(int(source.get("intensity", 128)), 0, 255)
+		}
+		candidates.append(normalized)
+		normalized_connections.append(normalized)
+	if _has_duplicate_connections(candidates):
+		return []
+	record_current_state()
+	var appended_indices: Array[int] = []
+	for normalized_connection in normalized_connections:
+		connections.append(normalized_connection)
+		appended_indices.append(connections.size() - 1)
+	return appended_indices
+
+
+## Translada várias células preservando a relação entre seus pontos.
+func move_connections(indices: Array[int], offset: Vector2) -> bool:
+	if offset.is_zero_approx():
+		return false
+	var valid_indices: Array[int] = []
+	for raw_index in indices:
+		var index := int(raw_index)
+		if _has_connection(index) and not valid_indices.has(index):
+			valid_indices.append(index)
+	if valid_indices.is_empty():
+		return false
+	var candidates: Array[Dictionary] = []
+	for existing_connection in connections:
+		candidates.append(existing_connection.duplicate(true))
+	for index in valid_indices:
+		var moved_connection: Dictionary = candidates[index]
+		moved_connection["from"] = Vector2(moved_connection["from"]) + offset
+		moved_connection["to"] = Vector2(moved_connection["to"]) + offset
+		candidates[index] = moved_connection
+	if _has_duplicate_connections(candidates):
+		return false
+	record_current_state()
+	connections = candidates
+	return true
+
+
 ## Move uma junção inteira sem alterar a ordem, os selos ou as intensidades
 ## das células que chegam ou saem dela.
 func move_anchor(from: Vector2, to: Vector2) -> bool:

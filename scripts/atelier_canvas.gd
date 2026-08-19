@@ -14,9 +14,11 @@ const RuneVM = preload("res://scripts/core/rune_vm.gd")
 
 const PANEL_TAB_SIZE := 42.0
 const DEFAULT_LEFT_PANEL_WIDTH := 304.0
+const DEFAULT_RIGHT_PANEL_WIDTH := 236.0
 const DEFAULT_TOP_PANEL_HEIGHT := 196.0
 const DEFAULT_BOTTOM_PANEL_HEIGHT := 224.0
 const MIN_LEFT_PANEL_WIDTH := 190.0
+const MIN_RIGHT_PANEL_WIDTH := 170.0
 const MIN_TOP_PANEL_HEIGHT := 112.0
 const MIN_BOTTOM_PANEL_HEIGHT := 120.0
 const LEFT_COMMAND_ROW_HEIGHT := 66.0
@@ -40,28 +42,38 @@ const LINE_HIT_RADIUS := 30.0
 const SYMBOL_DRAG_THRESHOLD := 8.0
 const ANCHOR_MOVE_DRAG_THRESHOLD := 6.0
 const RECT_SELECT_DRAG_THRESHOLD := 6.0
+const SELECTION_MOVE_DRAG_THRESHOLD := 6.0
 const ANCHOR_SNAP_DURATION := 0.13
 const SYMBOL_SETTLE_DURATION := 0.20
 const HOVER_DELAY := 0.07
 const HOVER_FADE_DURATION := 0.14
 const SYMBOL_HOVER_DELAY := 0.12
 const SYMBOL_HOVER_FADE_DURATION := 0.20
-const EXECUTION_MIN_RPS := 1.0
+const EXECUTION_MIN_RPS := 0.1
 const EXECUTION_MAX_RPS := 100.0
 const EXECUTION_HIGHLIGHT_FADE_DURATION := 0.22
+const CLIPBOARD_RITUAL_PREFIX := "ATELIER_IDE_CELLS_V1"
 
-const BACKGROUND := Color("050506")
-const CANVAS_BACKGROUND := Color("07070a")
-const PANEL_BACKGROUND := Color("09090c")
-const PANEL_INNER := Color("111017")
-const PANEL_BORDER := Color("706e75")
-const PANEL_ACCENT := Color("9f9ca5")
-const GRID_DOT := Color(0.24, 0.61, 0.73, 0.26)
-const GRID_DOT_HOVER := Color(0.40, 0.76, 0.86, 0.55)
-const RUNE_LINE_COLOR := Color("cdbb8c")
-const CELL_BORDER := Color("a29fa8")
-const TEXT_PRIMARY := Color("d0cdd4")
-const TEXT_MUTED := Color("797780")
+const BACKGROUND := Color("17100b")
+const CANVAS_BACKGROUND := Color("0f1420")
+const PANEL_BACKGROUND := Color("241a12")
+const PANEL_INNER := Color("2c2116")
+const PANEL_BORDER := Color("8a6d3b")
+const PANEL_ACCENT := Color("b48a3c")
+const GOLD_BRIGHT := Color("d9b45c")
+const GOLD_GLOW := Color("e6c56a")
+const LEATHER_LIGHT := Color("3a2f1c")
+const PARCHMENT := Color("d9c9a4")
+const PARCHMENT_DEEP := Color("c7b487")
+const PARCHMENT_BORDER := Color("7a6540")
+const PARCHMENT_INK := Color("2a2013")
+const PARCHMENT_MUTED := Color("6a5533")
+const GRID_DOT := Color(0.59, 0.67, 0.82, 0.18)
+const GRID_DOT_HOVER := Color(0.78, 0.70, 0.43, 0.58)
+const RUNE_LINE_COLOR := Color("d9b45c")
+const CELL_BORDER := Color("b48a3c")
+const TEXT_PRIMARY := Color("c9b590")
+const TEXT_MUTED := Color("8a7c5f")
 
 const PALETTE_SYMBOLS = RuneCatalog.SYMBOLS
 
@@ -70,7 +82,7 @@ var zoom := 1.0
 var diagram: AtelierRuneDiagram = RuneDiagram.new()
 var compiler: AtelierRuneCompiler = RuneCompiler.new()
 var vm: AtelierRuneVM = RuneVM.new()
-var execution_output: Array[String] = []
+var execution_output: String = ""
 var execution_errors: Array[String] = []
 var execution_warnings: Array[String] = []
 var last_bytecode := PackedByteArray()
@@ -86,9 +98,11 @@ var hovered_symbol := -1
 var hovered_palette_index := -1
 
 var left_panel_open := false
+var right_panel_open := false
 var top_panel_open := false
 var bottom_panel_open := false
 var left_panel_size := DEFAULT_LEFT_PANEL_WIDTH
+var right_panel_size := DEFAULT_RIGHT_PANEL_WIDTH
 var top_panel_size := DEFAULT_TOP_PANEL_HEIGHT
 var bottom_panel_size := DEFAULT_BOTTOM_PANEL_HEIGHT
 var left_command_scroll := 0.0
@@ -115,6 +129,9 @@ var pan_at_drag_start := Vector2.ZERO
 var selection_rect_start := Vector2.ZERO
 var selection_rect := Rect2()
 var selection_rect_additive := false
+var selection_move_press_screen := Vector2.ZERO
+var selection_move_origin_world := Vector2.ZERO
+var selection_move_offset := Vector2.ZERO
 var left_scroll_drag_start_mouse := Vector2.ZERO
 var left_scroll_drag_start_offset := 0.0
 var left_scroll_pressed_connection := -1
@@ -132,8 +149,13 @@ var anchor_snap_target := Vector2.ZERO
 var anchor_snap_started_at := 0.0
 var anchor_move_source := Vector2.ZERO
 var anchor_move_target := Vector2.ZERO
-var anchor_move_target_valid := false
+var anchor_move_snap_target := Vector2.ZERO
+var anchor_move_snap_target_valid := false
 var anchor_move_press_screen := Vector2.ZERO
+var anchor_move_settle_active := false
+var anchor_move_settle_from := Vector2.ZERO
+var anchor_move_settle_to := Vector2.ZERO
+var anchor_move_settle_started_at := 0.0
 var symbol_settle_active := false
 var symbol_settle_kind := ""
 var symbol_settle_from := Vector2.ZERO
@@ -167,13 +189,15 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if not anchor_snap_active and not symbol_settle_active and not _hover_transition_active() and not _left_scroll_is_moving() and not _palette_scroll_is_moving() and not ritual_running and not _execution_highlight_active():
+	if not anchor_snap_active and not anchor_move_settle_active and not symbol_settle_active and not _hover_transition_active() and not _left_scroll_is_moving() and not _palette_scroll_is_moving() and not ritual_running and not _execution_highlight_active():
 		return
 	animation_clock += delta
 	_update_left_command_scroll(delta)
 	_update_palette_scroll(delta)
 	if anchor_snap_active and animation_clock - anchor_snap_started_at >= ANCHOR_SNAP_DURATION:
 		_complete_anchor_snap()
+	if anchor_move_settle_active and animation_clock - anchor_move_settle_started_at >= ANCHOR_SNAP_DURATION:
+		_complete_anchor_move_settle()
 	if ritual_running:
 		_advance_ritual(delta)
 	queue_redraw()
@@ -192,7 +216,13 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if not event.ctrl_pressed:
 		return
-	if event.keycode == KEY_Z:
+	if event.keycode == KEY_C:
+		_copy_selected_connections_to_clipboard()
+		get_viewport().set_input_as_handled()
+	elif event.keycode == KEY_V:
+		_paste_connections_from_clipboard()
+		get_viewport().set_input_as_handled()
+	elif event.keycode == KEY_Z:
 		_undo()
 		get_viewport().set_input_as_handled()
 	elif event.keycode == KEY_Y:
@@ -213,10 +243,6 @@ func _gui_input(event: InputEvent) -> void:
 					var target: Vector2 = candidate["point"]
 					if not target.is_equal_approx(line_start_world):
 						_begin_anchor_snap(target)
-		elif drag_mode == "anchor_pending":
-			if pointer_screen.distance_to(anchor_move_press_screen) >= ANCHOR_MOVE_DRAG_THRESHOLD:
-				drag_mode = "move_anchor"
-				_update_anchor_move_target()
 		elif drag_mode == "move_anchor":
 			_update_anchor_move_target()
 		elif drag_mode == "selection_pending":
@@ -225,6 +251,12 @@ func _gui_input(event: InputEvent) -> void:
 				selection_rect = _selection_rect_from_points(selection_rect_start, pointer_screen)
 		elif drag_mode == "selection":
 			selection_rect = _selection_rect_from_points(selection_rect_start, pointer_screen)
+		elif drag_mode == "selection_move_pending":
+			if pointer_screen.distance_to(selection_move_press_screen) >= SELECTION_MOVE_DRAG_THRESHOLD:
+				drag_mode = "selection_move"
+				_update_selection_move()
+		elif drag_mode == "selection_move":
+			_update_selection_move()
 		elif drag_mode == "left_scroll_pending":
 			if pointer_screen.distance_to(left_scroll_drag_start_mouse) >= LEFT_SCROLL_DRAG_THRESHOLD:
 				drag_mode = "left_scroll"
@@ -326,12 +358,12 @@ func _gui_input(event: InputEvent) -> void:
 			queue_redraw()
 			accept_event()
 			return
-		if ritual_running:
-			accept_event()
-			return
 		var resize_handle := _resize_handle_at(pointer_screen)
 		if not resize_handle.is_empty():
 			_begin_resize(resize_handle)
+			accept_event()
+			return
+		if ritual_running:
 			accept_event()
 			return
 		if _intensity_value_rect().has_point(pointer_screen):
@@ -363,17 +395,22 @@ func _gui_input(event: InputEvent) -> void:
 		elif _is_canvas_position(pointer_screen):
 			var current_symbol := _symbol_at(pointer_screen)
 			if current_symbol >= 0:
-				_select_connection(current_symbol, event.ctrl_pressed, true)
-				if not event.ctrl_pressed and _is_connection_selected(current_symbol):
-					drag_mode = "symbol_pending"
-					dragged_symbol_source = current_symbol
-					active_symbol = str(connections[current_symbol].get("symbol", ""))
-					symbol_press_screen = pointer_screen
+				if selected_connections.size() > 1 and _is_connection_selected(current_symbol) and not event.ctrl_pressed:
+					_begin_selection_move()
+				else:
+					_select_connection(current_symbol, event.ctrl_pressed, true)
+					if not event.ctrl_pressed and _is_connection_selected(current_symbol):
+						drag_mode = "symbol_pending"
+						dragged_symbol_source = current_symbol
+						active_symbol = str(connections[current_symbol].get("symbol", ""))
+						symbol_press_screen = pointer_screen
 			else:
 				var start_candidate := _grid_point_at(pointer_screen)
 				if start_candidate.has("point"):
 					var start_point: Vector2 = start_candidate["point"]
-					if _is_anchor_point(start_point):
+					if selected_connections.size() > 1 and _selected_connection_uses_anchor(start_point) and not event.ctrl_pressed:
+						_begin_selection_move()
+					elif _is_anchor_point(start_point):
 						_begin_anchor_move(start_point)
 					else:
 						_deselect_connection()
@@ -383,7 +420,10 @@ func _gui_input(event: InputEvent) -> void:
 				else:
 					var line_connection := _connection_near(pointer_screen)
 					if line_connection >= 0:
-						_select_connection(line_connection, event.ctrl_pressed)
+						if _is_connection_selected(line_connection) and not event.ctrl_pressed:
+							_begin_selection_move()
+						else:
+							_select_connection(line_connection, event.ctrl_pressed)
 					else:
 						_begin_rectangle_selection(event.ctrl_pressed)
 	else:
@@ -404,11 +444,14 @@ func _gui_input(event: InputEvent) -> void:
 			_finish_intensity_drag()
 		elif drag_mode == "selection":
 			_select_connections_in_rect(selection_rect, selection_rect_additive)
+		elif drag_mode == "selection_move":
+			_complete_selection_move()
 		elif drag_mode == "selection_pending" and not selection_rect_additive:
 			_deselect_connection()
 		elif drag_mode == "left_scroll_pending" and left_scroll_pressed_connection >= 0:
 			_select_connection(left_scroll_pressed_connection, left_scroll_additive, true)
-		_reset_drag()
+		if not anchor_move_settle_active:
+			_reset_drag()
 
 	queue_redraw()
 	accept_event()
@@ -418,7 +461,7 @@ func _run_ritual() -> void:
 	if ritual_running:
 		_stop_ritual()
 		return
-	execution_output.clear()
+	execution_output = ""
 	execution_errors.clear()
 	execution_warnings.clear()
 	execution_instructions.clear()
@@ -464,6 +507,7 @@ func _run_ritual() -> void:
 		bottom_panel_open = true
 		return
 	bottom_panel_open = true
+	right_panel_open = true
 	ritual_running = true
 	_execute_next_ritual_step()
 
@@ -493,7 +537,7 @@ func _execute_next_ritual_step() -> void:
 	vm.step(instruction, execution_state, instruction_index)
 	_refresh_execution_intensity_overrides()
 	for output_index in range(output_count, output.size()):
-		execution_output.append(str(output[output_index]))
+		execution_output += str(output[output_index])
 	for error_index in range(error_count, errors.size()):
 		execution_errors.append(str(errors[error_index]))
 	var jump_target := int(execution_state["jump_target"])
@@ -548,16 +592,40 @@ func export_current_ritual(path: String) -> Dictionary:
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), BACKGROUND, true)
+	_draw_room_candlelight()
 	var canvas_rect := _canvas_rect()
 	draw_rect(canvas_rect, CANVAS_BACKGROUND, true)
+	_draw_canvas_frame(canvas_rect)
 	_draw_grid(canvas_rect)
 	_draw_connections()
+	_draw_selection_move_preview()
 	_draw_connection_preview()
 	_draw_selection_rectangle()
 	_draw_dragged_symbol()
 	_draw_settling_symbol()
 	_draw_intensity_inspector()
 	_draw_interface_panels()
+
+
+func _draw_room_candlelight() -> void:
+	_draw_soft_glow(Vector2(size.x * 0.12, size.y * 0.88), minf(size.x, size.y) * 0.72, Color(1.0, 0.52, 0.16, 0.055))
+	_draw_soft_glow(Vector2(size.x * 0.92, size.y * 0.10), minf(size.x, size.y) * 0.62, Color(0.90, 0.72, 0.30, 0.035))
+
+
+func _draw_soft_glow(center: Vector2, radius: float, color: Color) -> void:
+	for ring in range(5, 0, -1):
+		var amount := float(ring) / 5.0
+		var glow := color
+		glow.a *= 1.0 - amount * 0.78
+		draw_circle(center, radius * amount, glow)
+
+func _draw_canvas_frame(canvas_rect: Rect2) -> void:
+	draw_rect(canvas_rect, PANEL_BORDER, false, 1.0)
+	var inner := canvas_rect.grow(-7.0)
+	if inner.size.x > 0.0 and inner.size.y > 0.0:
+		var inner_color := PANEL_ACCENT
+		inner_color.a = 0.35
+		draw_rect(inner, inner_color, false, 1.0)
 
 
 func _draw_grid(canvas_rect: Rect2) -> void:
@@ -641,12 +709,16 @@ func _draw_connections() -> void:
 	# diagrama, mas só é revelada como uma célula individual pelo hover.
 	var line_shadow := RUNE_LINE_COLOR.darkened(0.72)
 	for connection in connections:
+		if _is_connection_hidden_during_move(connection):
+			continue
 		var from_point: Vector2 = connection["from"]
 		var to_point: Vector2 = connection["to"]
 		draw_line(_world_to_screen(from_point), _world_to_screen(to_point), line_shadow, 4.2 * zoom, true)
 	_draw_line_joins_and_caps(line_shadow, 2.1 * zoom)
 
 	for connection in connections:
+		if _is_connection_hidden_during_move(connection):
+			continue
 		var from_point: Vector2 = connection["from"]
 		var to_point: Vector2 = connection["to"]
 		draw_line(_world_to_screen(from_point), _world_to_screen(to_point), RUNE_LINE_COLOR, 2.0 * zoom, true)
@@ -657,6 +729,8 @@ func _draw_connections() -> void:
 	# uniforme e não vira uma sequência de retângulos.
 	for index in range(connections.size()):
 		var connection: Dictionary = connections[index]
+		if _is_connection_hidden_during_move(connection):
+			continue
 		var from_point: Vector2 = connection["from"]
 		var to_point: Vector2 = connection["to"]
 		var from_screen := _world_to_screen(from_point)
@@ -702,6 +776,8 @@ func _draw_line_joins_and_caps(color: Color, radius: float) -> void:
 	# O círculo tem exatamente metade da largura do traço. Nas junções ele cria
 	# uma curva contínua; nas extremidades, uma ponta arredondada.
 	for connection in connections:
+		if _is_connection_hidden_during_move(connection):
+			continue
 		var from_point: Vector2 = connection["from"]
 		var to_point: Vector2 = connection["to"]
 		draw_circle(_world_to_screen(from_point), radius, color, true, -1.0, true)
@@ -712,6 +788,8 @@ func _draw_terminal_markers(line_shadow: Color) -> void:
 	# Primeiro e último ponto de cada sequência substituem o pontinho vermelho
 	# por uma âncora dourada mais evidente.
 	for connection in connections:
+		if _is_connection_hidden_during_move(connection):
+			continue
 		var from_point: Vector2 = connection["from"]
 		var to_point: Vector2 = connection["to"]
 		if _is_terminal_point(from_point):
@@ -725,6 +803,17 @@ func _draw_terminal_marker(screen_position: Vector2, line_shadow: Color) -> void
 	draw_circle(screen_position, 3.0 * zoom, RUNE_LINE_COLOR, true, -1.0, true)
 
 
+func _is_connection_hidden_during_move(connection: Dictionary) -> bool:
+	if drag_mode == "selection_move":
+		var connection_index := connections.find(connection)
+		return selected_connections.has(connection_index)
+	if drag_mode != "move_anchor" and not anchor_move_settle_active:
+		return false
+	var from_point: Vector2 = connection["from"]
+	var to_point: Vector2 = connection["to"]
+	return from_point.is_equal_approx(anchor_move_source) or to_point.is_equal_approx(anchor_move_source)
+
+
 func _draw_rounded_segment_caps(from_screen: Vector2, to_screen: Vector2, color: Color, radius: float) -> void:
 	draw_circle(from_screen, radius, color, true, -1.0, true)
 	draw_circle(to_screen, radius, color, true, -1.0, true)
@@ -733,6 +822,14 @@ func _draw_rounded_segment_caps(from_screen: Vector2, to_screen: Vector2, color:
 func _settle_ease(progress: float) -> float:
 	var clamped_progress := clampf(progress, 0.0, 1.0)
 	return 1.0 - pow(1.0 - clamped_progress, 3.0)
+
+
+func _elastic_settle_ease(progress: float) -> float:
+	var clamped_progress := clampf(progress, 0.0, 1.0)
+	var tension := 1.45
+	var overshoot := tension + 1.0
+	var shifted := clamped_progress - 1.0
+	return 1.0 + overshoot * shifted * shifted * shifted + tension * shifted * shifted
 
 
 func _symbol_position(connection: Dictionary, connection_index := -1) -> Vector2:
@@ -801,31 +898,69 @@ func _preferred_screen_side(normal: Vector2) -> Vector2:
 func _draw_connection_preview() -> void:
 	if drag_mode == "connect":
 		var start_screen := _world_to_screen(line_start_world)
-		draw_line(start_screen, _anchor_snap_endpoint(), Color("73dcff"), 3.0 * zoom, true)
-	elif drag_mode == "move_anchor":
+		draw_line(start_screen, _anchor_snap_endpoint(), GOLD_GLOW, 3.0 * zoom, true)
+	elif drag_mode == "move_anchor" or anchor_move_settle_active:
 		_draw_anchor_move_preview()
 
 
-func _draw_anchor_move_preview() -> void:
-	if not anchor_move_target_valid:
+func _draw_selection_move_preview() -> void:
+	if drag_mode != "selection_move":
 		return
-	var preview_color := Color("73dcff")
+	var preview_color := GOLD_GLOW
+	preview_color.a = 0.72
+	var preview_glow := GOLD_GLOW
+	preview_glow.a = 0.16
+	for connection_index in selected_connections:
+		if connection_index < 0 or connection_index >= connections.size():
+			continue
+		var connection: Dictionary = connections[connection_index]
+		var from_point: Vector2 = connection["from"]
+		var to_point: Vector2 = connection["to"]
+		var from_screen := _world_to_screen(from_point + selection_move_offset)
+		var to_screen := _world_to_screen(to_point + selection_move_offset)
+		draw_line(from_screen, to_screen, preview_glow, 8.0 * zoom, true)
+		_draw_rounded_segment_caps(from_screen, to_screen, preview_glow, 4.0 * zoom)
+		draw_line(from_screen, to_screen, preview_color, 2.0 * zoom, true)
+		_draw_rounded_segment_caps(from_screen, to_screen, preview_color, 1.0 * zoom)
+		var symbol := str(connection.get("symbol", ""))
+		if not symbol.is_empty():
+			var symbol_position := _symbol_position(connection, connection_index) + selection_move_offset * zoom
+			_draw_rune(symbol, symbol_position, zoom, preview_color)
+
+
+func _draw_anchor_move_preview() -> void:
+	var preview_target := anchor_move_target
+	if anchor_move_settle_active:
+		var settle_progress := clampf((animation_clock - anchor_move_settle_started_at) / ANCHOR_SNAP_DURATION, 0.0, 1.0)
+		preview_target = anchor_move_settle_from.lerp(anchor_move_settle_to, _elastic_settle_ease(settle_progress))
+	var preview_color := GOLD_GLOW
+	preview_color.a = 0.88 if anchor_move_snap_target_valid else 0.64
 	var glow_color := preview_color
-	glow_color.a = 0.18
+	glow_color.a = 0.18 if anchor_move_snap_target_valid else 0.10
 	for connection in connections:
 		var from_point: Vector2 = connection["from"]
 		var to_point: Vector2 = connection["to"]
 		if not from_point.is_equal_approx(anchor_move_source) and not to_point.is_equal_approx(anchor_move_source):
 			continue
-		var preview_from := anchor_move_target if from_point.is_equal_approx(anchor_move_source) else from_point
-		var preview_to := anchor_move_target if to_point.is_equal_approx(anchor_move_source) else to_point
+		var preview_from := preview_target if from_point.is_equal_approx(anchor_move_source) else from_point
+		var preview_to := preview_target if to_point.is_equal_approx(anchor_move_source) else to_point
 		var from_screen := _world_to_screen(preview_from)
 		var to_screen := _world_to_screen(preview_to)
+		var original_middle := (_world_to_screen(from_point) + _world_to_screen(to_point)) * 0.5
+		var preview_middle := (from_screen + to_screen) * 0.5
 		draw_line(from_screen, to_screen, glow_color, 8.0 * zoom, true)
 		_draw_rounded_segment_caps(from_screen, to_screen, glow_color, 4.0 * zoom)
 		draw_line(from_screen, to_screen, preview_color, 2.5 * zoom, true)
 		_draw_rounded_segment_caps(from_screen, to_screen, preview_color, 1.25 * zoom)
-	draw_circle(_world_to_screen(anchor_move_target), 4.2 * zoom, preview_color, true, -1.0, true)
+		var symbol := str(connection.get("symbol", ""))
+		if not symbol.is_empty():
+			var symbol_position := _symbol_position(connection) + (preview_middle - original_middle)
+			_draw_rune(symbol, symbol_position, zoom, _intensity_color(_connection_intensity(connection)))
+	draw_circle(_world_to_screen(preview_target), 4.2 * zoom, preview_color, true, -1.0, true)
+	if anchor_move_snap_target_valid and not anchor_move_settle_active:
+		var snap_color := GOLD_GLOW
+		snap_color.a = 0.42
+		draw_arc(_world_to_screen(anchor_move_snap_target), 9.0 * zoom, 0.0, TAU, 18, snap_color, 1.1 * zoom, true)
 
 
 func _draw_selection_rectangle() -> void:
@@ -868,37 +1003,63 @@ func _complete_anchor_snap() -> void:
 
 func _begin_anchor_move(source: Vector2) -> void:
 	_deselect_connection()
-	drag_mode = "anchor_pending"
+	drag_mode = "move_anchor"
 	anchor_move_source = source
 	anchor_move_target = source
-	anchor_move_target_valid = false
+	anchor_move_snap_target = source
+	anchor_move_snap_target_valid = false
 	anchor_move_press_screen = pointer_screen
 	hovered_connection = -1
 
 
 func _update_anchor_move_target() -> void:
-	anchor_move_target_valid = false
+	var canvas := _canvas_rect()
+	var constrained_screen := Vector2(
+		clampf(pointer_screen.x, canvas.position.x, canvas.end.x),
+		clampf(pointer_screen.y, canvas.position.y, canvas.end.y)
+	)
+	anchor_move_target = _screen_to_world(constrained_screen)
+	anchor_move_snap_target_valid = false
 	var candidate := _grid_point_at(pointer_screen)
 	if not candidate.has("point"):
 		return
 	var target: Vector2 = candidate["point"]
 	if target.is_equal_approx(anchor_move_source):
 		return
-	anchor_move_target = target
-	anchor_move_target_valid = true
+	anchor_move_snap_target = target
+	anchor_move_snap_target_valid = true
 
 
 func _complete_anchor_move() -> void:
-	if not anchor_move_target_valid:
+	var settle_target := anchor_move_snap_target if anchor_move_snap_target_valid else anchor_move_source
+	if anchor_move_target.is_equal_approx(settle_target):
+		anchor_move_settle_from = settle_target
+		anchor_move_settle_to = settle_target
+		_complete_anchor_move_settle()
 		return
-	if diagram.move_anchor(anchor_move_source, anchor_move_target):
+	anchor_move_settle_active = true
+	anchor_move_settle_from = anchor_move_target
+	anchor_move_settle_to = settle_target
+	anchor_move_settle_started_at = animation_clock
+	drag_mode = ""
+
+
+func _complete_anchor_move_settle() -> void:
+	var should_move := not anchor_move_source.is_equal_approx(anchor_move_settle_to)
+	anchor_move_settle_active = false
+	if should_move and diagram.move_anchor(anchor_move_source, anchor_move_settle_to):
 		_clear_diagram_animations()
-		_update_hover()
+	anchor_move_source = Vector2.ZERO
+	anchor_move_target = Vector2.ZERO
+	anchor_move_snap_target = Vector2.ZERO
+	anchor_move_snap_target_valid = false
+	anchor_move_press_screen = Vector2.ZERO
+	_update_hover()
 
 
 func _draw_dragged_symbol() -> void:
 	if drag_mode == "symbol" and not active_symbol.is_empty():
-		_draw_rune(active_symbol, pointer_screen, zoom, Color("ffe0a3"))
+		_draw_rune(active_symbol, pointer_screen, zoom, GOLD_GLOW)
 
 
 func _draw_settling_symbol() -> void:
@@ -969,10 +1130,10 @@ func _draw_intensity_inspector() -> void:
 	draw_string(ThemeDB.fallback_font, inspector.position + Vector2(42.0, 21.0), "INTENSIDADE", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, TEXT_MUTED)
 	draw_string(ThemeDB.fallback_font, inspector.position + Vector2(42.0, 40.0), str(data["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, TEXT_PRIMARY)
 	var value_rect := _intensity_value_rect()
-	draw_rect(value_rect, Color("29242e") if editing_intensity_text else Color("17151d"), true)
-	draw_rect(value_rect, Color("ffe0a3") if editing_intensity_text else PANEL_BORDER, false, 1.0)
+	draw_rect(value_rect, Color("3a2f1c") if editing_intensity_text else Color("1a140e"), true)
+	draw_rect(value_rect, GOLD_GLOW if editing_intensity_text else PANEL_BORDER, false, 1.0)
 	var displayed_intensity := intensity_text if editing_intensity_text else "%03d" % intensity
-	draw_string(ThemeDB.fallback_font, value_rect.position + Vector2(8.0, 19.0), displayed_intensity, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, Color("fff0ad") if editing_intensity_text else TEXT_PRIMARY)
+	draw_string(ThemeDB.fallback_font, value_rect.position + Vector2(8.0, 19.0), displayed_intensity, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, GOLD_GLOW if editing_intensity_text else TEXT_PRIMARY)
 
 	var slider := _intensity_slider_rect()
 	for segment in range(24):
@@ -983,14 +1144,15 @@ func _draw_intensity_inspector() -> void:
 		draw_line(start, end, _intensity_color(int(start_t * 255.0)), 5.0, true)
 	draw_line(Vector2(slider.position.x, slider.get_center().y), Vector2(slider.end.x, slider.get_center().y), PANEL_BORDER, 1.0, true)
 	var marker_x := slider.position.x + slider.size.x * (float(intensity) / 255.0)
-	draw_circle(Vector2(marker_x, slider.get_center().y), 7.0, Color("0a0a0c"))
-	draw_arc(Vector2(marker_x, slider.get_center().y), 7.0, 0.0, TAU, 16, Color("f5df9a"), 1.5, true)
+	draw_circle(Vector2(marker_x, slider.get_center().y), 7.0, Color("1a140e"))
+	draw_arc(Vector2(marker_x, slider.get_center().y), 7.0, 0.0, TAU, 16, GOLD_GLOW, 1.5, true)
 
 
 func _draw_interface_panels() -> void:
 	_draw_left_panel()
 	_draw_top_panel()
 	_draw_bottom_panel()
+	_draw_right_panel()
 	_draw_resize_handles()
 	_draw_palette_tooltip()
 
@@ -1014,18 +1176,25 @@ func _draw_left_panel() -> void:
 		var data := _symbol_data(kind)
 		var row := Rect2(14.0, row_y, panel.size.x - 28.0, 58.0)
 		if row.end.y > list_rect.position.y and row.position.y < list_rect.end.y:
-			draw_rect(row, PANEL_INNER, true)
-			draw_rect(row, Color("83d9ee") if _is_connection_selected(connection_index) else PANEL_BORDER, false, 1.0)
+			var row_fill := PARCHMENT_DEEP if _is_connection_selected(connection_index) else PARCHMENT
+			var row_border := GOLD_BRIGHT if _is_connection_selected(connection_index) else PARCHMENT_BORDER
+			draw_rect(row, row_fill, true)
+			draw_rect(row, row_border, false, 1.0)
+			draw_rect(row.grow(-3.0), Color(0.24, 0.17, 0.08, 0.32), false, 1.0)
 			var intensity := _display_connection_intensity(connection_index, connection)
-			_draw_rune(kind, row.position + Vector2(28.0, 29.0), 0.82, _intensity_color(intensity))
-			draw_string(ThemeDB.fallback_font, row.position + Vector2(56.0, 25.0), str(data["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, TEXT_PRIMARY)
+			var sigil_center := row.position + Vector2(28.0, 29.0)
+			draw_circle(sigil_center, 18.0, Color("cdb782"))
+			draw_arc(sigil_center, 18.0, 0.0, TAU, 20, PANEL_BORDER, 1.4, true)
+			draw_circle(sigil_center + Vector2(-4.0, -5.0), 3.0, Color(1.0, 0.95, 0.78, 0.28))
+			_draw_rune(kind, sigil_center, 0.76, PARCHMENT_INK.lerp(PANEL_BORDER, float(intensity) / 255.0))
+			draw_string(ThemeDB.fallback_font, row.position + Vector2(56.0, 25.0), str(data["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, PARCHMENT_INK)
 			var extra := str(data["extra"])
 			# Só mostramos o número quando a intensidade participa da instrução
 			# como operando; nos outros selos ele é apenas visual.
 			if RuneCatalog.takes_operand(int(data.get("opcode", -1))):
 				extra = "%s: %03d" % [extra, intensity]
-			draw_string(ThemeDB.fallback_font, row.position + Vector2(56.0, 45.0), extra, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, TEXT_MUTED)
-			draw_line(row.position + Vector2(8.0, 49.0), row.position + Vector2(row.size.x - 8.0, 49.0), Color("3d3b42"), 1.0, true)
+			draw_string(ThemeDB.fallback_font, row.position + Vector2(56.0, 45.0), extra, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, PARCHMENT_MUTED)
+			draw_line(row.position + Vector2(8.0, 49.0), row.position + Vector2(row.size.x - 8.0, 49.0), Color(0.24, 0.17, 0.08, 0.38), 1.0, true)
 		row_y += LEFT_COMMAND_ROW_HEIGHT
 		if row.position.y > list_rect.end.y:
 			break
@@ -1036,8 +1205,8 @@ func _draw_left_panel() -> void:
 	_draw_toggle_button(_left_toggle_rect(), "left")
 
 	if command_count == 0:
-		draw_arc(Vector2(panel.size.x * 0.5, 132.0), 30.0, 0.0, TAU, 32, Color("3e3c43"), 1.0, true)
-		draw_line(Vector2(panel.size.x * 0.5 - 48.0, 132.0), Vector2(panel.size.x * 0.5 + 48.0, 132.0), Color("3e3c43"), 1.0, true)
+		draw_arc(Vector2(panel.size.x * 0.5, 132.0), 30.0, 0.0, TAU, 32, PANEL_BORDER, 1.0, true)
+		draw_line(Vector2(panel.size.x * 0.5 - 48.0, 132.0), Vector2(panel.size.x * 0.5 + 48.0, 132.0), PANEL_BORDER, 1.0, true)
 		draw_string(ThemeDB.fallback_font, Vector2(29.0, 192.0), "Ainda não há símbolos no ritual.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
 
 
@@ -1074,12 +1243,12 @@ func _draw_left_scroll_masks(panel: Rect2, list_rect: Rect2) -> void:
 	draw_rect(panel, PANEL_BORDER, false, 2.0)
 	var inner := panel.grow(-6.0)
 	if inner.size.x > 0.0 and inner.size.y > 0.0:
-		draw_rect(inner, Color("3b3940"), false, 1.0)
-	draw_rect(list_rect, Color("3b3940"), false, 1.0)
+		draw_rect(inner, LEATHER_LIGHT, false, 1.0)
+	draw_rect(list_rect, LEATHER_LIGHT, false, 1.0)
 
 
 func _draw_left_panel_header(panel: Rect2) -> void:
-	draw_string(ThemeDB.fallback_font, Vector2(20.0, 32.0), "GRIMÓRIO ATIVO", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 17, TEXT_PRIMARY)
+	draw_string(ThemeDB.fallback_font, Vector2(20.0, 32.0), "GRIMÓRIO ATIVO", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 17, GOLD_BRIGHT)
 	draw_string(ThemeDB.fallback_font, Vector2(20.0, 54.0), "Símbolos ligados ao ritual", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_MUTED)
 	draw_line(Vector2(20.0, 70.0), Vector2(panel.size.x - 20.0, 70.0), PANEL_BORDER, 1.0, true)
 
@@ -1093,8 +1262,8 @@ func _draw_left_command_scrollbar(list_rect: Rect2, scroll: float) -> void:
 	var thumb_height := maxf(28.0, track_height * list_rect.size.y / (list_rect.size.y + max_scroll))
 	var travel := maxf(track_height - thumb_height, 0.0)
 	var thumb_y := list_rect.position.y + 6.0 + travel * (scroll / max_scroll)
-	draw_line(Vector2(track_x, list_rect.position.y + 6.0), Vector2(track_x, list_rect.end.y - 6.0), Color("302e35"), 2.0, true)
-	draw_line(Vector2(track_x, thumb_y), Vector2(track_x, thumb_y + thumb_height), Color("a59b7a"), 2.0, true)
+	draw_line(Vector2(track_x, list_rect.position.y + 6.0), Vector2(track_x, list_rect.end.y - 6.0), Color("1a140e"), 2.0, true)
+	draw_line(Vector2(track_x, thumb_y), Vector2(track_x, thumb_y + thumb_height), PANEL_ACCENT, 2.0, true)
 
 
 func _symbol_connection_count() -> int:
@@ -1162,12 +1331,9 @@ func _draw_top_panel() -> void:
 		var item: Dictionary = PALETTE_SYMBOLS[index]
 		var tile := _palette_rect(index)
 		var highlight_alpha := _hover_alpha(palette_hover_started_at) if index == animated_hover_palette_index else 0.0
-		var tile_color := PANEL_INNER.lerp(Color("24212c"), highlight_alpha)
-		draw_rect(tile, tile_color, true)
-		draw_rect(tile, PANEL_BORDER.lerp(PANEL_ACCENT, highlight_alpha), false, 2.0)
-		_draw_arcane_tile_mark(tile)
+		_draw_arcane_tile_mark(tile, highlight_alpha)
 		var tile_scale := 1.05 * tile.size.x / PALETTE_MAX_TILE_SIZE
-		_draw_rune(str(item["kind"]), tile.get_center(), tile_scale, Color("b5b1bb").lerp(Color("ffe0a3"), highlight_alpha))
+		_draw_rune(str(item["kind"]), tile.get_center(), tile_scale, GOLD_BRIGHT.lerp(Color("fff0bd"), highlight_alpha))
 	_draw_palette_scroll_masks(_palette_viewport_rect())
 	_draw_palette_scrollbar()
 
@@ -1186,11 +1352,11 @@ func _draw_bottom_panel() -> void:
 	draw_line(Vector2(divider_x, panel.position.y + 68.0), Vector2(divider_x, panel.end.y - 16.0), PANEL_BORDER, 1.0, true)
 	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 20.0, panel.position.y + 91.0), "SAÍDA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, PANEL_ACCENT)
 	draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, panel.position.y + 91.0), "ERROS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, PANEL_ACCENT)
-	var output_y := panel.position.y + 116.0
-	for line in execution_output:
-		draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 24.0, output_y), "> " + line, HORIZONTAL_ALIGNMENT_LEFT, divider_x - panel.position.x - 42.0, 14, Color("b9ecdc"))
-		output_y += 20.0
-	var warning_y := output_y
+	var output_position := Vector2(panel.position.x + 24.0, panel.position.y + 116.0)
+	var output_width := divider_x - panel.position.x - 42.0
+	if not execution_output.is_empty():
+		draw_multiline_string(ThemeDB.fallback_font, output_position, "> " + execution_output, HORIZONTAL_ALIGNMENT_LEFT, output_width, 14, -1, Color("e3cea2"))
+	var warning_y := panel.position.y + 116.0
 	for warning in execution_warnings:
 		draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 24.0, warning_y), "~ " + warning, HORIZONTAL_ALIGNMENT_LEFT, divider_x - panel.position.x - 42.0, 12, Color("d8c783"))
 		warning_y += 18.0
@@ -1199,7 +1365,53 @@ func _draw_bottom_panel() -> void:
 		draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, error_y), "! " + error, HORIZONTAL_ALIGNMENT_LEFT, panel.end.x - divider_x - 40.0, 13, Color("ff8791"))
 		error_y += 20.0
 	if execution_output.is_empty() and execution_errors.is_empty() and execution_warnings.is_empty():
-		_draw_rune("ORB", Vector2(panel.position.x + panel.size.x * 0.35, panel.position.y + 145.0), 1.6, Color("36343a"))
+		_draw_rune("ORB", Vector2(panel.position.x + panel.size.x * 0.35, panel.position.y + 145.0), 1.6, LEATHER_LIGHT)
+
+
+func _draw_right_panel() -> void:
+	var panel := _right_panel_rect()
+	_draw_arcane_frame(panel)
+	_draw_toggle_button(_right_toggle_rect(), "right" if right_panel_open else "left")
+	if not right_panel_open:
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(5.0, 58.0), "PILHA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, TEXT_MUTED)
+		return
+
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 64.0), "PILHA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 17, GOLD_BRIGHT)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 85.0), "Estado da máquina", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_MUTED)
+	draw_line(panel.position + Vector2(20.0, 101.0), Vector2(panel.end.x - 20.0, panel.position.y + 101.0), PANEL_BORDER, 1.0, true)
+	if execution_state.is_empty() or not execution_state.has("stack"):
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 136.0), "A pilha desperta", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 155.0), "quando o ritual começa.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
+		return
+
+	var stack: Array = execution_state["stack"]
+	var text_width := panel.size.x - 40.0
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), "TOPO", HORIZONTAL_ALIGNMENT_LEFT, text_width, 11, PANEL_ACCENT)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), "%d SELOS" % stack.size(), HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, TEXT_MUTED)
+	if stack.is_empty():
+		draw_arc(panel.position + Vector2(panel.size.x * 0.5, 169.0), 24.0, 0.0, TAU, 24, LEATHER_LIGHT, 1.0, true)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 215.0), "A pilha está vazia.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
+		return
+
+	var row_height := 42.0
+	var first_y := panel.position.y + 137.0
+	var available_height := maxf(panel.end.y - first_y - 18.0, row_height)
+	var visible_rows := maxi(int(floor(available_height / row_height)), 1)
+	var first_visible := maxi(stack.size() - visible_rows, 0)
+	var row_y := first_y
+	if first_visible > 0:
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, row_y + 11.0), "+%d abaixo" % first_visible, HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, TEXT_MUTED)
+		row_y += 16.0
+	for stack_index in range(stack.size() - 1, first_visible - 1, -1):
+		var row := Rect2(panel.position.x + 14.0, row_y, panel.size.x - 28.0, 34.0)
+		var is_top := stack_index == stack.size() - 1
+		draw_rect(row, PARCHMENT_DEEP if is_top else PARCHMENT, true)
+		draw_rect(row, GOLD_BRIGHT if is_top else PARCHMENT_BORDER, false, 1.0)
+		var stack_value := int(stack[stack_index])
+		draw_string(ThemeDB.fallback_font, row.position + Vector2(12.0, 22.0), "%03d" % stack_value, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, PARCHMENT_INK)
+		if is_top:
+			draw_string(ThemeDB.fallback_font, row.position + Vector2(12.0, 21.0), "TOPO", HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 24.0, 10, PARCHMENT_MUTED)
+		row_y += row_height
 
 
 func _draw_palette_tooltip() -> void:
@@ -1221,44 +1433,57 @@ func _draw_palette_tooltip() -> void:
 	if tooltip_y + tooltip_height > size.y - 12.0:
 		tooltip_y = maxf(12.0, tile.position.y - tooltip_height - 10.0)
 	var tooltip := Rect2(tooltip_x, tooltip_y, tooltip_width, tooltip_height)
-	draw_rect(tooltip, Color("0b0a0e"), true)
-	draw_rect(tooltip, Color("b5b1bb"), false, 1.0)
-	draw_string(font, tooltip.position + Vector2(12.0, 21.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, Color("ffe0a3"))
+	draw_rect(tooltip, Color("171a22"), true)
+	draw_rect(tooltip, PANEL_BORDER, false, 1.0)
+	draw_rect(tooltip.grow(-4.0), Color(0.71, 0.54, 0.24, 0.24), false, 1.0)
+	draw_string(font, tooltip.position + Vector2(12.0, 21.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, GOLD_GLOW)
 	draw_multiline_string(font, tooltip.position + Vector2(12.0, 42.0), description, HORIZONTAL_ALIGNMENT_LEFT, tooltip_width - 24.0, 12, -1, TEXT_PRIMARY)
 
 
 func _draw_arcane_frame(rect: Rect2) -> void:
-	draw_rect(rect, PANEL_BACKGROUND, true)
+	draw_rect(rect, Color("1a140e"), true)
+	draw_rect(rect.grow(-2.0), PANEL_BACKGROUND, true)
 	draw_rect(rect, PANEL_BORDER, false, 2.0)
 	var inner := rect.grow(-6.0)
 	if inner.size.x > 0.0 and inner.size.y > 0.0:
-		draw_rect(inner, Color("3b3940"), false, 1.0)
+		var inner_border := PANEL_ACCENT
+		inner_border.a = 0.28
+		draw_rect(inner, inner_border, false, 1.0)
 	var corner := 13.0
 	var top_left := rect.position + Vector2(9.0, 9.0)
 	var top_right := Vector2(rect.end.x - 9.0, rect.position.y + 9.0)
 	var bottom_left := Vector2(rect.position.x + 9.0, rect.end.y - 9.0)
 	var bottom_right := rect.end - Vector2(9.0, 9.0)
-	draw_line(top_left, top_left + Vector2(corner, 0.0), PANEL_ACCENT, 1.0, true)
-	draw_line(top_left, top_left + Vector2(0.0, corner), PANEL_ACCENT, 1.0, true)
-	draw_line(top_right, top_right + Vector2(-corner, 0.0), PANEL_ACCENT, 1.0, true)
-	draw_line(top_right, top_right + Vector2(0.0, corner), PANEL_ACCENT, 1.0, true)
-	draw_line(bottom_left, bottom_left + Vector2(corner, 0.0), PANEL_ACCENT, 1.0, true)
-	draw_line(bottom_left, bottom_left + Vector2(0.0, -corner), PANEL_ACCENT, 1.0, true)
-	draw_line(bottom_right, bottom_right + Vector2(-corner, 0.0), PANEL_ACCENT, 1.0, true)
-	draw_line(bottom_right, bottom_right + Vector2(0.0, -corner), PANEL_ACCENT, 1.0, true)
+	draw_line(top_left, top_left + Vector2(corner, 0.0), GOLD_BRIGHT, 1.2, true)
+	draw_line(top_left, top_left + Vector2(0.0, corner), GOLD_BRIGHT, 1.2, true)
+	draw_line(top_right, top_right + Vector2(-corner, 0.0), GOLD_BRIGHT, 1.2, true)
+	draw_line(top_right, top_right + Vector2(0.0, corner), GOLD_BRIGHT, 1.2, true)
+	draw_line(bottom_left, bottom_left + Vector2(corner, 0.0), GOLD_BRIGHT, 1.2, true)
+	draw_line(bottom_left, bottom_left + Vector2(0.0, -corner), GOLD_BRIGHT, 1.2, true)
+	draw_line(bottom_right, bottom_right + Vector2(-corner, 0.0), GOLD_BRIGHT, 1.2, true)
+	draw_line(bottom_right, bottom_right + Vector2(0.0, -corner), GOLD_BRIGHT, 1.2, true)
+	draw_circle(top_left, 1.6, GOLD_GLOW)
+	draw_circle(top_right, 1.6, GOLD_GLOW)
+	draw_circle(bottom_left, 1.6, GOLD_GLOW)
+	draw_circle(bottom_right, 1.6, GOLD_GLOW)
 
 
-func _draw_arcane_tile_mark(tile: Rect2) -> void:
+func _draw_arcane_tile_mark(tile: Rect2, highlight_alpha: float = 0.0) -> void:
 	var center := tile.get_center()
-	draw_arc(center, tile.size.x * 0.37, 0.0, TAU, 20, Color("36333c"), 1.0, true)
-	draw_circle(center, 2.0, Color("494650"))
+	var radius := tile.size.x * 0.40
+	var outer_glow := GOLD_GLOW
+	outer_glow.a = 0.08 + 0.16 * highlight_alpha
+	draw_circle(center, radius + 5.0, outer_glow)
+	draw_circle(center, radius, Color("211812").lerp(LEATHER_LIGHT, highlight_alpha))
+	draw_arc(center, radius, 0.0, TAU, 24, PANEL_BORDER.lerp(GOLD_BRIGHT, highlight_alpha), 2.0, true)
+	draw_arc(center, radius + 3.0, 0.0, TAU, 24, Color(0.71, 0.54, 0.24, 0.38 + 0.26 * highlight_alpha), 1.0, true)
 
 
 func _draw_toggle_button(rect: Rect2, direction: String) -> void:
 	var center := rect.get_center()
-	draw_rect(rect, Color("17151d"), true)
-	draw_rect(rect, PANEL_ACCENT, false, 1.0)
-	draw_arc(center, 11.0, 0.0, TAU, 16, Color("4c4953"), 1.0, true)
+	draw_rect(rect, Color("1a140e"), true)
+	draw_rect(rect, PANEL_BORDER, false, 1.0)
+	draw_arc(center, 11.0, 0.0, TAU, 16, PANEL_ACCENT, 1.0, true)
 	var a := center
 	var b := center
 	var c := center
@@ -1279,14 +1504,14 @@ func _draw_toggle_button(rect: Rect2, direction: String) -> void:
 			a += Vector2(-6.0, -3.0)
 			b += Vector2(0.0, 4.0)
 			c += Vector2(6.0, -3.0)
-	draw_line(a, b, Color("e1dbe6"), 2.0, true)
-	draw_line(b, c, Color("e1dbe6"), 2.0, true)
+	draw_line(a, b, GOLD_GLOW, 2.0, true)
+	draw_line(b, c, GOLD_GLOW, 2.0, true)
 
 
 func _draw_play_button(rect: Rect2) -> void:
 	var center := rect.get_center()
-	var accent := Color("53515a") if ritual_running else Color("b8b4be")
-	draw_rect(rect, Color("111720") if ritual_running else Color("17151d"), true)
+	var accent := Color("6b5130") if ritual_running else GOLD_GLOW
+	draw_rect(rect, Color("1a140e"), true)
 	draw_rect(rect, accent, false, 1.0)
 	draw_arc(center, 11.0, 0.0, TAU, 16, accent.darkened(0.45), 1.0, true)
 	var a := center + Vector2(-3.0, -6.0)
@@ -1297,8 +1522,8 @@ func _draw_play_button(rect: Rect2) -> void:
 
 func _draw_stop_button(rect: Rect2) -> void:
 	var center := rect.get_center()
-	var accent := Color("ff7981") if ritual_running else Color("53515a")
-	draw_rect(rect, Color("211216") if ritual_running else Color("17151d"), true)
+	var accent := Color("d46c4d") if ritual_running else Color("6b5130")
+	draw_rect(rect, Color("1a140e"), true)
 	draw_rect(rect, accent, false, 1.0)
 	draw_arc(center, 11.0, 0.0, TAU, 16, accent.darkened(0.45), 1.0, true)
 	draw_rect(Rect2(center - Vector2(4.0, 4.0), Vector2(8.0, 8.0)), accent, true)
@@ -1308,32 +1533,36 @@ func _draw_execution_speed_control() -> void:
 	var slider := _execution_speed_slider_rect()
 	if slider.size.x <= 0.0:
 		return
-	var displayed_speed := roundi(execution_speed_rps)
-	draw_string(ThemeDB.fallback_font, slider.position + Vector2(0.0, -7.0), "%d RPS" % displayed_speed, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, TEXT_MUTED)
-	draw_line(slider.position, Vector2(slider.end.x, slider.position.y), Color("302e35"), 3.0, true)
+	draw_string(ThemeDB.fallback_font, slider.position + Vector2(0.0, -7.0), "%.1f RPS" % execution_speed_rps, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, TEXT_MUTED)
+	draw_line(slider.position, Vector2(slider.end.x, slider.position.y), Color("1a140e"), 3.0, true)
 	var amount := (execution_speed_rps - EXECUTION_MIN_RPS) / (EXECUTION_MAX_RPS - EXECUTION_MIN_RPS)
 	var marker_position := Vector2(slider.position.x + slider.size.x * amount, slider.position.y)
-	draw_line(slider.position, marker_position, Color("8be5fc"), 3.0, true)
-	draw_circle(marker_position, 5.0, Color("0a0f14"), true)
-	draw_arc(marker_position, 5.0, 0.0, TAU, 16, Color("8be5fc"), 1.3, true)
+	draw_line(slider.position, marker_position, GOLD_BRIGHT, 3.0, true)
+	draw_circle(marker_position, 5.0, Color("1a140e"), true)
+	draw_arc(marker_position, 5.0, 0.0, TAU, 16, GOLD_GLOW, 1.3, true)
 
 
 func _draw_resize_handles() -> void:
 	if left_panel_open:
 		var x := left_panel_size
-		draw_line(Vector2(x, 44.0), Vector2(x, size.y - 44.0), Color("aaa7b0"), 2.0, true)
+		draw_line(Vector2(x, 44.0), Vector2(x, size.y - 44.0), PANEL_BORDER, 2.0, true)
 		for offset in [-6.0, 0.0, 6.0]:
-			draw_circle(Vector2(x, size.y * 0.5 + offset), 1.4, Color("e0dce4"))
+			draw_circle(Vector2(x, size.y * 0.5 + offset), 1.5, GOLD_GLOW)
+	if right_panel_open:
+		var right_x := size.x - right_panel_size
+		draw_line(Vector2(right_x, 44.0), Vector2(right_x, size.y - 44.0), PANEL_BORDER, 2.0, true)
+		for offset in [-6.0, 0.0, 6.0]:
+			draw_circle(Vector2(right_x, size.y * 0.5 + offset), 1.5, GOLD_GLOW)
 	if top_panel_open:
 		var y := top_panel_size
-		draw_line(Vector2(_left_panel_width() + 44.0, y), Vector2(size.x - 44.0, y), Color("aaa7b0"), 2.0, true)
+		draw_line(Vector2(_left_panel_width() + 44.0, y), Vector2(size.x - _right_panel_width() - 44.0, y), PANEL_BORDER, 2.0, true)
 		for offset in [-6.0, 0.0, 6.0]:
-			draw_circle(Vector2(size.x * 0.5 + offset, y), 1.4, Color("e0dce4"))
+			draw_circle(Vector2(size.x * 0.5 + offset, y), 1.5, GOLD_GLOW)
 	if bottom_panel_open:
 		var y := size.y - bottom_panel_size
-		draw_line(Vector2(_left_panel_width() + 44.0, y), Vector2(size.x - 44.0, y), Color("aaa7b0"), 2.0, true)
+		draw_line(Vector2(_left_panel_width() + 44.0, y), Vector2(size.x - _right_panel_width() - 44.0, y), PANEL_BORDER, 2.0, true)
 		for offset in [-6.0, 0.0, 6.0]:
-			draw_circle(Vector2(size.x * 0.5 + offset, y), 1.4, Color("e0dce4"))
+			draw_circle(Vector2(size.x * 0.5 + offset, y), 1.5, GOLD_GLOW)
 
 
 func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) -> void:
@@ -1432,24 +1661,53 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 			draw_line(center + Vector2(-r * 0.66, r * 0.66), center + Vector2(r * 0.66, -r * 0.66), color, main_stroke, true)
 			draw_circle(center + Vector2(r * 0.58, r * 0.58), r * 0.12, color)
 		"AND":
-			var and_top := center + Vector2(0.0, -r * 0.70)
-			var and_bottom_left := center + Vector2(-r * 0.70, r * 0.68)
-			var and_bottom_right := center + Vector2(r * 0.70, r * 0.68)
-			draw_line(and_bottom_left, center + Vector2(-r * 0.42, -r * 0.56), color, main_stroke, true)
-			draw_arc(and_top + Vector2(0.0, r * 0.38), r * 0.48, PI, TAU, 16, color, main_stroke, true)
-			draw_line(center + Vector2(r * 0.48, 0.0), and_bottom_right, color, main_stroke, true)
-			draw_line(and_bottom_left, and_bottom_right, color, fine_stroke, true)
+			var and_left := center + Vector2(-r * 0.84, 0.0)
+			var and_right := center + Vector2(r * 0.84, 0.0)
+			draw_line(and_left, and_right, color, main_stroke, true)
+			draw_line(and_left, and_left + Vector2(r * 0.34, -r * 0.34), color, main_stroke, true)
+			draw_line(and_left, and_left + Vector2(r * 0.34, r * 0.34), color, main_stroke, true)
+			draw_line(and_right, and_right + Vector2(-r * 0.34, -r * 0.34), color, main_stroke, true)
+			draw_line(and_right, and_right + Vector2(-r * 0.34, r * 0.34), color, main_stroke, true)
 		"OR":
-			var or_left := center + Vector2(-r * 0.60, 0.0)
-			draw_arc(or_left + Vector2(r * 0.18, 0.0), r * 0.76, PI * 1.20, TAU * 0.80, 18, color, main_stroke, true)
-			draw_arc(center + Vector2(r * 0.05, 0.0), r * 0.76, PI * 1.20, TAU * 0.80, 18, color, fine_stroke, true)
-			draw_circle(center + Vector2(r * 0.64, 0.0), r * 0.13, color)
+			var or_left_tip := center + Vector2(-r * 0.86, -r * 0.34)
+			var or_right_tip := center + Vector2(r * 0.86, r * 0.34)
+			var or_left_tail := center + Vector2(r * 0.20, -r * 0.34)
+			var or_right_tail := center + Vector2(-r * 0.20, r * 0.34)
+			draw_line(or_left_tail, or_left_tip, color, main_stroke, true)
+			draw_line(or_left_tip, or_left_tip + Vector2(r * 0.34, -r * 0.30), color, main_stroke, true)
+			draw_line(or_left_tip, or_left_tip + Vector2(r * 0.34, r * 0.30), color, main_stroke, true)
+			draw_line(or_right_tail, or_right_tip, color, main_stroke, true)
+			draw_line(or_right_tip, or_right_tip + Vector2(-r * 0.34, -r * 0.30), color, main_stroke, true)
+			draw_line(or_right_tip, or_right_tip + Vector2(-r * 0.34, r * 0.30), color, main_stroke, true)
+		"PRINTLETTER":
+			var letter_top := center + Vector2(0.0, -r * 0.86)
+			var letter_left := center + Vector2(-r * 0.67, r * 0.78)
+			var letter_right := center + Vector2(r * 0.67, r * 0.78)
+			draw_line(letter_left, letter_top, color, main_stroke, true)
+			draw_line(letter_top, letter_right, color, main_stroke, true)
+			draw_line(center + Vector2(-r * 0.36, r * 0.12), center + Vector2(r * 0.36, r * 0.12), color, fine_stroke, true)
+			draw_circle(center + Vector2(0.0, r * 0.52), r * 0.10, color)
+		"JUMP_IF_TRUE":
+			var jump_start := center + Vector2(-r * 0.82, r * 0.62)
+			var jump_branch := center + Vector2(-r * 0.12, r * 0.08)
+			var jump_tip := center + Vector2(r * 0.82, -r * 0.62)
+			draw_line(jump_start, jump_branch, color, main_stroke, true)
+			draw_line(jump_branch, jump_tip, color, main_stroke, true)
+			draw_line(jump_tip, jump_tip + Vector2(-r * 0.34, -r * 0.06), color, main_stroke, true)
+			draw_line(jump_tip, jump_tip + Vector2(-r * 0.06, r * 0.34), color, main_stroke, true)
+			draw_circle(jump_branch, r * 0.16, color)
 		"WARP":
 			draw_arc(center, r * 0.84, PI * 0.14, TAU * 0.86, 20, color, main_stroke, true)
 			draw_arc(center, r * 0.48, PI * 1.14, TAU * 1.86, 16, color, fine_stroke, true)
 			draw_line(center + Vector2(-r * 0.46, 0.0), center + Vector2(r * 0.28, 0.0), color, fine_stroke, true)
 			draw_line(center + Vector2(r * 0.28, 0.0), center + Vector2(r * 0.03, -r * 0.23), color, fine_stroke, true)
 			draw_line(center + Vector2(r * 0.28, 0.0), center + Vector2(r * 0.03, r * 0.23), color, fine_stroke, true)
+		"WARP_ENDPOINT":
+			draw_arc(center, r * 0.84, 0.0, TAU, 22, color, main_stroke, true)
+			draw_arc(center, r * 0.50, 0.0, TAU, 18, color, fine_stroke, true)
+			draw_circle(center, r * 0.18, color)
+			draw_line(center + Vector2(0.0, -r * 1.02), center + Vector2(0.0, -r * 0.62), color, fine_stroke, true)
+			draw_line(center + Vector2(0.0, r * 0.62), center + Vector2(0.0, r * 1.02), color, fine_stroke, true)
 		"INT_MOD":
 			draw_arc(center, r * 0.82, 0.0, TAU, 20, color, main_stroke, true)
 			draw_line(center + Vector2(-r * 0.42, 0.0), center + Vector2(r * 0.42, 0.0), color, fine_stroke, true)
@@ -1468,13 +1726,18 @@ func _is_canvas_position(screen_position: Vector2) -> bool:
 
 func _canvas_rect() -> Rect2:
 	var left := _left_panel_width()
+	var right := _right_panel_width()
 	var top := _top_panel_height()
 	var bottom := _bottom_panel_height()
-	return Rect2(left, top, maxf(size.x - left, 0.0), maxf(size.y - top - bottom, 0.0))
+	return Rect2(left, top, maxf(size.x - left - right, 0.0), maxf(size.y - top - bottom, 0.0))
 
 
 func _left_panel_width() -> float:
 	return left_panel_size if left_panel_open else PANEL_TAB_SIZE
+
+
+func _right_panel_width() -> float:
+	return right_panel_size if right_panel_open else PANEL_TAB_SIZE
 
 
 func _top_panel_height() -> float:
@@ -1487,13 +1750,18 @@ func _bottom_panel_height() -> float:
 
 func _top_panel_rect() -> Rect2:
 	var left := _left_panel_width()
-	return Rect2(left, 0.0, maxf(size.x - left, 0.0), _top_panel_height())
+	return Rect2(left, 0.0, maxf(size.x - left - _right_panel_width(), 0.0), _top_panel_height())
 
 
 func _bottom_panel_rect() -> Rect2:
 	var left := _left_panel_width()
 	var panel_height := _bottom_panel_height()
-	return Rect2(left, size.y - panel_height, maxf(size.x - left, 0.0), panel_height)
+	return Rect2(left, size.y - panel_height, maxf(size.x - left - _right_panel_width(), 0.0), panel_height)
+
+
+func _right_panel_rect() -> Rect2:
+	var panel_width := _right_panel_width()
+	return Rect2(size.x - panel_width, 0.0, panel_width, size.y)
 
 
 func _left_toggle_rect() -> Rect2:
@@ -1503,12 +1771,20 @@ func _left_toggle_rect() -> Rect2:
 
 
 func _top_toggle_rect() -> Rect2:
-	return Rect2(size.x - 38.0, 6.0, 30.0, 30.0)
+	var panel := _top_panel_rect()
+	return Rect2(panel.end.x - 38.0, 6.0, 30.0, 30.0)
 
 
 func _bottom_toggle_rect() -> Rect2:
 	var panel := _bottom_panel_rect()
-	return Rect2(size.x - 38.0, panel.position.y + 6.0, 30.0, 30.0)
+	return Rect2(panel.end.x - 38.0, panel.position.y + 6.0, 30.0, 30.0)
+
+
+func _right_toggle_rect() -> Rect2:
+	var panel := _right_panel_rect()
+	if right_panel_open:
+		return Rect2(panel.position.x + 8.0, 8.0, 30.0, 30.0)
+	return Rect2(panel.position.x + 6.0, size.y * 0.5 - 15.0, 30.0, 30.0)
 
 
 func _panel_toggle_at(screen_position: Vector2) -> String:
@@ -1518,6 +1794,8 @@ func _panel_toggle_at(screen_position: Vector2) -> String:
 		return "top"
 	if _bottom_toggle_rect().has_point(screen_position):
 		return "bottom"
+	if _right_toggle_rect().has_point(screen_position):
+		return "right"
 	return ""
 
 
@@ -1525,6 +1803,8 @@ func _toggle_panel(panel: String) -> void:
 	match panel:
 		"left":
 			left_panel_open = not left_panel_open
+		"right":
+			right_panel_open = not right_panel_open
 		"top":
 			top_panel_open = not top_panel_open
 		"bottom":
@@ -1534,11 +1814,11 @@ func _toggle_panel(panel: String) -> void:
 
 
 func _play_button_rect() -> Rect2:
-	return Rect2(size.x - 110.0, 6.0, 30.0, 30.0)
+	return Rect2(_top_panel_rect().end.x - 110.0, 6.0, 30.0, 30.0)
 
 
 func _stop_button_rect() -> Rect2:
-	return Rect2(size.x - 74.0, 6.0, 30.0, 30.0)
+	return Rect2(_top_panel_rect().end.x - 74.0, 6.0, 30.0, 30.0)
 
 
 func _execution_speed_slider_rect() -> Rect2:
@@ -1552,16 +1832,18 @@ func _update_execution_speed(screen_position: Vector2) -> void:
 	if slider.size.x <= 0.0:
 		return
 	var amount := clampf((screen_position.x - slider.position.x) / slider.size.x, 0.0, 1.0)
-	execution_speed_rps = clampf(round(lerpf(EXECUTION_MIN_RPS, EXECUTION_MAX_RPS, amount)), EXECUTION_MIN_RPS, EXECUTION_MAX_RPS)
+	execution_speed_rps = clampf(round(lerpf(EXECUTION_MIN_RPS, EXECUTION_MAX_RPS, amount) * 10.0) / 10.0, EXECUTION_MIN_RPS, EXECUTION_MAX_RPS)
 
 
 func _resize_handle_at(screen_position: Vector2) -> String:
 	if left_panel_open and absf(screen_position.x - left_panel_size) <= 6.0:
 		return "left"
-	if top_panel_open and screen_position.x >= _left_panel_width() and absf(screen_position.y - top_panel_size) <= 6.0:
+	if right_panel_open and absf(screen_position.x - (size.x - right_panel_size)) <= 6.0:
+		return "right"
+	if top_panel_open and screen_position.x >= _top_panel_rect().position.x and screen_position.x <= _top_panel_rect().end.x and absf(screen_position.y - top_panel_size) <= 6.0:
 		return "top"
 	var bottom_edge := size.y - bottom_panel_size
-	if bottom_panel_open and screen_position.x >= _left_panel_width() and absf(screen_position.y - bottom_edge) <= 6.0:
+	if bottom_panel_open and screen_position.x >= _bottom_panel_rect().position.x and screen_position.x <= _bottom_panel_rect().end.x and absf(screen_position.y - bottom_edge) <= 6.0:
 		return "bottom"
 	return ""
 
@@ -1572,6 +1854,8 @@ func _begin_resize(panel: String) -> void:
 	match panel:
 		"left":
 			resize_start_size = left_panel_size
+		"right":
+			resize_start_size = right_panel_size
 		"top":
 			resize_start_size = top_panel_size
 		"bottom":
@@ -1581,8 +1865,11 @@ func _begin_resize(panel: String) -> void:
 func _resize_panel(screen_position: Vector2) -> void:
 	match drag_mode:
 		"resize_left":
-			var max_width := maxf(MIN_LEFT_PANEL_WIDTH, size.x - 190.0)
+			var max_width := maxf(MIN_LEFT_PANEL_WIDTH, size.x - _right_panel_width() - 190.0)
 			left_panel_size = clampf(resize_start_size + (screen_position.x - resize_start_mouse.x), MIN_LEFT_PANEL_WIDTH, max_width)
+		"resize_right":
+			var max_right_width := maxf(MIN_RIGHT_PANEL_WIDTH, size.x - _left_panel_width() - 190.0)
+			right_panel_size = clampf(resize_start_size - (screen_position.x - resize_start_mouse.x), MIN_RIGHT_PANEL_WIDTH, max_right_width)
 		"resize_top":
 			var max_top_height := maxf(MIN_TOP_PANEL_HEIGHT, size.y - _bottom_panel_height() - 120.0)
 			top_panel_size = clampf(resize_start_size + (screen_position.y - resize_start_mouse.y), MIN_TOP_PANEL_HEIGHT, max_top_height)
@@ -1633,7 +1920,7 @@ func _display_connection_intensity(connection_index: int, connection: Dictionary
 
 func _intensity_color(intensity: int) -> Color:
 	var amount := float(clampi(intensity, 0, 255)) / 255.0
-	return Color("211d29").lerp(Color("fff0ad"), amount)
+	return LEATHER_LIGHT.lerp(GOLD_GLOW, amount)
 
 
 func _begin_intensity_drag() -> void:
@@ -1764,6 +2051,147 @@ func _select_connections_in_rect(rect: Rect2, additive: bool) -> void:
 	selected_symbol_connection = -1
 
 
+func _begin_selection_move() -> void:
+	if selected_connections.is_empty():
+		return
+	drag_mode = "selection_move_pending"
+	selection_move_press_screen = pointer_screen
+	selection_move_origin_world = _screen_to_world(pointer_screen)
+	selection_move_offset = Vector2.ZERO
+
+
+func _selected_connection_uses_anchor(world_point: Vector2) -> bool:
+	for connection_index in selected_connections:
+		if connection_index < 0 or connection_index >= connections.size():
+			continue
+		var connection: Dictionary = connections[connection_index]
+		var from_point: Vector2 = connection["from"]
+		var to_point: Vector2 = connection["to"]
+		if from_point.is_equal_approx(world_point) or to_point.is_equal_approx(world_point):
+			return true
+	return false
+
+
+func _update_selection_move() -> void:
+	var raw_offset := _screen_to_world(pointer_screen) - selection_move_origin_world
+	selection_move_offset = _snap_world_to_grid(raw_offset)
+
+
+func _complete_selection_move() -> void:
+	if not selection_move_offset.is_zero_approx() and diagram.move_connections(selected_connections, selection_move_offset):
+		selected_symbol_connection = -1
+		_clear_diagram_animations()
+	selection_move_offset = Vector2.ZERO
+
+
+func _snap_world_to_grid(world_position: Vector2) -> Vector2:
+	return Vector2(
+		round(world_position.x / GRID_SPACING) * GRID_SPACING,
+		round(world_position.y / GRID_SPACING) * GRID_SPACING
+	)
+
+
+func _copy_selected_connections_to_clipboard() -> void:
+	if selected_connections.is_empty():
+		return
+	var copied_connections: Array = []
+	for connection_index in selected_connections:
+		if connection_index < 0 or connection_index >= connections.size():
+			continue
+		var connection: Dictionary = connections[connection_index]
+		var from_point: Vector2 = connection["from"]
+		var to_point: Vector2 = connection["to"]
+		copied_connections.append({
+			"from": [from_point.x, from_point.y],
+			"to": [to_point.x, to_point.y],
+			"symbol": str(connection.get("symbol", "")),
+			"intensity": clampi(int(connection.get("intensity", 128)), 0, 255)
+		})
+	if copied_connections.is_empty():
+		return
+	var payload := {"version": 1, "connections": copied_connections}
+	DisplayServer.clipboard_set(CLIPBOARD_RITUAL_PREFIX + "\n" + JSON.stringify(payload))
+
+
+func _paste_connections_from_clipboard() -> void:
+	if ritual_running:
+		return
+	var clipboard_text: String = DisplayServer.clipboard_get()
+	if not clipboard_text.begins_with(CLIPBOARD_RITUAL_PREFIX):
+		return
+	var clipboard_payload := clipboard_text.trim_prefix(CLIPBOARD_RITUAL_PREFIX).strip_edges()
+	var parsed_payload: Variant = JSON.parse_string(clipboard_payload)
+	if not (parsed_payload is Dictionary):
+		return
+	var payload: Dictionary = parsed_payload
+	if int(payload.get("version", 0)) != 1:
+		return
+	var raw_connections: Variant = payload.get("connections", [])
+	if not (raw_connections is Array):
+		return
+
+	var source_connections: Array[Dictionary] = []
+	var minimum_point := Vector2(INF, INF)
+	var maximum_point := Vector2(-INF, -INF)
+	for raw_connection in raw_connections:
+		if not (raw_connection is Dictionary):
+			return
+		var serialized_connection: Dictionary = raw_connection
+		var from_data := _clipboard_point_from_json(serialized_connection.get("from"))
+		var to_data := _clipboard_point_from_json(serialized_connection.get("to"))
+		if from_data.is_empty() or to_data.is_empty():
+			return
+		var from_point: Vector2 = from_data["point"]
+		var to_point: Vector2 = to_data["point"]
+		var symbol: String = str(serialized_connection.get("symbol", ""))
+		if not symbol.is_empty() and RuneCatalog.opcode_for_kind(symbol) < 0:
+			return
+		var intensity := clampi(int(serialized_connection.get("intensity", 128)), 0, 255)
+		source_connections.append({"from": from_point, "to": to_point, "symbol": symbol, "intensity": intensity})
+		minimum_point = Vector2(minf(minimum_point.x, minf(from_point.x, to_point.x)), minf(minimum_point.y, minf(from_point.y, to_point.y)))
+		maximum_point = Vector2(maxf(maximum_point.x, maxf(from_point.x, to_point.x)), maxf(maximum_point.y, maxf(from_point.y, to_point.y)))
+	if source_connections.is_empty():
+		return
+
+	var canvas := _canvas_rect()
+	var target_screen := canvas.position + Vector2(maxf(canvas.size.x - GRID_SPACING * 1.5, 0.0), GRID_SPACING * 1.5)
+	var target_top_right := _snap_world_to_grid(_screen_to_world(target_screen))
+	var source_top_right := Vector2(maximum_point.x, minimum_point.y)
+	var base_offset := target_top_right - source_top_right
+	var pasted_indices: Array[int] = []
+	for attempt in range(16):
+		var offset := base_offset + Vector2(-GRID_SPACING * attempt, GRID_SPACING * attempt)
+		var pasted_connections: Array = []
+		for source_connection in source_connections:
+			var from_point: Vector2 = source_connection["from"]
+			var to_point: Vector2 = source_connection["to"]
+			pasted_connections.append({
+				"from": from_point + offset,
+				"to": to_point + offset,
+				"symbol": str(source_connection["symbol"]),
+				"intensity": int(source_connection["intensity"])
+			})
+		pasted_indices = diagram.append_connections(pasted_connections)
+		if not pasted_indices.is_empty():
+			break
+	if pasted_indices.is_empty():
+		return
+	selected_connections = pasted_indices
+	_update_primary_selection()
+	selected_symbol_connection = -1
+	_clear_diagram_animations()
+	queue_redraw()
+
+
+func _clipboard_point_from_json(raw_value: Variant) -> Dictionary:
+	if not (raw_value is Array):
+		return {}
+	var coordinates: Array = raw_value
+	if coordinates.size() != 2:
+		return {}
+	return {"point": Vector2(float(coordinates[0]), float(coordinates[1]))}
+
+
 func _connection_intersects_selection_rect(index: int, rect: Rect2) -> bool:
 	var connection: Dictionary = connections[index]
 	var from_screen := _world_to_screen(connection["from"])
@@ -1819,7 +2247,7 @@ func _update_hover() -> void:
 	if hover_point_valid:
 		hover_world = candidate["point"]
 	var is_rectangle_selecting := drag_mode == "selection" or drag_mode == "selection_pending"
-	var is_moving_anchor := drag_mode == "anchor_pending" or drag_mode == "move_anchor"
+	var is_moving_anchor := drag_mode == "move_anchor" or anchor_move_settle_active
 	if _is_canvas_position(pointer_screen) and drag_mode != "connect" and not is_moving_anchor and not is_rectangle_selecting:
 		hovered_symbol = _symbol_at(pointer_screen)
 	else:
@@ -1993,8 +2421,8 @@ func _draw_palette_scrollbar() -> void:
 	var thumb_width := maxf(28.0, track.size.x * track.size.x / content_width)
 	var travel := maxf(track.size.x - thumb_width, 0.0)
 	var thumb_x := track.position.x + travel * (clampf(palette_scroll, 0.0, max_scroll) / max_scroll)
-	draw_line(track.position, Vector2(track.end.x, track.position.y), Color("302e35"), 2.0, true)
-	draw_line(Vector2(thumb_x, track.position.y), Vector2(thumb_x + thumb_width, track.position.y), Color("a59b7a"), 2.0, true)
+	draw_line(track.position, Vector2(track.end.x, track.position.y), Color("1a140e"), 2.0, true)
+	draw_line(Vector2(thumb_x, track.position.y), Vector2(thumb_x + thumb_width, track.position.y), PANEL_ACCENT, 2.0, true)
 
 
 func _draw_palette_scroll_masks(viewport: Rect2) -> void:
@@ -2131,10 +2559,18 @@ func _reset_drag() -> void:
 	anchor_snap_active = false
 	anchor_move_source = Vector2.ZERO
 	anchor_move_target = Vector2.ZERO
-	anchor_move_target_valid = false
+	anchor_move_snap_target = Vector2.ZERO
+	anchor_move_snap_target_valid = false
 	anchor_move_press_screen = Vector2.ZERO
+	anchor_move_settle_active = false
+	anchor_move_settle_from = Vector2.ZERO
+	anchor_move_settle_to = Vector2.ZERO
+	anchor_move_settle_started_at = 0.0
 	selection_rect = Rect2()
 	selection_rect_additive = false
+	selection_move_press_screen = Vector2.ZERO
+	selection_move_origin_world = Vector2.ZERO
+	selection_move_offset = Vector2.ZERO
 	left_scroll_pressed_connection = -1
 	left_scroll_additive = false
 	intensity_drag_start_snapshot = []

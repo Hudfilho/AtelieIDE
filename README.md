@@ -71,9 +71,12 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 | Arco unido | `AND` | Coloca `1` somente quando os dois booleanos forem `1`. |
 | Arco aberto | `OR` | Coloca `1` quando pelo menos um dos booleanos for `1`. |
 | Portal | `WARP` | Salta para outro `WARP` com a mesma intensidade. |
+| Portal selado | `WARP END` | Destino compartilhado por todos os `WARP` com a mesma intensidade. |
+| Seta de decisão | `JUMP_IF_TRUE` | Se o selo seguinte tiver intensidade `001`, salta para o `WARP` ou `WARP END` com a mesma intensidade. |
 | Círculo modificado | `INT_MOD` | Aplica uma operação à intensidade do selo-alvo. |
 | Quadrado modificado | `INT_SET` | Aguarda qualquer runa que produza um inteiro e o aplica ao selo-alvo. |
 | Triângulo | `PRINT` | Mostra o valor no Oráculo. |
+| Letra rúnica | `PRINTLETTER` | Mostra o caractere Unicode indicado pela intensidade: `032` é espaço e `010` é quebra de linha. |
 | Cruz (X) | `HALT` | Encerra a execução. |
 | Quadrado | `STORE` | Guarda o topo da pilha em uma posição de memória. |
 | Forquilha | `LOAD` | Lê uma posição de memória para a pilha. |
@@ -112,7 +115,7 @@ scripts/
 
 ## Bytecode `RUNE`
 
-O formato binário começa com a assinatura `RUNE`, seguida por uma versão, quantidade de instruções e os opcodes. Cada instrução carrega sua intensidade de `0` a `255`; em instruções como `PUSH`, `STORE`, `LOAD` e `WARP`, essa intensidade também é o operando numérico.
+O formato binário começa com a assinatura `RUNE`, seguida por uma versão, quantidade de instruções e os opcodes. Cada instrução carrega sua intensidade de `0` a `255`; em instruções como `PUSH`, `STORE`, `LOAD`, `WARP` e `PRINTLETTER`, essa intensidade também é o operando numérico.
 
 Cada instrução ocupa dois bytes: `[opcode][intensidade]`. Por exemplo, `PUSH 006` é `01 06` em hexadecimal, ou `00000001 00000110` em binário. Selos que não usam operando ainda carregam o segundo byte como intensidade visual.
 
@@ -144,6 +147,9 @@ Cada instrução ocupa dois bytes: `[opcode][intensidade]`. Por exemplo, `PUSH 0
 | `NOT` | `18` | `00011000` |
 | `AND` | `19` | `00011001` |
 | `OR` | `1A` | `00011010` |
+| `WARP END` | `1B` | `00011011` |
+| `PRINTLETTER` | `1C` | `00011100` |
+| `JUMP_IF_TRUE` | `1D` | `00011101` |
 
 ## Próximos passos
 
