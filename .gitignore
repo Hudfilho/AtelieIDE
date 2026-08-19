@@ -1,3 +1,10 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# Exportações locais do Windows (geradas pelo Godot)
+*.exe
+*.pck
+*.tmp
+/results/
+/export_presets.cfg
