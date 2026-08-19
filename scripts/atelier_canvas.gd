@@ -34,6 +34,8 @@ const PALETTE_SCROLL_SMOOTHNESS := 15.0
 const GRID_SPACING := 48.0
 const DOT_RADIUS := 3.4
 const DOT_HIT_RADIUS := 14.0
+const GRID_DOT_MIN_SCREEN_SPACING := 30.0
+const MAX_VISIBLE_GRID_DOTS := 1400
 const LINE_HIT_RADIUS := 30.0
 const SYMBOL_DRAG_THRESHOLD := 8.0
 const ANCHOR_MOVE_DRAG_THRESHOLD := 6.0
@@ -565,22 +567,55 @@ func _draw_grid(canvas_rect: Rect2) -> void:
 	var last_x := int(ceil(bottom_right_world.x / GRID_SPACING)) + 1
 	var first_y := int(floor(top_left_world.y / GRID_SPACING)) - 1
 	var last_y := int(ceil(bottom_right_world.y / GRID_SPACING)) + 1
+	var grid_step := _grid_draw_step(last_x - first_x + 1, last_y - first_y + 1)
+	var draw_first_x := int(floor(float(first_x) / float(grid_step))) * grid_step
+	var draw_first_y := int(floor(float(first_y) / float(grid_step))) * grid_step
+	var anchor_counts := _anchor_point_counts()
+	var hover_was_drawn := false
+	var density_alpha := 1.0 / float(grid_step)
 
-	for x in range(first_x, last_x + 1):
-		for y in range(first_y, last_y + 1):
+	for x in range(draw_first_x, last_x + 1, grid_step):
+		for y in range(draw_first_y, last_y + 1, grid_step):
 			var world_point := Vector2(x * GRID_SPACING, y * GRID_SPACING)
 			# Pontos que já sustentam uma ligação não aparecem por baixo da linha.
-			if _is_anchor_point(world_point):
+			if int(anchor_counts.get(world_point, 0)) > 1:
 				continue
 			var screen_point := _world_to_screen(world_point)
 			var is_hovered := animated_hover_point_valid and world_point.is_equal_approx(animated_hover_world)
 			var radius := DOT_RADIUS * zoom
 			var color := GRID_DOT
+			color.a *= density_alpha
 			if is_hovered:
 				var highlight_alpha := _hover_alpha(point_hover_started_at)
 				radius = lerpf(radius, 5.0 * zoom, highlight_alpha)
 				color = color.lerp(GRID_DOT_HOVER, highlight_alpha)
+				hover_was_drawn = true
 			draw_circle(screen_point, radius, color)
+
+	# Mesmo nas densidades mais baixas, o ponto embaixo do mouse continua
+	# aparecendo para que a grade nunca pareça imprecisa durante a edição.
+	if animated_hover_point_valid and not hover_was_drawn and int(anchor_counts.get(animated_hover_world, 0)) <= 1:
+		var hover_radius := lerpf(DOT_RADIUS * zoom, 5.0 * zoom, _hover_alpha(point_hover_started_at))
+		var hover_color := GRID_DOT.lerp(GRID_DOT_HOVER, _hover_alpha(point_hover_started_at))
+		draw_circle(_world_to_screen(animated_hover_world), hover_radius, hover_color)
+
+
+func _grid_draw_step(columns: int, rows: int) -> int:
+	var screen_spacing := GRID_SPACING * zoom
+	var spacing_step := maxi(1, int(ceil(GRID_DOT_MIN_SCREEN_SPACING / maxf(screen_spacing, 0.001))))
+	var raw_dot_count := maxi(columns * rows, 1)
+	var budget_step := maxi(1, int(ceil(sqrt(float(raw_dot_count) / float(MAX_VISIBLE_GRID_DOTS)))))
+	return maxi(spacing_step, budget_step)
+
+
+func _anchor_point_counts() -> Dictionary:
+	var counts := {}
+	for connection in connections:
+		var from_point: Vector2 = connection["from"]
+		var to_point: Vector2 = connection["to"]
+		counts[from_point] = int(counts.get(from_point, 0)) + 1
+		counts[to_point] = int(counts.get(to_point, 0)) + 1
+	return counts
 
 
 func _is_anchor_point(world_point: Vector2) -> bool:
