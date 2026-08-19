@@ -26,18 +26,48 @@ func run(bytecode: PackedByteArray) -> Dictionary:
 		match opcode:
 			RuneCatalog.OPCODE_PUSH:
 				stack.append(int(instruction["operand"]))
-			RuneCatalog.OPCODE_ADD, RuneCatalog.OPCODE_SUB, RuneCatalog.OPCODE_MUL:
+			RuneCatalog.OPCODE_DROP:
+				if stack.is_empty():
+					errors.append("DROP precisa de um valor na pilha.")
+					break
+				stack.pop_back()
+			RuneCatalog.OPCODE_DUP:
+				if stack.is_empty():
+					errors.append("DUP precisa de um valor na pilha.")
+					break
+				stack.append(int(stack.back()))
+			RuneCatalog.OPCODE_SWAP:
+				if stack.size() < 2:
+					errors.append("SWAP precisa de dois valores na pilha.")
+					break
+				var swap_right := int(stack.pop_back())
+				var swap_left := int(stack.pop_back())
+				stack.append(swap_right)
+				stack.append(swap_left)
+			RuneCatalog.OPCODE_NEG:
+				if stack.is_empty():
+					errors.append("NEG precisa de um valor na pilha.")
+					break
+				stack.append(-int(stack.pop_back()))
+			RuneCatalog.OPCODE_ADD, RuneCatalog.OPCODE_SUB, RuneCatalog.OPCODE_MUL, RuneCatalog.OPCODE_DIV, RuneCatalog.OPCODE_MOD:
 				if stack.size() < 2:
 					errors.append("%s precisa de dois valores na pilha." % RuneCatalog.name_for_opcode(opcode))
 					break
 				var right := int(stack.pop_back())
 				var left := int(stack.pop_back())
+				if (opcode == RuneCatalog.OPCODE_DIV or opcode == RuneCatalog.OPCODE_MOD) and right == 0:
+					errors.append("%s não aceita divisão por zero." % RuneCatalog.name_for_opcode(opcode))
+					break
 				if opcode == RuneCatalog.OPCODE_ADD:
 					stack.append(left + right)
 				elif opcode == RuneCatalog.OPCODE_SUB:
 					stack.append(left - right)
-				else:
+				elif opcode == RuneCatalog.OPCODE_MUL:
 					stack.append(left * right)
+				elif opcode == RuneCatalog.OPCODE_DIV:
+					stack.append(int(left / right))
+				else:
+					stack.append(left % right)
 			RuneCatalog.OPCODE_PRINT:
 				if stack.is_empty():
 					errors.append("PRINT precisa de um valor na pilha.")

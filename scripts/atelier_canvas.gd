@@ -1055,6 +1055,31 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 			draw_line(center + Vector2(-r * 0.75, -r * 0.15), center + Vector2(r * 0.75, -r * 0.15), color, 2.4 * rune_scale, true)
 			draw_line(center + Vector2(-r * 0.75, r * 0.42), center + Vector2(r * 0.35, r * 0.42), color, 2.4 * rune_scale, true)
 			draw_circle(center + Vector2(r * 0.55, -r * 0.15), r * 0.16, color)
+		"CUP":
+			draw_line(center + Vector2(-r * 0.82, -r * 0.62), center + Vector2(0.0, r * 0.72), color, main_stroke, true)
+			draw_line(center + Vector2(0.0, r * 0.72), center + Vector2(r * 0.82, -r * 0.62), color, main_stroke, true)
+			draw_line(center + Vector2(-r * 0.96, -r * 0.62), center + Vector2(r * 0.96, -r * 0.62), color, fine_stroke, true)
+		"TWIN":
+			var twin_left := center + Vector2(-r * 0.34, 0.0)
+			var twin_right := center + Vector2(r * 0.34, 0.0)
+			draw_arc(twin_left, r * 0.48, 0.0, TAU, 18, color, main_stroke, true)
+			draw_arc(twin_right, r * 0.48, 0.0, TAU, 18, color, main_stroke, true)
+		"KNOT":
+			draw_line(center + Vector2(-r * 0.9, -r * 0.5), center + Vector2(r * 0.9, r * 0.5), color, main_stroke, true)
+			draw_line(center + Vector2(-r * 0.9, r * 0.5), center + Vector2(r * 0.9, -r * 0.5), color, main_stroke, true)
+			draw_circle(center + Vector2(-r * 0.62, -r * 0.34), r * 0.16, color)
+			draw_circle(center + Vector2(r * 0.62, r * 0.34), r * 0.16, color)
+		"SLASH":
+			draw_line(center + Vector2(-r * 0.62, r * 0.9), center + Vector2(r * 0.62, -r * 0.9), color, main_stroke, true)
+			draw_circle(center + Vector2(-r * 0.58, -r * 0.62), r * 0.15, color)
+			draw_circle(center + Vector2(r * 0.58, r * 0.62), r * 0.15, color)
+		"SPIRAL":
+			draw_arc(center, r * 0.82, PI * 0.18, TAU * 0.92, 20, color, main_stroke, true)
+			draw_arc(center + Vector2(r * 0.13, 0.0), r * 0.42, PI * 1.08, TAU * 1.82, 16, color, main_stroke, true)
+			draw_circle(center + Vector2(-r * 0.28, -r * 0.12), r * 0.11, color)
+		"DASH":
+			draw_line(center + Vector2(-r * 0.92, 0.0), center + Vector2(r * 0.92, 0.0), color, main_stroke, true)
+			draw_line(center + Vector2(-r * 0.38, -r * 0.42), center + Vector2(r * 0.38, -r * 0.42), color, fine_stroke, true)
 
 
 func _is_canvas_position(screen_position: Vector2) -> bool:

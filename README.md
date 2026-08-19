@@ -52,9 +52,15 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 | Selo | Instrução | Efeito |
 | --- | --- | --- |
 | Orbe | `PUSH` | Coloca a intensidade do selo na pilha. |
+| Cálice | `DROP` | Descarta o valor no topo da pilha. |
+| Gêmeos | `DUP` | Duplica o valor no topo da pilha. |
+| Nó | `SWAP` | Troca os dois valores no topo da pilha. |
 | Losango | `ADD` | Soma os dois valores no topo da pilha. |
-| Lua | `SUB` | Subtrai o segundo valor do primeiro. |
-| Sinal de + | `MUL` | Multiplica os dois valores do topo. |
+| Lua | `SUB` | Subtrai o topo do penúltimo valor. |
+| Sinal de + | `MUL` | Multiplica os dois valores no topo da pilha. |
+| Barra | `DIV` | Divide o penúltimo valor pelo valor do topo, com resultado inteiro. |
+| Espiral | `MOD` | Calcula o resto da divisão entre os dois valores do topo. |
+| Traço | `NEG` | Inverte o sinal do valor no topo da pilha. |
 | Triângulo | `PRINT` | Mostra o valor no Oráculo. |
 | Cruz (X) | `HALT` | Encerra a execução. |
 | Quadrado | `STORE` | Guarda o topo da pilha em uma posição de memória. |
