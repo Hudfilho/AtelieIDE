@@ -17,13 +17,20 @@ const DEFAULT_LEFT_PANEL_WIDTH := 304.0
 const DEFAULT_TOP_PANEL_HEIGHT := 196.0
 const DEFAULT_BOTTOM_PANEL_HEIGHT := 224.0
 const MIN_LEFT_PANEL_WIDTH := 190.0
-const MIN_TOP_PANEL_HEIGHT := 106.0
+const MIN_TOP_PANEL_HEIGHT := 112.0
 const MIN_BOTTOM_PANEL_HEIGHT := 120.0
 const LEFT_COMMAND_ROW_HEIGHT := 66.0
 const LEFT_COMMAND_LIST_TOP := 82.0
 const LEFT_COMMAND_SCROLL_STEP := 28.0
 const LEFT_SCROLL_DRAG_THRESHOLD := 4.0
 const LEFT_SCROLL_SMOOTHNESS := 15.0
+const PALETTE_TOP_Y := 38.0
+const PALETTE_MAX_TILE_SIZE := 58.0
+const PALETTE_MIN_TILE_SIZE := 34.0
+const PALETTE_TILE_GAP := 8.0
+const PALETTE_BOTTOM_PADDING := 16.0
+const PALETTE_SCROLL_STEP := 120.0
+const PALETTE_SCROLL_SMOOTHNESS := 15.0
 const GRID_SPACING := 48.0
 const DOT_RADIUS := 3.4
 const DOT_HIT_RADIUS := 14.0
@@ -84,6 +91,8 @@ var top_panel_size := DEFAULT_TOP_PANEL_HEIGHT
 var bottom_panel_size := DEFAULT_BOTTOM_PANEL_HEIGHT
 var left_command_scroll := 0.0
 var left_command_scroll_target := 0.0
+var palette_scroll := 0.0
+var palette_scroll_target := 0.0
 var selected_connection := -1
 var selected_connections: Array[int] = []
 var selected_symbol_connection := -1
@@ -108,6 +117,8 @@ var left_scroll_drag_start_mouse := Vector2.ZERO
 var left_scroll_drag_start_offset := 0.0
 var left_scroll_pressed_connection := -1
 var left_scroll_additive := false
+var palette_scroll_drag_start_mouse := Vector2.ZERO
+var palette_scroll_drag_start_offset := 0.0
 var active_symbol := ""
 var dragged_symbol_source := -1
 var symbol_drag_start_snapshot: Array = []
@@ -154,10 +165,11 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if not anchor_snap_active and not symbol_settle_active and not _hover_transition_active() and not _left_scroll_is_moving() and not ritual_running and not _execution_highlight_active():
+	if not anchor_snap_active and not symbol_settle_active and not _hover_transition_active() and not _left_scroll_is_moving() and not _palette_scroll_is_moving() and not ritual_running and not _execution_highlight_active():
 		return
 	animation_clock += delta
 	_update_left_command_scroll(delta)
+	_update_palette_scroll(delta)
 	if anchor_snap_active and animation_clock - anchor_snap_started_at >= ANCHOR_SNAP_DURATION:
 		_complete_anchor_snap()
 	if ritual_running:
@@ -217,6 +229,8 @@ func _gui_input(event: InputEvent) -> void:
 				_update_left_scroll_drag()
 		elif drag_mode == "left_scroll":
 			_update_left_scroll_drag()
+		elif drag_mode == "palette_scroll":
+			_update_palette_scroll_drag()
 		elif drag_mode == "symbol_pending":
 			# Um clique simples só seleciona o selo. O arraste começa depois de
 			# uma pequena distância, para o selo não sumir ao ser configurado.
@@ -246,6 +260,14 @@ func _gui_input(event: InputEvent) -> void:
 		return
 	if event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed and _left_command_list_rect().has_point(pointer_screen):
 		_scroll_left_commands(1)
+		accept_event()
+		return
+	if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed and _palette_viewport_rect().has_point(pointer_screen):
+		_scroll_palette(-1)
+		accept_event()
+		return
+	if event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed and _palette_viewport_rect().has_point(pointer_screen):
+		_scroll_palette(1)
 		accept_event()
 		return
 	if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed and _is_canvas_position(pointer_screen):
@@ -323,6 +345,11 @@ func _gui_input(event: InputEvent) -> void:
 			return
 		if _left_command_list_rect().has_point(pointer_screen):
 			_begin_left_scroll_gesture(event.ctrl_pressed)
+			queue_redraw()
+			accept_event()
+			return
+		if _palette_scrollbar_rect().grow(2.0).has_point(pointer_screen):
+			_begin_palette_scroll_gesture()
 			queue_redraw()
 			accept_event()
 			return
@@ -1094,8 +1121,7 @@ func _draw_top_panel() -> void:
 		draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 16.0, 27.0), "SELOS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
 		return
 
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 30.0), "SELOS DO ATELIÊ", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 17, TEXT_PRIMARY)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 50.0), "Arraste um símbolo até a linha de um feitiço.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_MUTED)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 24.0), "SELOS E RUNAS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
 
 	for index in range(PALETTE_SYMBOLS.size()):
 		var item: Dictionary = PALETTE_SYMBOLS[index]
@@ -1105,7 +1131,10 @@ func _draw_top_panel() -> void:
 		draw_rect(tile, tile_color, true)
 		draw_rect(tile, PANEL_BORDER.lerp(PANEL_ACCENT, highlight_alpha), false, 2.0)
 		_draw_arcane_tile_mark(tile)
-		_draw_rune(str(item["kind"]), tile.get_center(), 1.05, Color("b5b1bb").lerp(Color("ffe0a3"), highlight_alpha))
+		var tile_scale := 1.05 * tile.size.x / PALETTE_MAX_TILE_SIZE
+		_draw_rune(str(item["kind"]), tile.get_center(), tile_scale, Color("b5b1bb").lerp(Color("ffe0a3"), highlight_alpha))
+	_draw_palette_scroll_masks(_palette_viewport_rect())
+	_draw_palette_scrollbar()
 
 
 func _draw_bottom_panel() -> void:
@@ -1116,7 +1145,7 @@ func _draw_bottom_panel() -> void:
 		draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 16.0, panel.position.y + 27.0), "ORÁCULO", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
 		return
 
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 30.0), "ORÁCULO DE EXECUÇÃO", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 17, TEXT_PRIMARY)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 30.0), "EXECUÇÃO", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 17, TEXT_PRIMARY)
 	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 51.0), "A saída e os erros do programa aparecerão aqui.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_MUTED)
 	var divider_x := panel.position.x + panel.size.x * 0.7
 	draw_line(Vector2(divider_x, panel.position.y + 68.0), Vector2(divider_x, panel.end.y - 16.0), PANEL_BORDER, 1.0, true)
@@ -1143,13 +1172,24 @@ func _draw_palette_tooltip() -> void:
 		return
 	var item: Dictionary = PALETTE_SYMBOLS[hovered_palette_index]
 	var tile := _palette_rect(hovered_palette_index)
-	var tooltip_width := 260.0
-	var tooltip_x := minf(tile.position.x, size.x - tooltip_width - 12.0)
-	var tooltip := Rect2(tooltip_x, tile.end.y + 10.0, tooltip_width, 56.0)
+	var font: Font = ThemeDB.fallback_font
+	var title := str(item["label"])
+	var description := str(item["description"])
+	var max_width := minf(330.0, maxf(size.x - 24.0, 160.0))
+	var title_width := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14).x + 24.0
+	var description_width := font.get_string_size(description, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12).x + 24.0
+	var tooltip_width := clampf(maxf(title_width, description_width), 160.0, max_width)
+	var description_size := font.get_multiline_string_size(description, HORIZONTAL_ALIGNMENT_LEFT, tooltip_width - 24.0, 12)
+	var tooltip_height := 34.0 + description_size.y + 12.0
+	var tooltip_x := clampf(tile.position.x, 12.0, maxf(size.x - tooltip_width - 12.0, 12.0))
+	var tooltip_y := tile.end.y + 10.0
+	if tooltip_y + tooltip_height > size.y - 12.0:
+		tooltip_y = maxf(12.0, tile.position.y - tooltip_height - 10.0)
+	var tooltip := Rect2(tooltip_x, tooltip_y, tooltip_width, tooltip_height)
 	draw_rect(tooltip, Color("0b0a0e"), true)
 	draw_rect(tooltip, Color("b5b1bb"), false, 1.0)
-	draw_string(ThemeDB.fallback_font, tooltip.position + Vector2(12.0, 21.0), str(item["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, Color("ffe0a3"))
-	draw_string(ThemeDB.fallback_font, tooltip.position + Vector2(12.0, 42.0), str(item["description"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_PRIMARY)
+	draw_string(font, tooltip.position + Vector2(12.0, 21.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, Color("ffe0a3"))
+	draw_multiline_string(font, tooltip.position + Vector2(12.0, 42.0), description, HORIZONTAL_ALIGNMENT_LEFT, tooltip_width - 24.0, 12, -1, TEXT_PRIMARY)
 
 
 func _draw_arcane_frame(rect: Rect2) -> void:
@@ -1329,6 +1369,46 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 		"DASH":
 			draw_line(center + Vector2(-r * 0.92, 0.0), center + Vector2(r * 0.92, 0.0), color, main_stroke, true)
 			draw_line(center + Vector2(-r * 0.38, -r * 0.42), center + Vector2(r * 0.38, -r * 0.42), color, fine_stroke, true)
+		"EQ":
+			draw_line(center + Vector2(-r * 0.86, -r * 0.32), center + Vector2(r * 0.86, -r * 0.32), color, main_stroke, true)
+			draw_line(center + Vector2(-r * 0.86, r * 0.32), center + Vector2(r * 0.86, r * 0.32), color, main_stroke, true)
+			draw_circle(center + Vector2(0.0, -r * 0.32), r * 0.14, color)
+			draw_circle(center + Vector2(0.0, r * 0.32), r * 0.14, color)
+		"NEQ":
+			draw_line(center + Vector2(-r * 0.86, -r * 0.32), center + Vector2(r * 0.86, -r * 0.32), color, fine_stroke, true)
+			draw_line(center + Vector2(-r * 0.86, r * 0.32), center + Vector2(r * 0.86, r * 0.32), color, fine_stroke, true)
+			draw_line(center + Vector2(-r * 0.48, r * 0.90), center + Vector2(r * 0.48, -r * 0.90), color, main_stroke, true)
+		"LT":
+			draw_line(center + Vector2(r * 0.64, -r * 0.78), center + Vector2(-r * 0.64, 0.0), color, main_stroke, true)
+			draw_line(center + Vector2(-r * 0.64, 0.0), center + Vector2(r * 0.64, r * 0.78), color, main_stroke, true)
+		"GT":
+			draw_line(center + Vector2(-r * 0.64, -r * 0.78), center + Vector2(r * 0.64, 0.0), color, main_stroke, true)
+			draw_line(center + Vector2(r * 0.64, 0.0), center + Vector2(-r * 0.64, r * 0.78), color, main_stroke, true)
+		"LTE":
+			draw_line(center + Vector2(r * 0.60, -r * 0.80), center + Vector2(-r * 0.60, -r * 0.06), color, main_stroke, true)
+			draw_line(center + Vector2(-r * 0.60, -r * 0.06), center + Vector2(r * 0.60, r * 0.68), color, main_stroke, true)
+			draw_line(center + Vector2(-r * 0.72, r * 0.86), center + Vector2(r * 0.72, r * 0.86), color, fine_stroke, true)
+		"GTE":
+			draw_line(center + Vector2(-r * 0.60, -r * 0.80), center + Vector2(r * 0.60, -r * 0.06), color, main_stroke, true)
+			draw_line(center + Vector2(r * 0.60, -r * 0.06), center + Vector2(-r * 0.60, r * 0.68), color, main_stroke, true)
+			draw_line(center + Vector2(-r * 0.72, r * 0.86), center + Vector2(r * 0.72, r * 0.86), color, fine_stroke, true)
+		"NOT":
+			draw_arc(center, r * 0.76, 0.0, TAU, 20, color, fine_stroke, true)
+			draw_line(center + Vector2(-r * 0.66, r * 0.66), center + Vector2(r * 0.66, -r * 0.66), color, main_stroke, true)
+			draw_circle(center + Vector2(r * 0.58, r * 0.58), r * 0.12, color)
+		"AND":
+			var and_top := center + Vector2(0.0, -r * 0.70)
+			var and_bottom_left := center + Vector2(-r * 0.70, r * 0.68)
+			var and_bottom_right := center + Vector2(r * 0.70, r * 0.68)
+			draw_line(and_bottom_left, center + Vector2(-r * 0.42, -r * 0.56), color, main_stroke, true)
+			draw_arc(and_top + Vector2(0.0, r * 0.38), r * 0.48, PI, TAU, 16, color, main_stroke, true)
+			draw_line(center + Vector2(r * 0.48, 0.0), and_bottom_right, color, main_stroke, true)
+			draw_line(and_bottom_left, and_bottom_right, color, fine_stroke, true)
+		"OR":
+			var or_left := center + Vector2(-r * 0.60, 0.0)
+			draw_arc(or_left + Vector2(r * 0.18, 0.0), r * 0.76, PI * 1.20, TAU * 0.80, 18, color, main_stroke, true)
+			draw_arc(center + Vector2(r * 0.05, 0.0), r * 0.76, PI * 1.20, TAU * 0.80, 18, color, fine_stroke, true)
+			draw_circle(center + Vector2(r * 0.64, 0.0), r * 0.13, color)
 		"WARP":
 			draw_arc(center, r * 0.84, PI * 0.14, TAU * 0.86, 20, color, main_stroke, true)
 			draw_arc(center, r * 0.48, PI * 1.14, TAU * 1.86, 16, color, fine_stroke, true)
@@ -1414,6 +1494,7 @@ func _toggle_panel(panel: String) -> void:
 			top_panel_open = not top_panel_open
 		"bottom":
 			bottom_panel_open = not bottom_panel_open
+	_clamp_palette_scroll()
 	_update_hover()
 
 
@@ -1473,6 +1554,7 @@ func _resize_panel(screen_position: Vector2) -> void:
 		"resize_bottom":
 			var max_bottom_height := maxf(MIN_BOTTOM_PANEL_HEIGHT, size.y - _top_panel_height() - 120.0)
 			bottom_panel_size = clampf(resize_start_size - (screen_position.y - resize_start_mouse.y), MIN_BOTTOM_PANEL_HEIGHT, max_bottom_height)
+	_clamp_palette_scroll()
 	_update_hover()
 
 
@@ -1756,19 +1838,144 @@ func _hover_transition_active() -> bool:
 
 
 func _palette_rect(index: int) -> Rect2:
+	var viewport := _palette_viewport_rect()
+	if viewport.size.x <= 0.0 or viewport.size.y <= 0.0:
+		return Rect2()
+	var tile_size := _palette_tile_size()
 	var columns := _palette_columns()
 	var column := index % columns
 	var row := int(index / columns)
-	return Rect2(_left_panel_width() + 20.0 + column * 70.0, 62.0 + row * 70.0, 58.0, 58.0)
+	var scroll := clampf(palette_scroll, 0.0, _palette_max_scroll())
+	var centered_offset := maxf((viewport.size.x - _palette_content_width()) * 0.5, 0.0)
+	return Rect2(viewport.position.x + centered_offset + column * (tile_size + PALETTE_TILE_GAP) - scroll, viewport.position.y + row * (tile_size + PALETTE_TILE_GAP), tile_size, tile_size)
+
+
+func _palette_viewport_rect() -> Rect2:
+	if not top_panel_open:
+		return Rect2()
+	var panel := _top_panel_rect()
+	var tile_size := _palette_tile_size()
+	var rows := _palette_rows()
+	var content_height := tile_size * rows + PALETTE_TILE_GAP * (rows - 1)
+	var preferred_y := panel.position.y + (panel.size.y - content_height) * 0.5
+	var min_y := panel.position.y + PALETTE_TOP_Y
+	var max_y := panel.end.y - PALETTE_BOTTOM_PADDING - content_height
+	var content_y := clampf(preferred_y, min_y, maxf(max_y, min_y))
+	return Rect2(panel.position.x + 20.0, content_y, maxf(panel.size.x - 40.0, 0.0), content_height)
+
+
+func _palette_rows() -> int:
+	if not top_panel_open:
+		return 1
+	var available_height := top_panel_size - PALETTE_TOP_Y - PALETTE_BOTTOM_PADDING
+	var two_row_minimum := PALETTE_MIN_TILE_SIZE * 2.0 + PALETTE_TILE_GAP
+	return 2 if available_height >= two_row_minimum else 1
+
+
+func _palette_tile_size() -> float:
+	if not top_panel_open:
+		return PALETTE_MIN_TILE_SIZE
+	if _palette_rows() == 1:
+		return PALETTE_MIN_TILE_SIZE
+	var available_height := top_panel_size - PALETTE_TOP_Y - PALETTE_BOTTOM_PADDING
+	return clampf((available_height - PALETTE_TILE_GAP) * 0.5, PALETTE_MIN_TILE_SIZE, PALETTE_MAX_TILE_SIZE)
 
 
 func _palette_columns() -> int:
-	var available_width := maxf(size.x - _left_panel_width() - 64.0, 70.0)
-	return maxi(1, int(floor(available_width / 70.0)))
+	return maxi(1, int(ceil(float(PALETTE_SYMBOLS.size()) / float(_palette_rows()))))
+
+
+func _palette_content_width() -> float:
+	var columns := _palette_columns()
+	return columns * _palette_tile_size() + maxf(float(columns - 1), 0.0) * PALETTE_TILE_GAP
+
+
+func _palette_max_scroll() -> float:
+	if not top_panel_open:
+		return 0.0
+	var viewport := _palette_viewport_rect()
+	return maxf(_palette_content_width() - viewport.size.x, 0.0)
+
+
+func _scroll_palette(direction: int) -> void:
+	if not top_panel_open:
+		return
+	palette_scroll_target = clampf(palette_scroll_target + float(direction) * PALETTE_SCROLL_STEP, 0.0, _palette_max_scroll())
+	queue_redraw()
+
+
+func _begin_palette_scroll_gesture() -> void:
+	if _palette_max_scroll() <= 0.0:
+		return
+	drag_mode = "palette_scroll"
+	palette_scroll_drag_start_mouse = pointer_screen
+	palette_scroll_drag_start_offset = palette_scroll_target
+
+
+func _update_palette_scroll_drag() -> void:
+	var offset := palette_scroll_drag_start_offset - (pointer_screen.x - palette_scroll_drag_start_mouse.x)
+	palette_scroll_target = clampf(offset, 0.0, _palette_max_scroll())
+
+
+func _palette_scroll_is_moving() -> bool:
+	return top_panel_open and absf(palette_scroll_target - palette_scroll) > 0.1
+
+
+func _update_palette_scroll(delta: float) -> void:
+	if not top_panel_open:
+		palette_scroll = 0.0
+		palette_scroll_target = 0.0
+		return
+	_clamp_palette_scroll()
+	var amount := clampf(delta * PALETTE_SCROLL_SMOOTHNESS, 0.0, 1.0)
+	palette_scroll = lerpf(palette_scroll, palette_scroll_target, amount)
+	if absf(palette_scroll_target - palette_scroll) <= 0.1:
+		palette_scroll = palette_scroll_target
+	_update_hover()
+	queue_redraw()
+
+
+func _clamp_palette_scroll() -> void:
+	var max_scroll := _palette_max_scroll()
+	palette_scroll = clampf(palette_scroll, 0.0, max_scroll)
+	palette_scroll_target = clampf(palette_scroll_target, 0.0, max_scroll)
+
+
+func _palette_scrollbar_rect() -> Rect2:
+	if not top_panel_open:
+		return Rect2()
+	var viewport := _palette_viewport_rect()
+	var panel := _top_panel_rect()
+	return Rect2(viewport.position.x, panel.end.y - 13.0, viewport.size.x, 4.0)
+
+
+func _draw_palette_scrollbar() -> void:
+	var max_scroll := _palette_max_scroll()
+	if max_scroll <= 0.0:
+		return
+	var track := _palette_scrollbar_rect()
+	var content_width := _palette_content_width()
+	var thumb_width := maxf(28.0, track.size.x * track.size.x / content_width)
+	var travel := maxf(track.size.x - thumb_width, 0.0)
+	var thumb_x := track.position.x + travel * (clampf(palette_scroll, 0.0, max_scroll) / max_scroll)
+	draw_line(track.position, Vector2(track.end.x, track.position.y), Color("302e35"), 2.0, true)
+	draw_line(Vector2(thumb_x, track.position.y), Vector2(thumb_x + thumb_width, track.position.y), Color("a59b7a"), 2.0, true)
+
+
+func _draw_palette_scroll_masks(viewport: Rect2) -> void:
+	if viewport.size.x <= 0.0 or viewport.size.y <= 0.0:
+		return
+	var panel := _top_panel_rect()
+	var left_mask_width := maxf(viewport.position.x - panel.position.x - 2.0, 0.0)
+	var right_mask_width := maxf(panel.end.x - viewport.end.x - 2.0, 0.0)
+	if left_mask_width > 0.0:
+		draw_rect(Rect2(panel.position.x + 2.0, viewport.position.y, left_mask_width, viewport.size.y), PANEL_BACKGROUND, true)
+	if right_mask_width > 0.0:
+		draw_rect(Rect2(viewport.end.x, viewport.position.y, right_mask_width, viewport.size.y), PANEL_BACKGROUND, true)
 
 
 func _palette_index_at(screen_position: Vector2) -> int:
-	if not top_panel_open:
+	if not top_panel_open or not _palette_viewport_rect().has_point(screen_position):
 		return -1
 	for index in range(PALETTE_SYMBOLS.size()):
 		if _palette_rect(index).has_point(screen_position):

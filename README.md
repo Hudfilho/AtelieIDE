@@ -61,6 +61,15 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 | Barra | `DIV` | Divide o penúltimo valor pelo valor do topo, com resultado inteiro. |
 | Espiral | `MOD` | Calcula o resto da divisão entre os dois valores do topo. |
 | Traço | `NEG` | Inverte o sinal do valor no topo da pilha. |
+| Espelho duplo | `EQ` | Coloca `1` se os dois valores forem iguais; caso contrário, `0`. |
+| Espelho cortado | `NEQ` | Coloca `1` se os dois valores forem diferentes; caso contrário, `0`. |
+| Vira à esquerda | `LT` | Coloca `1` se o penúltimo valor for menor que o topo. |
+| Vira à direita | `GT` | Coloca `1` se o penúltimo valor for maior que o topo. |
+| Vira à esquerda com base | `LTE` | Coloca `1` se o penúltimo valor for menor ou igual ao topo. |
+| Vira à direita com base | `GTE` | Coloca `1` se o penúltimo valor for maior ou igual ao topo. |
+| Círculo cortado | `NOT` | Inverte um booleano: `1` vira `0`; `0` vira `1`. |
+| Arco unido | `AND` | Coloca `1` somente quando os dois booleanos forem `1`. |
+| Arco aberto | `OR` | Coloca `1` quando pelo menos um dos booleanos for `1`. |
 | Portal | `WARP` | Salta para outro `WARP` com a mesma intensidade. |
 | Círculo modificado | `INT_MOD` | Aplica uma operação à intensidade do selo-alvo. |
 | Quadrado modificado | `INT_SET` | Aguarda qualquer runa que produza um inteiro e o aplica ao selo-alvo. |
@@ -70,6 +79,8 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 | Forquilha | `LOAD` | Lê uma posição de memória para a pilha. |
 
 Para uma runa nova poder alimentar um `INT_SET`, ela deve produzir seu valor no topo da pilha e declarar `"result_type": "int"` no catálogo. Assim o `INT_SET` não precisa ser alterado a cada selo numérico novo.
+
+Os booleanos da linguagem usam `1` para verdadeiro e `0` para falso. `EQ`, `NEQ`, `LT`, `GT`, `LTE` e `GTE` sempre devolvem um desses dois valores; `NOT`, `AND` e `OR` aceitam somente `0` ou `1`.
 
 ## Como executar
 
@@ -124,6 +135,15 @@ Cada instrução ocupa dois bytes: `[opcode][intensidade]`. Por exemplo, `PUSH 0
 | `WARP` | `0F` | `00001111` |
 | `INT_MOD` | `10` | `00010000` |
 | `INT_SET` | `11` | `00010001` |
+| `EQ` | `12` | `00010010` |
+| `NEQ` | `13` | `00010011` |
+| `LT` | `14` | `00010100` |
+| `GT` | `15` | `00010101` |
+| `LTE` | `16` | `00010110` |
+| `GTE` | `17` | `00010111` |
+| `NOT` | `18` | `00011000` |
+| `AND` | `19` | `00011001` |
+| `OR` | `1A` | `00011010` |
 
 ## Próximos passos
 

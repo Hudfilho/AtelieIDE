@@ -118,6 +118,48 @@ func step(instruction: Dictionary, state: Dictionary, instruction_index := -1) -
 					stack.append(int(left / right))
 				else:
 					stack.append(left % right)
+		RuneCatalog.OPCODE_EQ, RuneCatalog.OPCODE_NEQ, RuneCatalog.OPCODE_LT, RuneCatalog.OPCODE_GT, RuneCatalog.OPCODE_LTE, RuneCatalog.OPCODE_GTE:
+			if stack.size() < 2:
+				errors.append("%s precisa de dois valores na pilha." % RuneCatalog.name_for_opcode(opcode))
+			else:
+				var comparison_right := int(stack.pop_back())
+				var comparison_left := int(stack.pop_back())
+				var comparison_result: bool = false
+				match opcode:
+					RuneCatalog.OPCODE_EQ:
+						comparison_result = comparison_left == comparison_right
+					RuneCatalog.OPCODE_NEQ:
+						comparison_result = comparison_left != comparison_right
+					RuneCatalog.OPCODE_LT:
+						comparison_result = comparison_left < comparison_right
+					RuneCatalog.OPCODE_GT:
+						comparison_result = comparison_left > comparison_right
+					RuneCatalog.OPCODE_LTE:
+						comparison_result = comparison_left <= comparison_right
+					RuneCatalog.OPCODE_GTE:
+						comparison_result = comparison_left >= comparison_right
+				stack.append(1 if comparison_result else 0)
+		RuneCatalog.OPCODE_NOT:
+			if stack.is_empty():
+				errors.append("NOT precisa de um booleano na pilha.")
+			else:
+				var boolean_value := int(stack.pop_back())
+				if not _is_boolean(boolean_value):
+					errors.append("NOT aceita apenas 0 ou 1, recebeu %d." % boolean_value)
+				else:
+					stack.append(0 if boolean_value == 1 else 1)
+		RuneCatalog.OPCODE_AND, RuneCatalog.OPCODE_OR:
+			if stack.size() < 2:
+				errors.append("%s precisa de dois booleanos na pilha." % RuneCatalog.name_for_opcode(opcode))
+			else:
+				var boolean_right := int(stack.pop_back())
+				var boolean_left := int(stack.pop_back())
+				if not _is_boolean(boolean_left) or not _is_boolean(boolean_right):
+					errors.append("%s aceita apenas 0 ou 1." % RuneCatalog.name_for_opcode(opcode))
+				elif opcode == RuneCatalog.OPCODE_AND:
+					stack.append(1 if boolean_left == 1 and boolean_right == 1 else 0)
+				else:
+					stack.append(1 if boolean_left == 1 or boolean_right == 1 else 0)
 		RuneCatalog.OPCODE_PRINT:
 			if stack.is_empty():
 				errors.append("PRINT precisa de um valor na pilha.")
@@ -160,6 +202,10 @@ func _begin_intensity_set(state: Dictionary, instruction_index: int) -> void:
 		errors.append("INT_SET anterior ainda está esperando um valor.")
 		return
 	state["pending_int_set"] = instruction_index
+
+
+func _is_boolean(value: int) -> bool:
+	return value == 0 or value == 1
 
 
 func _try_finish_intensity_set(state: Dictionary, instruction_index: int, opcode: int, stack: Array) -> void:

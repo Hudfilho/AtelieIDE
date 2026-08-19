@@ -20,6 +20,15 @@ const OPCODE_NEG := 0x0e
 const OPCODE_WARP := 0x0f
 const OPCODE_INT_MOD := 0x10
 const OPCODE_INT_SET := 0x11
+const OPCODE_EQ := 0x12
+const OPCODE_NEQ := 0x13
+const OPCODE_LT := 0x14
+const OPCODE_GT := 0x15
+const OPCODE_LTE := 0x16
+const OPCODE_GTE := 0x17
+const OPCODE_NOT := 0x18
+const OPCODE_AND := 0x19
+const OPCODE_OR := 0x1a
 
 const SYMBOLS := [
 	{"kind": "ORB", "label": "PUSH", "description": "Coloca a intensidade na pilha.", "extra": "valor", "opcode": OPCODE_PUSH, "takes_operand": true, "result_type": "int"},
@@ -32,6 +41,15 @@ const SYMBOLS := [
 	{"kind": "SLASH", "label": "DIV", "description": "Divide o penúltimo valor pelo valor no topo da pilha.", "extra": "operação: ÷", "opcode": OPCODE_DIV, "takes_operand": false, "result_type": "int"},
 	{"kind": "SPIRAL", "label": "MOD", "description": "Calcula o resto da divisão entre os dois valores do topo.", "extra": "operação: %", "opcode": OPCODE_MOD, "takes_operand": false, "result_type": "int"},
 	{"kind": "DASH", "label": "NEG", "description": "Inverte o sinal do valor no topo da pilha.", "extra": "operação: −x", "opcode": OPCODE_NEG, "takes_operand": false, "result_type": "int"},
+	{"kind": "EQ", "label": "EQ", "description": "Compara igualdade e coloca 1 ou 0 na pilha.", "extra": "operação: ==", "opcode": OPCODE_EQ, "takes_operand": false, "result_type": "int"},
+	{"kind": "NEQ", "label": "NEQ", "description": "Compara diferença e coloca 1 ou 0 na pilha.", "extra": "operação: !=", "opcode": OPCODE_NEQ, "takes_operand": false, "result_type": "int"},
+	{"kind": "LT", "label": "LT", "description": "Verifica se o penúltimo valor é menor que o topo.", "extra": "operação: <", "opcode": OPCODE_LT, "takes_operand": false, "result_type": "int"},
+	{"kind": "GT", "label": "GT", "description": "Verifica se o penúltimo valor é maior que o topo.", "extra": "operação: >", "opcode": OPCODE_GT, "takes_operand": false, "result_type": "int"},
+	{"kind": "LTE", "label": "LTE", "description": "Verifica se o penúltimo valor é menor ou igual ao topo.", "extra": "operação: <=", "opcode": OPCODE_LTE, "takes_operand": false, "result_type": "int"},
+	{"kind": "GTE", "label": "GTE", "description": "Verifica se o penúltimo valor é maior ou igual ao topo.", "extra": "operação: >=", "opcode": OPCODE_GTE, "takes_operand": false, "result_type": "int"},
+	{"kind": "NOT", "label": "NOT", "description": "Inverte um booleano: 1 vira 0 e 0 vira 1.", "extra": "lógica: não", "opcode": OPCODE_NOT, "takes_operand": false, "result_type": "int"},
+	{"kind": "AND", "label": "AND", "description": "Combina dois booleanos com E.", "extra": "lógica: e", "opcode": OPCODE_AND, "takes_operand": false, "result_type": "int"},
+	{"kind": "OR", "label": "OR", "description": "Combina dois booleanos com OU.", "extra": "lógica: ou", "opcode": OPCODE_OR, "takes_operand": false, "result_type": "int"},
 	{"kind": "WARP", "label": "WARP", "description": "Salta para outro WARP com a mesma intensidade.", "extra": "portal", "opcode": OPCODE_WARP, "takes_operand": true},
 	{"kind": "INT_MOD", "label": "INT_MOD", "description": "Modifica a intensidade do selo seguinte com uma operação matemática.", "extra": "controle", "opcode": OPCODE_INT_MOD, "takes_operand": false},
 	{"kind": "INT_SET", "label": "INT_SET", "description": "Espera o próximo inteiro e aplica-o ao selo seguinte.", "extra": "controle", "opcode": OPCODE_INT_SET, "takes_operand": false},
