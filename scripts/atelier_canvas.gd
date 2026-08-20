@@ -98,6 +98,7 @@ var col_gold: Color
 var col_gold_bright: Color
 var col_gold_glow: Color
 var col_rune_line: Color
+var col_line_edge: Color
 var col_leather_light: Color
 var col_inset: Color
 var col_inset_deep: Color
@@ -1270,10 +1271,10 @@ func _sky_at(y: float, canvas_rect: Rect2) -> Color:
 ## Rosa dos ventos no canto inferior esquerdo da mesa.
 func _draw_compass(canvas_rect: Rect2) -> void:
 	var reach := minf(canvas_rect.size.x, canvas_rect.size.y)
-	if reach < 220.0:
+	if reach < 150.0:
 		return
-	var radius := 44.0
-	var center := Vector2(canvas_rect.position.x + 22.0 + radius, canvas_rect.end.y - 20.0 - radius)
+	var radius := reach * 0.38
+	var center := canvas_rect.get_center()
 	_draw_ring(center, radius, col_compass, 1.0)
 	_draw_ring(center, radius * 0.74, col_compass, 0.6)
 	var long_arm := radius * 0.96
@@ -1486,7 +1487,9 @@ func _draw_connections(canvas_rect: Rect2, point_counts: Dictionary) -> void:
 	var visible_indices := _visible_connection_indices(canvas_rect)
 	performance_visible_connections = visible_indices.size()
 	var visible_points := _visible_connection_points(visible_indices)
-	var line_shadow := col_rune_line.darkened(0.72)
+	# O contorno da ligacao sai do tema: no escuro e sombra, no pergaminho e a
+	# propria cor do papel, entao vira um halo que so afasta os pontos da grade.
+	var line_shadow := col_line_edge
 	var shadow_segments := PackedVector2Array()
 	for index in visible_indices:
 		var connection: Dictionary = connections[index]
@@ -2285,6 +2288,7 @@ func _draw_bottom_panel() -> void:
 
 
 ## O orbe do oraculo: uma lua dourada acesa no rodape.
+## O orbe do oraculo: um olho aceso no rodape.
 func _draw_oracle_orb(center: Vector2, diameter: float) -> void:
 	var radius := diameter * 0.5
 	var halo := col_gold_glow
@@ -2292,7 +2296,25 @@ func _draw_oracle_orb(center: Vector2, diameter: float) -> void:
 	draw_texture_rect(glow_texture, Rect2(center - Vector2.ONE * radius * 2.4, Vector2.ONE * radius * 4.8), false, halo)
 	_draw_filled_circle(center, radius, col_gold)
 	_draw_filled_circle(center - Vector2.ONE * radius * 0.28, radius * 0.66, col_gold_glow)
-	_draw_rune("MOON", center, radius / 17.0, col_sky)
+	_draw_eye_mark(center, radius * 0.64, radius * 0.32, col_sky, maxf(radius * 0.10, 1.2))
+
+
+## Olho em amendoa: duas palpebras, iris e pupila.
+##
+## Cada palpebra e um arco de circulo deslocado no eixo vertical. Dada a
+## meia-largura w e a meia-altura h, o centro do arco fica a k = (w*w - h*h) /
+## (2h) do centro do olho, com raio k + h; assim a curva passa exatamente pelas
+## duas pontas e pelo topo.
+func _draw_eye_mark(center: Vector2, half_width: float, half_height: float, tint: Color, stroke: float) -> void:
+	if half_height <= 0.0 or half_width <= half_height:
+		return
+	var offset := (half_width * half_width - half_height * half_height) / (2.0 * half_height)
+	var arc_radius := offset + half_height
+	var corner := atan2(-offset, half_width)
+	draw_arc(center + Vector2(0.0, offset), arc_radius, -PI - corner, corner, 24, tint, stroke, true)
+	draw_arc(center - Vector2(0.0, offset), arc_radius, -corner, PI + corner, 24, tint, stroke, true)
+	_draw_ring(center, half_height * 0.74, tint, stroke)
+	_draw_filled_circle(center, half_height * 0.34, tint)
 
 
 func _draw_right_panel() -> void:
@@ -2482,16 +2504,34 @@ func _draw_stop_button(rect: Rect2) -> void:
 
 
 ## Lua para a noite do grimorio, sol para o pergaminho iluminado.
+## Vela para a noite do grimorio, sol para o pergaminho iluminado.
 func _draw_theme_button(rect: Rect2) -> void:
 	var center := rect.get_center()
 	_draw_control_shell(rect, col_gold_glow)
 	if active_theme == "light":
-		_draw_filled_circle(center, 4.4, col_gold_glow)
-		for step in range(8):
-			var direction := Vector2.RIGHT.rotated(TAU * float(step) / 8.0)
-			draw_line(center + direction * 7.0, center + direction * 10.0, col_gold_glow, 1.6, true)
+		_draw_sun_mark(center, col_gold_glow)
 	else:
-		_draw_rune("MOON", center, 0.62, col_gold_glow)
+		_draw_candle_mark(center, col_gold_glow)
+
+
+## Sol de raios alternados, ecoando a rosa dos ventos da mesa.
+func _draw_sun_mark(center: Vector2, tint: Color) -> void:
+	_draw_filled_circle(center, 4.6, tint)
+	for step in range(8):
+		var direction := Vector2.RIGHT.rotated(TAU * float(step) / 8.0)
+		var cardinal := step % 2 == 0
+		draw_line(center + direction * 7.0, center + direction * (11.2 if cardinal else 9.4), tint, 1.8 if cardinal else 1.3, true)
+
+
+## Chama em gota sobre o corpo da vela.
+func _draw_candle_mark(center: Vector2, tint: Color) -> void:
+	draw_colored_polygon(PackedVector2Array([
+			center + Vector2(0.0, -10.2),
+			center + Vector2(3.3, -5.4),
+			center + Vector2(0.0, -2.3),
+			center + Vector2(-3.3, -5.4)]), tint)
+	draw_rect(Rect2(center + Vector2(-2.7, -1.2), Vector2(5.4, 7.8)), tint, true)
+	draw_line(center + Vector2(-4.6, 7.2), center + Vector2(4.6, 7.2), tint, 1.6, true)
 
 
 func _draw_execution_speed_control() -> void:
