@@ -28,6 +28,7 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 - Painéis redimensionáveis para grimório, selos e saída.
 - Compilador visual → bytecode `RUNE` → máquina virtual.
 - Oráculo de execução com saída, avisos e erros.
+- Ateliê à luz de vela ou pergaminho iluminado, com o tema guardado entre sessões.
 
 ## Controles
 
@@ -46,6 +47,7 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 | Desfazer / refazer | `Ctrl+Z` / `Ctrl+Y` |
 | Rolar o grimório | Roda do mouse ou arraste a lista para cima/baixo |
 | Executar o ritual | Botão ▶ no canto superior direito |
+| Alternar dia / noite | Botão ☾ / ☀ no canto superior direito |
 
 ## Selos disponíveis
 
@@ -107,6 +109,7 @@ scenes/
 scripts/
 ├── atelier_canvas.gd         # Canvas, interação e interface
 └── core/
+    ├── atelier_palette.gd    # Paleta do ateliê nos dois temas
     ├── rune_catalog.gd       # Catálogo de selos e opcodes
     ├── rune_diagram.gd       # Estado do diagrama e histórico
     ├── rune_compiler.gd      # Diagrama → instruções → bytecode
