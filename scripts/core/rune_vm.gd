@@ -215,6 +215,15 @@ func step(instruction: Dictionary, state: Dictionary, instruction_index := -1) -
 				errors.append("LOAD tentou ler a posição %d, que está vazia." % slot)
 			else:
 				stack.append(int(memory[slot]))
+		RuneCatalog.OPCODE_READ:
+			if stack.is_empty():
+				errors.append("READ precisa de um endereço no topo da pilha.")
+			else:
+				var read_slot := int(stack.back())
+				if not memory.has(read_slot):
+					errors.append("READ tentou ler a posição %d, que está vazia." % read_slot)
+				else:
+					stack.append(int(memory[read_slot]))
 		RuneCatalog.OPCODE_WARP:
 			var warp_targets: Dictionary = state["warp_targets"]
 			var warp_intensity := int(instruction.get("intensity", instruction.get("operand", 0)))
@@ -265,12 +274,11 @@ func _jump_target_from_warp_group(jump_index: int, warp_indices: Array) -> int:
 
 func _execute_jump_if_true(state: Dictionary, instruction: Dictionary, instruction_index: int) -> void:
 	var errors: Array = state["errors"]
-	var program: Array = state["program"]
-	if instruction_index < 0 or instruction_index + 1 >= program.size() or int(program[instruction_index + 1]["opcode"]) == RuneCatalog.OPCODE_HALT:
-		errors.append("JUMP_IF_TRUE precisa de um selo depois dele para verificar.")
+	var stack: Array = state["stack"]
+	if stack.is_empty():
+		errors.append("JUMP_IF_TRUE precisa de um valor na pilha.")
 		return
-	var condition_instruction: Dictionary = program[instruction_index + 1]
-	if _instruction_intensity(condition_instruction) != 1:
+	if int(stack.back()) != 1:
 		return
 	var jump_intensity := _instruction_intensity(instruction)
 	var endpoint_counts: Dictionary = state["warp_endpoint_counts"]

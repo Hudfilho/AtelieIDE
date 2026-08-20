@@ -25,20 +25,26 @@ const LEFT_COMMAND_ROW_HEIGHT := 66.0
 const LEFT_COMMAND_LIST_TOP := 82.0
 const LEFT_COMMAND_SCROLL_STEP := 28.0
 const LEFT_SCROLL_DRAG_THRESHOLD := 4.0
-const LEFT_SCROLL_SMOOTHNESS := 15.0
+const LEFT_SCROLL_SMOOTHNESS := 30.0
 const PALETTE_TOP_Y := 38.0
 const PALETTE_MAX_TILE_SIZE := 58.0
 const PALETTE_MIN_TILE_SIZE := 34.0
 const PALETTE_TILE_GAP := 8.0
 const PALETTE_BOTTOM_PADDING := 16.0
+const PALETTE_COMPACT_COLUMNS := 4
 const PALETTE_SCROLL_STEP := 120.0
-const PALETTE_SCROLL_SMOOTHNESS := 15.0
+const PALETTE_SCROLL_SMOOTHNESS := 30.0
+const DEFAULT_RUNE_INTENSITY := 128
 const GRID_SPACING := 48.0
 const DOT_RADIUS := 3.4
 const DOT_HIT_RADIUS := 14.0
 const GRID_DOT_MIN_SCREEN_SPACING := 30.0
 const MAX_VISIBLE_GRID_DOTS := 1400
+const GRID_TEXTURE_TILE_SIZE := 64
+const CIRCLE_TEXTURE_SIZE := 64
 const LINE_HIT_RADIUS := 30.0
+const CONNECTION_DRAW_MARGIN := 38.0
+const CONNECTION_HIT_BUCKET_SIZE := 144.0
 const SYMBOL_DRAG_THRESHOLD := 8.0
 const ANCHOR_MOVE_DRAG_THRESHOLD := 6.0
 const RECT_SELECT_DRAG_THRESHOLD := 6.0
@@ -140,6 +146,7 @@ var palette_scroll_drag_start_mouse := Vector2.ZERO
 var palette_scroll_drag_start_offset := 0.0
 var active_symbol := ""
 var dragged_symbol_source := -1
+var dragged_symbol_intensity := DEFAULT_RUNE_INTENSITY
 var symbol_drag_start_snapshot: Array = []
 var symbol_press_screen := Vector2.ZERO
 var animation_clock := 0.0
@@ -151,6 +158,8 @@ var anchor_move_source := Vector2.ZERO
 var anchor_move_target := Vector2.ZERO
 var anchor_move_snap_target := Vector2.ZERO
 var anchor_move_snap_target_valid := false
+var anchor_move_is_terminal := false
+var anchor_move_snap_started_at := 0.0
 var anchor_move_press_screen := Vector2.ZERO
 var anchor_move_settle_active := false
 var anchor_move_settle_from := Vector2.ZERO
@@ -179,23 +188,44 @@ var intensity_text := ""
 var intensity_text_replace_on_next_digit := false
 var resize_start_mouse := Vector2.ZERO
 var resize_start_size := 0.0
+var performance_overlay_visible := false
+var performance_draw_ms := 0.0
+var performance_grid_ms := 0.0
+var performance_connections_ms := 0.0
+var performance_panels_ms := 0.0
+var performance_visible_connections := 0
+var performance_grid_dots := 0
+var grid_dot_textures := {}
+var filled_circle_texture: Texture2D
+var ring_textures := {}
+var symbol_connection_indices_cache: Array[int] = []
+var symbol_connection_indices_dirty := true
+var sequence_side_multiplier_cache: Array[float] = []
+var sequence_side_multiplier_dirty := true
+var connection_hit_buckets := {}
+var connection_hit_buckets_dirty := true
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
+	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	filled_circle_texture = _create_filled_circle_texture()
 	grab_focus()
 	queue_redraw()
 
 
 func _process(delta: float) -> void:
-	if not anchor_snap_active and not anchor_move_settle_active and not symbol_settle_active and not _hover_transition_active() and not _left_scroll_is_moving() and not _palette_scroll_is_moving() and not ritual_running and not _execution_highlight_active():
+	if not performance_overlay_visible and not anchor_snap_active and drag_mode != "move_anchor" and not anchor_move_settle_active and not symbol_settle_active and not _hover_transition_active() and not _left_scroll_is_moving() and not _palette_scroll_is_moving() and not ritual_running and not _execution_highlight_active():
 		return
 	animation_clock += delta
 	_update_left_command_scroll(delta)
 	_update_palette_scroll(delta)
 	if anchor_snap_active and animation_clock - anchor_snap_started_at >= ANCHOR_SNAP_DURATION:
 		_complete_anchor_snap()
+	if drag_mode == "move_anchor" and anchor_move_is_terminal and anchor_move_snap_target_valid and animation_clock - anchor_move_snap_started_at >= ANCHOR_SNAP_DURATION:
+		_continue_terminal_anchor_move()
 	if anchor_move_settle_active and animation_clock - anchor_move_settle_started_at >= ANCHOR_SNAP_DURATION:
 		_complete_anchor_move_settle()
 	if ritual_running:
@@ -205,6 +235,11 @@ func _process(delta: float) -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	if event.keycode == KEY_F3:
+		performance_overlay_visible = not performance_overlay_visible
+		queue_redraw()
+		get_viewport().set_input_as_handled()
 		return
 	if editing_intensity_text:
 		_handle_intensity_text_key(event)
@@ -233,7 +268,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		pointer_screen = event.position
-		_update_hover()
+		var hover_changed := _update_hover()
 		if drag_mode == "pan":
 			pan = pan_at_drag_start + (pointer_screen - pan_drag_start)
 		elif drag_mode == "connect":
@@ -272,13 +307,16 @@ func _gui_input(event: InputEvent) -> void:
 				drag_mode = "symbol"
 				symbol_drag_start_snapshot = _connections_snapshot()
 				_set_connection_symbol(dragged_symbol_source, "", false)
+				_set_connection_intensity(dragged_symbol_source, DEFAULT_RUNE_INTENSITY, false)
 		elif drag_mode == "intensity":
 			_update_selected_intensity(pointer_screen)
 		elif drag_mode == "execution_speed":
 			_update_execution_speed(pointer_screen)
 		elif drag_mode.begins_with("resize_"):
 			_resize_panel(pointer_screen)
-		queue_redraw()
+		var redraw_for_drag := drag_mode == "pan" or drag_mode == "connect" or drag_mode == "move_anchor" or drag_mode == "selection" or drag_mode == "selection_move" or drag_mode == "left_scroll" or drag_mode == "palette_scroll" or drag_mode == "symbol" or drag_mode == "intensity" or drag_mode == "execution_speed" or drag_mode.begins_with("resize_")
+		if hover_changed or redraw_for_drag:
+			queue_redraw()
 		accept_event()
 		return
 
@@ -392,6 +430,7 @@ func _gui_input(event: InputEvent) -> void:
 			drag_mode = "symbol"
 			active_symbol = palette_symbol
 			dragged_symbol_source = -1
+			dragged_symbol_intensity = DEFAULT_RUNE_INTENSITY
 		elif _is_canvas_position(pointer_screen):
 			var current_symbol := _symbol_at(pointer_screen)
 			if current_symbol >= 0:
@@ -403,6 +442,7 @@ func _gui_input(event: InputEvent) -> void:
 						drag_mode = "symbol_pending"
 						dragged_symbol_source = current_symbol
 						active_symbol = str(connections[current_symbol].get("symbol", ""))
+						dragged_symbol_intensity = _connection_intensity(connections[current_symbol])
 						symbol_press_screen = pointer_screen
 			else:
 				var start_candidate := _grid_point_at(pointer_screen)
@@ -410,7 +450,7 @@ func _gui_input(event: InputEvent) -> void:
 					var start_point: Vector2 = start_candidate["point"]
 					if selected_connections.size() > 1 and _selected_connection_uses_anchor(start_point) and not event.ctrl_pressed:
 						_begin_selection_move()
-					elif _is_anchor_point(start_point):
+					elif _connection_point_uses(start_point) > 0:
 						_begin_anchor_move(start_point)
 					else:
 						_deselect_connection()
@@ -591,20 +631,32 @@ func export_current_ritual(path: String) -> Dictionary:
 
 
 func _draw() -> void:
+	var draw_started_us: int = Time.get_ticks_usec()
+	performance_visible_connections = 0
+	performance_grid_dots = 0
 	draw_rect(Rect2(Vector2.ZERO, size), BACKGROUND, true)
-	_draw_room_candlelight()
 	var canvas_rect := _canvas_rect()
 	draw_rect(canvas_rect, CANVAS_BACKGROUND, true)
 	_draw_canvas_frame(canvas_rect)
-	_draw_grid(canvas_rect)
-	_draw_connections()
+	var point_counts := _anchor_point_counts()
+	var stage_started_us: int = Time.get_ticks_usec()
+	_draw_grid(canvas_rect, point_counts)
+	performance_grid_ms = float(Time.get_ticks_usec() - stage_started_us) / 1000.0
+	stage_started_us = Time.get_ticks_usec()
+	_draw_connections(canvas_rect, point_counts)
 	_draw_selection_move_preview()
 	_draw_connection_preview()
 	_draw_selection_rectangle()
 	_draw_dragged_symbol()
 	_draw_settling_symbol()
+	performance_connections_ms = float(Time.get_ticks_usec() - stage_started_us) / 1000.0
+	stage_started_us = Time.get_ticks_usec()
 	_draw_intensity_inspector()
 	_draw_interface_panels()
+	performance_panels_ms = float(Time.get_ticks_usec() - stage_started_us) / 1000.0
+	if performance_overlay_visible:
+		_draw_performance_overlay()
+	performance_draw_ms = float(Time.get_ticks_usec() - draw_started_us) / 1000.0
 
 
 func _draw_room_candlelight() -> void:
@@ -628,7 +680,7 @@ func _draw_canvas_frame(canvas_rect: Rect2) -> void:
 		draw_rect(inner, inner_color, false, 1.0)
 
 
-func _draw_grid(canvas_rect: Rect2) -> void:
+func _draw_grid(canvas_rect: Rect2, point_counts: Dictionary) -> void:
 	var top_left_world := _screen_to_world(canvas_rect.position)
 	var bottom_right_world := _screen_to_world(canvas_rect.end)
 	var first_x := int(floor(top_left_world.x / GRID_SPACING)) - 1
@@ -636,36 +688,98 @@ func _draw_grid(canvas_rect: Rect2) -> void:
 	var first_y := int(floor(top_left_world.y / GRID_SPACING)) - 1
 	var last_y := int(ceil(bottom_right_world.y / GRID_SPACING)) + 1
 	var grid_step := _grid_draw_step(last_x - first_x + 1, last_y - first_y + 1)
-	var draw_first_x := int(floor(float(first_x) / float(grid_step))) * grid_step
-	var draw_first_y := int(floor(float(first_y) / float(grid_step))) * grid_step
-	var anchor_counts := _anchor_point_counts()
-	var hover_was_drawn := false
 	var density_alpha := 1.0 / float(grid_step)
+	var screen_spacing := GRID_SPACING * zoom * float(grid_step)
+	var source_scale := float(GRID_TEXTURE_TILE_SIZE) / maxf(screen_spacing, 0.001)
+	var source_origin := (canvas_rect.position - pan) * source_scale + Vector2.ONE * (float(GRID_TEXTURE_TILE_SIZE) * 0.5)
+	var source_rect := Rect2(source_origin, canvas_rect.size * source_scale)
+	var grid_color := GRID_DOT
+	grid_color.a *= density_alpha
+	draw_texture_rect_region(_grid_dot_texture(grid_step), canvas_rect, source_rect, grid_color)
 
-	for x in range(draw_first_x, last_x + 1, grid_step):
-		for y in range(draw_first_y, last_y + 1, grid_step):
-			var world_point := Vector2(x * GRID_SPACING, y * GRID_SPACING)
-			# Pontos que já sustentam uma ligação não aparecem por baixo da linha.
-			if int(anchor_counts.get(world_point, 0)) > 1:
-				continue
-			var screen_point := _world_to_screen(world_point)
-			var is_hovered := animated_hover_point_valid and world_point.is_equal_approx(animated_hover_world)
-			var radius := DOT_RADIUS * zoom
-			var color := GRID_DOT
-			color.a *= density_alpha
-			if is_hovered:
-				var highlight_alpha := _hover_alpha(point_hover_started_at)
-				radius = lerpf(radius, 5.0 * zoom, highlight_alpha)
-				color = color.lerp(GRID_DOT_HOVER, highlight_alpha)
-				hover_was_drawn = true
-			draw_circle(screen_point, radius, color)
+	# Apaga apenas os pontos internos usados como âncora. Assim a grade inteira
+	# custa um único quad, sem reintroduzir os pixels que apareciam sob as junções.
+	for raw_point in point_counts:
+		if int(point_counts[raw_point]) <= 1:
+			continue
+		var used_point: Vector2 = raw_point
+		var used_screen := _world_to_screen(used_point)
+		if canvas_rect.grow(DOT_RADIUS * zoom + 1.0).has_point(used_screen):
+			_draw_filled_circle(used_screen, DOT_RADIUS * zoom + 0.9, CANVAS_BACKGROUND)
 
-	# Mesmo nas densidades mais baixas, o ponto embaixo do mouse continua
-	# aparecendo para que a grade nunca pareça imprecisa durante a edição.
-	if animated_hover_point_valid and not hover_was_drawn and int(anchor_counts.get(animated_hover_world, 0)) <= 1:
+	# O ponto embaixo do mouse é desenhado à parte para preservar o highlight.
+	if animated_hover_point_valid and int(point_counts.get(animated_hover_world, 0)) <= 1:
 		var hover_radius := lerpf(DOT_RADIUS * zoom, 5.0 * zoom, _hover_alpha(point_hover_started_at))
 		var hover_color := GRID_DOT.lerp(GRID_DOT_HOVER, _hover_alpha(point_hover_started_at))
-		draw_circle(_world_to_screen(animated_hover_world), hover_radius, hover_color)
+		_draw_filled_circle(_world_to_screen(animated_hover_world), hover_radius, hover_color)
+	if performance_overlay_visible:
+		performance_grid_dots = int(ceil(canvas_rect.size.x / maxf(screen_spacing, 1.0))) * int(ceil(canvas_rect.size.y / maxf(screen_spacing, 1.0)))
+
+
+func _grid_dot_texture(grid_step: int) -> Texture2D:
+	if grid_dot_textures.has(grid_step):
+		return grid_dot_textures[grid_step]
+	var image := Image.create(GRID_TEXTURE_TILE_SIZE, GRID_TEXTURE_TILE_SIZE, false, Image.FORMAT_RGBA8)
+	var center := Vector2.ONE * (float(GRID_TEXTURE_TILE_SIZE) * 0.5)
+	var pixel_radius := DOT_RADIUS * float(GRID_TEXTURE_TILE_SIZE) / (GRID_SPACING * float(grid_step))
+	for pixel_x in range(GRID_TEXTURE_TILE_SIZE):
+		for pixel_y in range(GRID_TEXTURE_TILE_SIZE):
+			var pixel_center := Vector2(float(pixel_x) + 0.5, float(pixel_y) + 0.5)
+			var alpha := clampf(pixel_radius + 0.75 - pixel_center.distance_to(center), 0.0, 1.0)
+			if alpha > 0.0:
+				image.set_pixel(pixel_x, pixel_y, Color(1.0, 1.0, 1.0, alpha))
+	var texture := ImageTexture.create_from_image(image)
+	grid_dot_textures[grid_step] = texture
+	return texture
+
+
+func _create_filled_circle_texture() -> Texture2D:
+	var image := Image.create(CIRCLE_TEXTURE_SIZE, CIRCLE_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
+	var center := Vector2.ONE * (float(CIRCLE_TEXTURE_SIZE) * 0.5)
+	var outer_radius := float(CIRCLE_TEXTURE_SIZE) * 0.5 - 1.0
+	for pixel_x in range(CIRCLE_TEXTURE_SIZE):
+		for pixel_y in range(CIRCLE_TEXTURE_SIZE):
+			var pixel_center := Vector2(float(pixel_x) + 0.5, float(pixel_y) + 0.5)
+			var alpha := clampf(outer_radius + 0.75 - pixel_center.distance_to(center), 0.0, 1.0)
+			if alpha > 0.0:
+				image.set_pixel(pixel_x, pixel_y, Color(1.0, 1.0, 1.0, alpha))
+	return ImageTexture.create_from_image(image)
+
+
+func _ring_texture(width_ratio: float) -> Texture2D:
+	var ratio_key := clampi(roundi(width_ratio * 100.0), 2, 95)
+	if ring_textures.has(ratio_key):
+		return ring_textures[ratio_key]
+	var image := Image.create(CIRCLE_TEXTURE_SIZE, CIRCLE_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
+	var center := Vector2.ONE * (float(CIRCLE_TEXTURE_SIZE) * 0.5)
+	var outer_radius := float(CIRCLE_TEXTURE_SIZE) * 0.5 - 1.0
+	var inner_radius := outer_radius * (1.0 - float(ratio_key) / 100.0)
+	for pixel_x in range(CIRCLE_TEXTURE_SIZE):
+		for pixel_y in range(CIRCLE_TEXTURE_SIZE):
+			var pixel_center := Vector2(float(pixel_x) + 0.5, float(pixel_y) + 0.5)
+			var distance := pixel_center.distance_to(center)
+			var outer_alpha := clampf(outer_radius + 0.75 - distance, 0.0, 1.0)
+			var inner_alpha := clampf(distance - inner_radius + 0.75, 0.0, 1.0)
+			var alpha := minf(outer_alpha, inner_alpha)
+			if alpha > 0.0:
+				image.set_pixel(pixel_x, pixel_y, Color(1.0, 1.0, 1.0, alpha))
+	var texture := ImageTexture.create_from_image(image)
+	ring_textures[ratio_key] = texture
+	return texture
+
+
+func _draw_filled_circle(center: Vector2, radius: float, color: Color) -> void:
+	if radius <= 0.0:
+		return
+	var diameter := radius * 2.0
+	draw_texture_rect(filled_circle_texture, Rect2(center - Vector2.ONE * radius, Vector2.ONE * diameter), false, color)
+
+
+func _draw_ring(center: Vector2, radius: float, color: Color, width: float) -> void:
+	if radius <= 0.0 or width <= 0.0:
+		return
+	var diameter := radius * 2.0
+	draw_texture_rect(_ring_texture(width / radius), Rect2(center - Vector2.ONE * radius, Vector2.ONE * diameter), false, color)
 
 
 func _grid_draw_step(columns: int, rows: int) -> int:
@@ -686,6 +800,38 @@ func _anchor_point_counts() -> Dictionary:
 	return counts
 
 
+func _visible_connection_indices(canvas_rect: Rect2) -> Array[int]:
+	var indices: Array[int] = []
+	for index in range(connections.size()):
+		var connection: Dictionary = connections[index]
+		if _is_connection_hidden_during_move(connection, index):
+			continue
+		var from_point: Vector2 = connection["from"]
+		var to_point: Vector2 = connection["to"]
+		var from_screen := _world_to_screen(from_point)
+		var to_screen := _world_to_screen(to_point)
+		if _segment_intersects_canvas(from_screen, to_screen, canvas_rect):
+			indices.append(index)
+	return indices
+
+
+func _visible_connection_points(indices: Array[int]) -> Dictionary:
+	var points := {}
+	for index in indices:
+		var connection: Dictionary = connections[index]
+		points[connection["from"]] = true
+		points[connection["to"]] = true
+	return points
+
+
+func _segment_intersects_canvas(from_screen: Vector2, to_screen: Vector2, canvas_rect: Rect2) -> bool:
+	var min_x := minf(from_screen.x, to_screen.x)
+	var max_x := maxf(from_screen.x, to_screen.x)
+	var min_y := minf(from_screen.y, to_screen.y)
+	var max_y := maxf(from_screen.y, to_screen.y)
+	return max_x >= canvas_rect.position.x - CONNECTION_DRAW_MARGIN and min_x <= canvas_rect.end.x + CONNECTION_DRAW_MARGIN and max_y >= canvas_rect.position.y - CONNECTION_DRAW_MARGIN and min_y <= canvas_rect.end.y + CONNECTION_DRAW_MARGIN
+
+
 func _is_anchor_point(world_point: Vector2) -> bool:
 	return _connection_point_uses(world_point) > 1
 
@@ -704,44 +850,64 @@ func _connection_point_uses(world_point: Vector2) -> int:
 	return connection_uses
 
 
-func _draw_connections() -> void:
+func _draw_connections(canvas_rect: Rect2, point_counts: Dictionary) -> void:
 	# A estrutura inteira usa a mesma tinta-base. Cada ligação ainda existe no
 	# diagrama, mas só é revelada como uma célula individual pelo hover.
+	var visible_indices := _visible_connection_indices(canvas_rect)
+	performance_visible_connections = visible_indices.size()
+	var visible_points := _visible_connection_points(visible_indices)
 	var line_shadow := RUNE_LINE_COLOR.darkened(0.72)
-	for connection in connections:
-		if _is_connection_hidden_during_move(connection):
-			continue
+	var shadow_segments := PackedVector2Array()
+	for index in visible_indices:
+		var connection: Dictionary = connections[index]
 		var from_point: Vector2 = connection["from"]
 		var to_point: Vector2 = connection["to"]
-		draw_line(_world_to_screen(from_point), _world_to_screen(to_point), line_shadow, 4.2 * zoom, true)
-	_draw_line_joins_and_caps(line_shadow, 2.1 * zoom)
+		shadow_segments.append(_world_to_screen(from_point))
+		shadow_segments.append(_world_to_screen(to_point))
+	if not shadow_segments.is_empty():
+		draw_multiline(shadow_segments, line_shadow, 4.2 * zoom, true)
+	_draw_line_joins_and_caps(visible_points, line_shadow, 2.1 * zoom)
 
-	for connection in connections:
-		if _is_connection_hidden_during_move(connection):
-			continue
+	var main_segments := PackedVector2Array()
+	for index in visible_indices:
+		var connection: Dictionary = connections[index]
 		var from_point: Vector2 = connection["from"]
 		var to_point: Vector2 = connection["to"]
-		draw_line(_world_to_screen(from_point), _world_to_screen(to_point), RUNE_LINE_COLOR, 2.0 * zoom, true)
-	_draw_line_joins_and_caps(RUNE_LINE_COLOR, 1.0 * zoom)
-	_draw_terminal_markers(line_shadow)
+		main_segments.append(_world_to_screen(from_point))
+		main_segments.append(_world_to_screen(to_point))
+	if not main_segments.is_empty():
+		draw_multiline(main_segments, RUNE_LINE_COLOR, 2.0 * zoom, true)
+	_draw_line_joins_and_caps(visible_points, RUNE_LINE_COLOR, 1.0 * zoom)
+	_draw_terminal_markers(visible_indices, point_counts, line_shadow)
+
+	var selection_segments := PackedVector2Array()
+	var selection_points := {}
+	for index in visible_indices:
+		if not _is_connection_selected(index):
+			continue
+		var selected_connection_data: Dictionary = connections[index]
+		var selected_from: Vector2 = selected_connection_data["from"]
+		var selected_to: Vector2 = selected_connection_data["to"]
+		selection_segments.append(_world_to_screen(selected_from))
+		selection_segments.append(_world_to_screen(selected_to))
+		selection_points[selected_from] = true
+		selection_points[selected_to] = true
+	if not selection_segments.is_empty():
+		var selection_glow := RUNE_LINE_COLOR.lightened(0.45)
+		selection_glow.a = 0.20
+		draw_multiline(selection_segments, selection_glow, 3.2 * zoom, true)
+		_draw_line_joins_and_caps(selection_points, selection_glow, 1.6 * zoom)
 
 	# A seção sob o cursor recebe apenas uma névoa leve; a linha-base continua
 	# uniforme e não vira uma sequência de retângulos.
-	for index in range(connections.size()):
+	for index in visible_indices:
 		var connection: Dictionary = connections[index]
-		if _is_connection_hidden_during_move(connection):
-			continue
 		var from_point: Vector2 = connection["from"]
 		var to_point: Vector2 = connection["to"]
 		var from_screen := _world_to_screen(from_point)
 		var to_screen := _world_to_screen(to_point)
 		var has_symbol := not str(connection.get("symbol", "")).is_empty()
 		var intensity := _display_connection_intensity(index, connection)
-		if _is_connection_selected(index):
-			var selection_glow := RUNE_LINE_COLOR.lightened(0.45)
-			selection_glow.a = 0.20
-			draw_line(from_screen, to_screen, selection_glow, 3.2 * zoom, true)
-			_draw_rounded_segment_caps(from_screen, to_screen, selection_glow, 1.6 * zoom)
 		var execution_alpha := _execution_highlight_alpha() if index == execution_connection else 0.0
 		if execution_alpha > 0.0:
 			_draw_execution_connection_glow(from_screen, to_screen, execution_alpha)
@@ -772,40 +938,50 @@ func _draw_connections() -> void:
 			_draw_rune(kind, symbol_position, zoom, rune_color)
 
 
-func _draw_line_joins_and_caps(color: Color, radius: float) -> void:
+func _draw_line_joins_and_caps(points: Dictionary, color: Color, radius: float) -> void:
 	# O círculo tem exatamente metade da largura do traço. Nas junções ele cria
 	# uma curva contínua; nas extremidades, uma ponta arredondada.
-	for connection in connections:
-		if _is_connection_hidden_during_move(connection):
-			continue
-		var from_point: Vector2 = connection["from"]
-		var to_point: Vector2 = connection["to"]
-		draw_circle(_world_to_screen(from_point), radius, color, true, -1.0, true)
-		draw_circle(_world_to_screen(to_point), radius, color, true, -1.0, true)
+	for raw_point in points:
+		var point: Vector2 = raw_point
+		_draw_filled_circle(_world_to_screen(point), radius, color)
 
 
-func _draw_terminal_markers(line_shadow: Color) -> void:
+func _draw_terminal_markers(indices: Array[int], point_counts: Dictionary, line_shadow: Color) -> void:
 	# Primeiro e último ponto de cada sequência substituem o pontinho vermelho
 	# por uma âncora dourada mais evidente.
-	for connection in connections:
-		if _is_connection_hidden_during_move(connection):
-			continue
+	for index in indices:
+		var connection: Dictionary = connections[index]
 		var from_point: Vector2 = connection["from"]
 		var to_point: Vector2 = connection["to"]
-		if _is_terminal_point(from_point):
+		if int(point_counts.get(from_point, 0)) == 1:
 			_draw_terminal_marker(_world_to_screen(from_point), line_shadow)
-		if _is_terminal_point(to_point):
+		if int(point_counts.get(to_point, 0)) == 1:
 			_draw_terminal_marker(_world_to_screen(to_point), line_shadow)
 
 
 func _draw_terminal_marker(screen_position: Vector2, line_shadow: Color) -> void:
-	draw_circle(screen_position, 4.4 * zoom, line_shadow, true, -1.0, true)
-	draw_circle(screen_position, 3.0 * zoom, RUNE_LINE_COLOR, true, -1.0, true)
+	_draw_filled_circle(screen_position, 4.4 * zoom, line_shadow)
+	_draw_filled_circle(screen_position, 3.0 * zoom, RUNE_LINE_COLOR)
 
 
-func _is_connection_hidden_during_move(connection: Dictionary) -> bool:
+func _draw_performance_overlay() -> void:
+	var canvas_rect := _canvas_rect()
+	var overlay_width := minf(340.0, maxf(canvas_rect.size.x - 24.0, 120.0))
+	var overlay := Rect2(canvas_rect.position + Vector2(12.0, 12.0), Vector2(overlay_width, 110.0))
+	draw_rect(overlay, Color(0.03, 0.05, 0.09, 0.90), true)
+	draw_rect(overlay, GOLD_GLOW, false, 1.0)
+	var fps := Engine.get_frames_per_second()
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 19.0), "DIAGNÓSTICO  •  F3", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, GOLD_GLOW)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 39.0), "%.0f FPS  |  desenho %.2f ms" % [fps, performance_draw_ms], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_PRIMARY)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 58.0), "grade %.2f  |  código %.2f  |  abas %.2f ms" % [performance_grid_ms, performance_connections_ms, performance_panels_ms], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_MUTED)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 77.0), "%d células  |  %d visíveis" % [connections.size(), performance_visible_connections], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_MUTED)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 96.0), "%d pontos da grade  |  %d draw calls" % [performance_grid_dots, int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_MUTED)
+
+
+func _is_connection_hidden_during_move(connection: Dictionary, connection_index := -1) -> bool:
 	if drag_mode == "selection_move":
-		var connection_index := connections.find(connection)
+		if connection_index < 0:
+			connection_index = connections.find(connection)
 		return selected_connections.has(connection_index)
 	if drag_mode != "move_anchor" and not anchor_move_settle_active:
 		return false
@@ -815,8 +991,8 @@ func _is_connection_hidden_during_move(connection: Dictionary) -> bool:
 
 
 func _draw_rounded_segment_caps(from_screen: Vector2, to_screen: Vector2, color: Color, radius: float) -> void:
-	draw_circle(from_screen, radius, color, true, -1.0, true)
-	draw_circle(to_screen, radius, color, true, -1.0, true)
+	_draw_filled_circle(from_screen, radius, color)
+	_draw_filled_circle(to_screen, radius, color)
 
 
 func _settle_ease(progress: float) -> float:
@@ -845,47 +1021,91 @@ func _symbol_position(connection: Dictionary, connection_index := -1) -> Vector2
 	# Uma sequência inteira preserva o mesmo lado (direita/esquerda) do seu traço.
 	# Isso evita que cada segmento de um zigue-zague escolha um lado isoladamente.
 	if connection_index >= 0:
-		normal *= _sequence_side_multiplier(connection_index)
+		normal *= _cached_sequence_side_multiplier(connection_index)
 	else:
 		normal = _preferred_screen_side(normal)
 	return middle + normal * (20.0 * zoom)
 
 
-func _sequence_side_multiplier(connection_index: int) -> float:
-	var start_index := _sequence_start_index(connection_index)
-	var start_connection: Dictionary = connections[start_index]
-	var start_from: Vector2 = start_connection["from"]
-	var start_to: Vector2 = start_connection["to"]
-	var initial_direction := _world_to_screen(start_to) - _world_to_screen(start_from)
-	if initial_direction.length_squared() < 0.001:
+func _cached_sequence_side_multiplier(connection_index: int) -> float:
+	_ensure_sequence_side_multiplier_cache()
+	if connection_index < 0 or connection_index >= sequence_side_multiplier_cache.size():
 		return 1.0
-	var initial_right_side := Vector2(-initial_direction.y, initial_direction.x).normalized()
-	var preferred_side := _preferred_screen_side(initial_right_side)
-	return 1.0 if initial_right_side.dot(preferred_side) >= 0.0 else -1.0
+	return sequence_side_multiplier_cache[connection_index]
 
 
-func _sequence_start_index(connection_index: int) -> int:
-	var current_index := connection_index
-	var visited := {}
-	while not visited.has(current_index):
-		visited[current_index] = true
-		var current: Dictionary = connections[current_index]
-		var current_from: Vector2 = current["from"]
-		var previous_index := -1
-		for candidate_index in range(connections.size()):
-			if candidate_index == current_index:
-				continue
-			var candidate: Dictionary = connections[candidate_index]
-			var candidate_to: Vector2 = candidate["to"]
-			if candidate_to.is_equal_approx(current_from):
-				if previous_index >= 0:
-					# Em uma junção ambígua, este segmento passa a ser o início visual.
-					return current_index
-				previous_index = candidate_index
-		if previous_index < 0 or visited.has(previous_index):
-			break
-		current_index = previous_index
-	return current_index
+func _ensure_sequence_side_multiplier_cache() -> void:
+	if not sequence_side_multiplier_dirty:
+		return
+	sequence_side_multiplier_cache.clear()
+	var previous_indices: Array[int] = []
+	var connections_ending_at := {}
+	for index in range(connections.size()):
+		sequence_side_multiplier_cache.append(1.0)
+		previous_indices.append(-1)
+		var connection: Dictionary = connections[index]
+		var to_point: Vector2 = connection["to"]
+		var point_key := _world_point_key(to_point)
+		var ending_indices: Array = connections_ending_at.get(point_key, [])
+		ending_indices.append(index)
+		connections_ending_at[point_key] = ending_indices
+	for index in range(connections.size()):
+		var connection: Dictionary = connections[index]
+		var from_point: Vector2 = connection["from"]
+		var candidates: Array = connections_ending_at.get(_world_point_key(from_point), [])
+		if candidates.size() == 1 and int(candidates[0]) != index:
+			previous_indices[index] = int(candidates[0])
+
+	var sequence_starts: Array[int] = []
+	for _index in range(connections.size()):
+		sequence_starts.append(-1)
+	for index in range(connections.size()):
+		if sequence_starts[index] >= 0:
+			continue
+		var path: Array[int] = []
+		var path_members := {}
+		var current_index := index
+		var start_index := -1
+		while true:
+			if sequence_starts[current_index] >= 0:
+				start_index = sequence_starts[current_index]
+				break
+			if path_members.has(current_index):
+				start_index = current_index
+				break
+			path_members[current_index] = true
+			path.append(current_index)
+			var previous_index := previous_indices[current_index]
+			if previous_index < 0:
+				start_index = current_index
+				break
+			current_index = previous_index
+		for path_index in path:
+			sequence_starts[path_index] = start_index
+
+	for index in range(connections.size()):
+		var start_index := sequence_starts[index]
+		if start_index < 0:
+			continue
+		var start_connection: Dictionary = connections[start_index]
+		var start_from: Vector2 = start_connection["from"]
+		var start_to: Vector2 = start_connection["to"]
+		var initial_direction := start_to - start_from
+		if initial_direction.length_squared() < 0.001:
+			continue
+		var initial_right_side := Vector2(-initial_direction.y, initial_direction.x).normalized()
+		var preferred_side := _preferred_screen_side(initial_right_side)
+		sequence_side_multiplier_cache[index] = 1.0 if initial_right_side.dot(preferred_side) >= 0.0 else -1.0
+	sequence_side_multiplier_dirty = false
+
+
+func _invalidate_sequence_side_multiplier_cache() -> void:
+	sequence_side_multiplier_dirty = true
+	connection_hit_buckets_dirty = true
+
+
+func _world_point_key(point: Vector2) -> String:
+	return "%d:%d" % [roundi(point.x), roundi(point.y)]
 
 
 func _preferred_screen_side(normal: Vector2) -> Vector2:
@@ -956,11 +1176,11 @@ func _draw_anchor_move_preview() -> void:
 		if not symbol.is_empty():
 			var symbol_position := _symbol_position(connection) + (preview_middle - original_middle)
 			_draw_rune(symbol, symbol_position, zoom, _intensity_color(_connection_intensity(connection)))
-	draw_circle(_world_to_screen(preview_target), 4.2 * zoom, preview_color, true, -1.0, true)
+	_draw_filled_circle(_world_to_screen(preview_target), 4.2 * zoom, preview_color)
 	if anchor_move_snap_target_valid and not anchor_move_settle_active:
 		var snap_color := GOLD_GLOW
 		snap_color.a = 0.42
-		draw_arc(_world_to_screen(anchor_move_snap_target), 9.0 * zoom, 0.0, TAU, 18, snap_color, 1.1 * zoom, true)
+		_draw_ring(_world_to_screen(anchor_move_snap_target), 9.0 * zoom, snap_color, 1.1 * zoom)
 
 
 func _draw_selection_rectangle() -> void:
@@ -1008,6 +1228,8 @@ func _begin_anchor_move(source: Vector2) -> void:
 	anchor_move_target = source
 	anchor_move_snap_target = source
 	anchor_move_snap_target_valid = false
+	anchor_move_is_terminal = _is_terminal_point(source)
+	anchor_move_snap_started_at = 0.0
 	anchor_move_press_screen = pointer_screen
 	hovered_connection = -1
 
@@ -1019,6 +1241,8 @@ func _update_anchor_move_target() -> void:
 		clampf(pointer_screen.y, canvas.position.y, canvas.end.y)
 	)
 	anchor_move_target = _screen_to_world(constrained_screen)
+	var had_snap_target := anchor_move_snap_target
+	var had_valid_snap := anchor_move_snap_target_valid
 	anchor_move_snap_target_valid = false
 	var candidate := _grid_point_at(pointer_screen)
 	if not candidate.has("point"):
@@ -1028,6 +1252,30 @@ func _update_anchor_move_target() -> void:
 		return
 	anchor_move_snap_target = target
 	anchor_move_snap_target_valid = true
+	if not had_valid_snap or not target.is_equal_approx(had_snap_target):
+		anchor_move_snap_started_at = animation_clock
+
+
+func _continue_terminal_anchor_move() -> void:
+	if not anchor_move_is_terminal or not anchor_move_snap_target_valid:
+		return
+	var source := anchor_move_source
+	var target := anchor_move_snap_target
+	if source.is_equal_approx(target) or not diagram.move_anchor(source, target):
+		return
+	_invalidate_sequence_side_multiplier_cache()
+	_clear_diagram_animations()
+	anchor_move_source = Vector2.ZERO
+	anchor_move_target = Vector2.ZERO
+	anchor_move_snap_target = Vector2.ZERO
+	anchor_move_snap_target_valid = false
+	anchor_move_is_terminal = false
+	anchor_move_snap_started_at = 0.0
+	anchor_move_press_screen = Vector2.ZERO
+	drag_mode = "connect"
+	line_start_world = target
+	hovered_connection = -1
+	_update_hover()
 
 
 func _complete_anchor_move() -> void:
@@ -1048,11 +1296,14 @@ func _complete_anchor_move_settle() -> void:
 	var should_move := not anchor_move_source.is_equal_approx(anchor_move_settle_to)
 	anchor_move_settle_active = false
 	if should_move and diagram.move_anchor(anchor_move_source, anchor_move_settle_to):
+		_invalidate_sequence_side_multiplier_cache()
 		_clear_diagram_animations()
 	anchor_move_source = Vector2.ZERO
 	anchor_move_target = Vector2.ZERO
 	anchor_move_snap_target = Vector2.ZERO
 	anchor_move_snap_target_valid = false
+	anchor_move_is_terminal = false
+	anchor_move_snap_started_at = 0.0
 	anchor_move_press_screen = Vector2.ZERO
 	_update_hover()
 
@@ -1108,9 +1359,11 @@ func _draw_execution_symbol_glow(kind: String, symbol_position: Vector2, rune_co
 
 func _draw_rune_aura(kind: String, center: Vector2, aura_color: Color, spread: float, alpha: float) -> void:
 	var color := aura_color
-	color.a = alpha
-	for index in range(8):
-		var angle := TAU * float(index) / 8.0
+	# Quatro cópias suaves preservam o contorno mágico da runa. O desenho
+	# anterior usava oito por camada e multiplicava brutalmente os draw calls.
+	color.a = alpha * 1.75
+	for index in range(4):
+		var angle := TAU * (float(index) + 0.5) / 4.0
 		var offset := Vector2(cos(angle), sin(angle)) * spread
 		_draw_rune(kind, center + offset, zoom, color)
 
@@ -1144,8 +1397,8 @@ func _draw_intensity_inspector() -> void:
 		draw_line(start, end, _intensity_color(int(start_t * 255.0)), 5.0, true)
 	draw_line(Vector2(slider.position.x, slider.get_center().y), Vector2(slider.end.x, slider.get_center().y), PANEL_BORDER, 1.0, true)
 	var marker_x := slider.position.x + slider.size.x * (float(intensity) / 255.0)
-	draw_circle(Vector2(marker_x, slider.get_center().y), 7.0, Color("1a140e"))
-	draw_arc(Vector2(marker_x, slider.get_center().y), 7.0, 0.0, TAU, 16, GOLD_GLOW, 1.5, true)
+	_draw_filled_circle(Vector2(marker_x, slider.get_center().y), 7.0, Color("1a140e"))
+	_draw_ring(Vector2(marker_x, slider.get_center().y), 7.0, GOLD_GLOW, 1.5)
 
 
 func _draw_interface_panels() -> void:
@@ -1168,11 +1421,9 @@ func _draw_left_panel() -> void:
 	var command_scroll := minf(left_command_scroll, _left_command_max_scroll())
 	var row_y := LEFT_COMMAND_LIST_TOP + 6.0 - command_scroll
 	var command_count := _symbol_connection_count()
-	for connection_index in range(connections.size()):
+	for connection_index in _symbol_connection_indices():
 		var connection: Dictionary = connections[connection_index]
-		var kind := str(connection.get("symbol", ""))
-		if kind.is_empty():
-			continue
+		var kind := str(connection["symbol"])
 		var data := _symbol_data(kind)
 		var row := Rect2(14.0, row_y, panel.size.x - 28.0, 58.0)
 		if row.end.y > list_rect.position.y and row.position.y < list_rect.end.y:
@@ -1183,9 +1434,9 @@ func _draw_left_panel() -> void:
 			draw_rect(row.grow(-3.0), Color(0.24, 0.17, 0.08, 0.32), false, 1.0)
 			var intensity := _display_connection_intensity(connection_index, connection)
 			var sigil_center := row.position + Vector2(28.0, 29.0)
-			draw_circle(sigil_center, 18.0, Color("cdb782"))
-			draw_arc(sigil_center, 18.0, 0.0, TAU, 20, PANEL_BORDER, 1.4, true)
-			draw_circle(sigil_center + Vector2(-4.0, -5.0), 3.0, Color(1.0, 0.95, 0.78, 0.28))
+			_draw_filled_circle(sigil_center, 18.0, Color("cdb782"))
+			_draw_ring(sigil_center, 18.0, PANEL_BORDER, 1.4)
+			_draw_filled_circle(sigil_center + Vector2(-4.0, -5.0), 3.0, Color(1.0, 0.95, 0.78, 0.28))
 			_draw_rune(kind, sigil_center, 0.76, PARCHMENT_INK.lerp(PANEL_BORDER, float(intensity) / 255.0))
 			draw_string(ThemeDB.fallback_font, row.position + Vector2(56.0, 25.0), str(data["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, PARCHMENT_INK)
 			var extra := str(data["extra"])
@@ -1205,7 +1456,7 @@ func _draw_left_panel() -> void:
 	_draw_toggle_button(_left_toggle_rect(), "left")
 
 	if command_count == 0:
-		draw_arc(Vector2(panel.size.x * 0.5, 132.0), 30.0, 0.0, TAU, 32, PANEL_BORDER, 1.0, true)
+		_draw_ring(Vector2(panel.size.x * 0.5, 132.0), 30.0, PANEL_BORDER, 1.0)
 		draw_line(Vector2(panel.size.x * 0.5 - 48.0, 132.0), Vector2(panel.size.x * 0.5 + 48.0, 132.0), PANEL_BORDER, 1.0, true)
 		draw_string(ThemeDB.fallback_font, Vector2(29.0, 192.0), "Ainda não há símbolos no ritual.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
 
@@ -1215,10 +1466,8 @@ func _command_row_at(screen_position: Vector2) -> int:
 		return -1
 	var list_rect := _left_command_list_rect()
 	var row_y := LEFT_COMMAND_LIST_TOP + 6.0 - minf(left_command_scroll, _left_command_max_scroll())
-	for connection_index in range(connections.size()):
+	for connection_index in _symbol_connection_indices():
 		var connection: Dictionary = connections[connection_index]
-		if str(connection.get("symbol", "")).is_empty():
-			continue
 		var row := Rect2(14.0, row_y, _left_panel_width() - 28.0, 58.0)
 		if row.end.y > list_rect.position.y and row.position.y < list_rect.end.y and row.has_point(screen_position):
 			return connection_index
@@ -1267,11 +1516,22 @@ func _draw_left_command_scrollbar(list_rect: Rect2, scroll: float) -> void:
 
 
 func _symbol_connection_count() -> int:
-	var count := 0
-	for connection in connections:
-		if not str(connection.get("symbol", "")).is_empty():
-			count += 1
-	return count
+	return _symbol_connection_indices().size()
+
+
+func _symbol_connection_indices() -> Array[int]:
+	if not symbol_connection_indices_dirty:
+		return symbol_connection_indices_cache
+	symbol_connection_indices_cache.clear()
+	for index in range(connections.size()):
+		if not str(connections[index].get("symbol", "")).is_empty():
+			symbol_connection_indices_cache.append(index)
+	symbol_connection_indices_dirty = false
+	return symbol_connection_indices_cache
+
+
+func _invalidate_symbol_connection_indices() -> void:
+	symbol_connection_indices_dirty = true
 
 
 func _left_command_max_scroll() -> float:
@@ -1297,6 +1557,7 @@ func _begin_left_scroll_gesture(additive: bool) -> void:
 func _update_left_scroll_drag() -> void:
 	var offset := left_scroll_drag_start_offset - (pointer_screen.y - left_scroll_drag_start_mouse.y)
 	left_command_scroll_target = clampf(offset, 0.0, _left_command_max_scroll())
+	left_command_scroll = left_command_scroll_target
 
 
 func _left_scroll_is_moving() -> bool:
@@ -1307,7 +1568,7 @@ func _update_left_command_scroll(delta: float) -> void:
 	var max_scroll := _left_command_max_scroll()
 	left_command_scroll_target = clampf(left_command_scroll_target, 0.0, max_scroll)
 	left_command_scroll = clampf(left_command_scroll, 0.0, max_scroll)
-	var amount := clampf(delta * LEFT_SCROLL_SMOOTHNESS, 0.0, 1.0)
+	var amount := 1.0 - exp(-delta * LEFT_SCROLL_SMOOTHNESS)
 	left_command_scroll = lerpf(left_command_scroll, left_command_scroll_target, amount)
 	if absf(left_command_scroll_target - left_command_scroll) <= 0.1:
 		left_command_scroll = left_command_scroll_target
@@ -1327,14 +1588,17 @@ func _draw_top_panel() -> void:
 
 	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 24.0), "SELOS E RUNAS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
 
+	var palette_viewport := _palette_viewport_rect()
 	for index in range(PALETTE_SYMBOLS.size()):
 		var item: Dictionary = PALETTE_SYMBOLS[index]
 		var tile := _palette_rect(index)
+		if not _palette_tile_is_visible(tile, palette_viewport):
+			continue
 		var highlight_alpha := _hover_alpha(palette_hover_started_at) if index == animated_hover_palette_index else 0.0
 		_draw_arcane_tile_mark(tile, highlight_alpha)
 		var tile_scale := 1.05 * tile.size.x / PALETTE_MAX_TILE_SIZE
 		_draw_rune(str(item["kind"]), tile.get_center(), tile_scale, GOLD_BRIGHT.lerp(Color("fff0bd"), highlight_alpha))
-	_draw_palette_scroll_masks(_palette_viewport_rect())
+	_draw_palette_scroll_masks(palette_viewport)
 	_draw_palette_scrollbar()
 
 
@@ -1389,7 +1653,7 @@ func _draw_right_panel() -> void:
 	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), "TOPO", HORIZONTAL_ALIGNMENT_LEFT, text_width, 11, PANEL_ACCENT)
 	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), "%d SELOS" % stack.size(), HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, TEXT_MUTED)
 	if stack.is_empty():
-		draw_arc(panel.position + Vector2(panel.size.x * 0.5, 169.0), 24.0, 0.0, TAU, 24, LEATHER_LIGHT, 1.0, true)
+		_draw_ring(panel.position + Vector2(panel.size.x * 0.5, 169.0), 24.0, LEATHER_LIGHT, 1.0)
 		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 215.0), "A pilha está vazia.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
 		return
 
@@ -1419,16 +1683,20 @@ func _draw_palette_tooltip() -> void:
 		return
 	var item: Dictionary = PALETTE_SYMBOLS[hovered_palette_index]
 	var tile := _palette_rect(hovered_palette_index)
+	var panel := _top_panel_rect()
 	var font: Font = ThemeDB.fallback_font
 	var title := str(item["label"])
 	var description := str(item["description"])
-	var max_width := minf(330.0, maxf(size.x - 24.0, 160.0))
+	var max_width := minf(330.0, maxf(panel.size.x - 24.0, 1.0))
+	if max_width < 80.0:
+		return
+	var min_width := minf(160.0, max_width)
 	var title_width := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14).x + 24.0
 	var description_width := font.get_string_size(description, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12).x + 24.0
-	var tooltip_width := clampf(maxf(title_width, description_width), 160.0, max_width)
+	var tooltip_width := clampf(maxf(title_width, description_width), min_width, max_width)
 	var description_size := font.get_multiline_string_size(description, HORIZONTAL_ALIGNMENT_LEFT, tooltip_width - 24.0, 12)
 	var tooltip_height := 34.0 + description_size.y + 12.0
-	var tooltip_x := clampf(tile.position.x, 12.0, maxf(size.x - tooltip_width - 12.0, 12.0))
+	var tooltip_x := clampf(tile.position.x, panel.position.x + 12.0, maxf(panel.end.x - tooltip_width - 12.0, panel.position.x + 12.0))
 	var tooltip_y := tile.end.y + 10.0
 	if tooltip_y + tooltip_height > size.y - 12.0:
 		tooltip_y = maxf(12.0, tile.position.y - tooltip_height - 10.0)
@@ -1462,10 +1730,10 @@ func _draw_arcane_frame(rect: Rect2) -> void:
 	draw_line(bottom_left, bottom_left + Vector2(0.0, -corner), GOLD_BRIGHT, 1.2, true)
 	draw_line(bottom_right, bottom_right + Vector2(-corner, 0.0), GOLD_BRIGHT, 1.2, true)
 	draw_line(bottom_right, bottom_right + Vector2(0.0, -corner), GOLD_BRIGHT, 1.2, true)
-	draw_circle(top_left, 1.6, GOLD_GLOW)
-	draw_circle(top_right, 1.6, GOLD_GLOW)
-	draw_circle(bottom_left, 1.6, GOLD_GLOW)
-	draw_circle(bottom_right, 1.6, GOLD_GLOW)
+	_draw_filled_circle(top_left, 1.6, GOLD_GLOW)
+	_draw_filled_circle(top_right, 1.6, GOLD_GLOW)
+	_draw_filled_circle(bottom_left, 1.6, GOLD_GLOW)
+	_draw_filled_circle(bottom_right, 1.6, GOLD_GLOW)
 
 
 func _draw_arcane_tile_mark(tile: Rect2, highlight_alpha: float = 0.0) -> void:
@@ -1473,17 +1741,17 @@ func _draw_arcane_tile_mark(tile: Rect2, highlight_alpha: float = 0.0) -> void:
 	var radius := tile.size.x * 0.40
 	var outer_glow := GOLD_GLOW
 	outer_glow.a = 0.08 + 0.16 * highlight_alpha
-	draw_circle(center, radius + 5.0, outer_glow)
-	draw_circle(center, radius, Color("211812").lerp(LEATHER_LIGHT, highlight_alpha))
-	draw_arc(center, radius, 0.0, TAU, 24, PANEL_BORDER.lerp(GOLD_BRIGHT, highlight_alpha), 2.0, true)
-	draw_arc(center, radius + 3.0, 0.0, TAU, 24, Color(0.71, 0.54, 0.24, 0.38 + 0.26 * highlight_alpha), 1.0, true)
+	_draw_filled_circle(center, radius + 5.0, outer_glow)
+	_draw_filled_circle(center, radius, Color("211812").lerp(LEATHER_LIGHT, highlight_alpha))
+	_draw_ring(center, radius, PANEL_BORDER.lerp(GOLD_BRIGHT, highlight_alpha), 2.0)
+	_draw_ring(center, radius + 3.0, Color(0.71, 0.54, 0.24, 0.38 + 0.26 * highlight_alpha), 1.0)
 
 
 func _draw_toggle_button(rect: Rect2, direction: String) -> void:
 	var center := rect.get_center()
 	draw_rect(rect, Color("1a140e"), true)
 	draw_rect(rect, PANEL_BORDER, false, 1.0)
-	draw_arc(center, 11.0, 0.0, TAU, 16, PANEL_ACCENT, 1.0, true)
+	_draw_ring(center, 11.0, PANEL_ACCENT, 1.0)
 	var a := center
 	var b := center
 	var c := center
@@ -1513,7 +1781,7 @@ func _draw_play_button(rect: Rect2) -> void:
 	var accent := Color("6b5130") if ritual_running else GOLD_GLOW
 	draw_rect(rect, Color("1a140e"), true)
 	draw_rect(rect, accent, false, 1.0)
-	draw_arc(center, 11.0, 0.0, TAU, 16, accent.darkened(0.45), 1.0, true)
+	_draw_ring(center, 11.0, accent.darkened(0.45), 1.0)
 	var a := center + Vector2(-3.0, -6.0)
 	var b := center + Vector2(6.0, 0.0)
 	var c := center + Vector2(-3.0, 6.0)
@@ -1525,7 +1793,7 @@ func _draw_stop_button(rect: Rect2) -> void:
 	var accent := Color("d46c4d") if ritual_running else Color("6b5130")
 	draw_rect(rect, Color("1a140e"), true)
 	draw_rect(rect, accent, false, 1.0)
-	draw_arc(center, 11.0, 0.0, TAU, 16, accent.darkened(0.45), 1.0, true)
+	_draw_ring(center, 11.0, accent.darkened(0.45), 1.0)
 	draw_rect(Rect2(center - Vector2(4.0, 4.0), Vector2(8.0, 8.0)), accent, true)
 
 
@@ -1538,8 +1806,8 @@ func _draw_execution_speed_control() -> void:
 	var amount := (execution_speed_rps - EXECUTION_MIN_RPS) / (EXECUTION_MAX_RPS - EXECUTION_MIN_RPS)
 	var marker_position := Vector2(slider.position.x + slider.size.x * amount, slider.position.y)
 	draw_line(slider.position, marker_position, GOLD_BRIGHT, 3.0, true)
-	draw_circle(marker_position, 5.0, Color("1a140e"), true)
-	draw_arc(marker_position, 5.0, 0.0, TAU, 16, GOLD_GLOW, 1.3, true)
+	_draw_filled_circle(marker_position, 5.0, Color("1a140e"))
+	_draw_ring(marker_position, 5.0, GOLD_GLOW, 1.3)
 
 
 func _draw_resize_handles() -> void:
@@ -1547,22 +1815,22 @@ func _draw_resize_handles() -> void:
 		var x := left_panel_size
 		draw_line(Vector2(x, 44.0), Vector2(x, size.y - 44.0), PANEL_BORDER, 2.0, true)
 		for offset in [-6.0, 0.0, 6.0]:
-			draw_circle(Vector2(x, size.y * 0.5 + offset), 1.5, GOLD_GLOW)
+			_draw_filled_circle(Vector2(x, size.y * 0.5 + offset), 1.5, GOLD_GLOW)
 	if right_panel_open:
 		var right_x := size.x - right_panel_size
 		draw_line(Vector2(right_x, 44.0), Vector2(right_x, size.y - 44.0), PANEL_BORDER, 2.0, true)
 		for offset in [-6.0, 0.0, 6.0]:
-			draw_circle(Vector2(right_x, size.y * 0.5 + offset), 1.5, GOLD_GLOW)
+			_draw_filled_circle(Vector2(right_x, size.y * 0.5 + offset), 1.5, GOLD_GLOW)
 	if top_panel_open:
 		var y := top_panel_size
 		draw_line(Vector2(_left_panel_width() + 44.0, y), Vector2(size.x - _right_panel_width() - 44.0, y), PANEL_BORDER, 2.0, true)
 		for offset in [-6.0, 0.0, 6.0]:
-			draw_circle(Vector2(size.x * 0.5 + offset, y), 1.5, GOLD_GLOW)
+			_draw_filled_circle(Vector2(size.x * 0.5 + offset, y), 1.5, GOLD_GLOW)
 	if bottom_panel_open:
 		var y := size.y - bottom_panel_size
 		draw_line(Vector2(_left_panel_width() + 44.0, y), Vector2(size.x - _right_panel_width() - 44.0, y), PANEL_BORDER, 2.0, true)
 		for offset in [-6.0, 0.0, 6.0]:
-			draw_circle(Vector2(size.x * 0.5 + offset, y), 1.5, GOLD_GLOW)
+			_draw_filled_circle(Vector2(size.x * 0.5 + offset, y), 1.5, GOLD_GLOW)
 
 
 func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) -> void:
@@ -1571,8 +1839,8 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 	var fine_stroke := 1.2 * rune_scale
 	match kind:
 		"ORB":
-			draw_arc(center, r, 0.0, TAU, 24, color, main_stroke, true)
-			draw_circle(center, r * 0.28, color)
+			_draw_ring(center, r, color, main_stroke)
+			_draw_filled_circle(center, r * 0.28, color)
 		"DIAMOND":
 			var top := center + Vector2(0.0, -r)
 			var right := center + Vector2(r, 0.0)
@@ -1598,7 +1866,7 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 		"PLUS":
 			draw_line(center + Vector2(-r, 0.0), center + Vector2(r, 0.0), color, 2.6 * rune_scale, true)
 			draw_line(center + Vector2(0.0, -r), center + Vector2(0.0, r), color, 2.6 * rune_scale, true)
-			draw_circle(center, r * 0.28, color, false, fine_stroke, true)
+			_draw_ring(center, r * 0.28, color, fine_stroke)
 		"SQUARE":
 			var square := Rect2(center - Vector2(r * 0.75, r * 0.75), Vector2(r * 1.5, r * 1.5))
 			draw_rect(square, color, false, 2.4 * rune_scale, true)
@@ -1607,7 +1875,16 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 			draw_line(center + Vector2(-r * 0.75, -r), center + Vector2(-r * 0.75, r), color, 2.4 * rune_scale, true)
 			draw_line(center + Vector2(-r * 0.75, -r * 0.15), center + Vector2(r * 0.75, -r * 0.15), color, 2.4 * rune_scale, true)
 			draw_line(center + Vector2(-r * 0.75, r * 0.42), center + Vector2(r * 0.35, r * 0.42), color, 2.4 * rune_scale, true)
-			draw_circle(center + Vector2(r * 0.55, -r * 0.15), r * 0.16, color)
+			_draw_filled_circle(center + Vector2(r * 0.55, -r * 0.15), r * 0.16, color)
+		"READ":
+			var read_left := center + Vector2(-r * 0.78, 0.0)
+			var read_right := center + Vector2(r * 0.78, 0.0)
+			var read_tip := center + Vector2(r * 0.20, 0.0)
+			draw_line(read_left, read_tip, color, main_stroke, true)
+			draw_line(read_tip, read_tip + Vector2(-r * 0.30, -r * 0.27), color, main_stroke, true)
+			draw_line(read_tip, read_tip + Vector2(-r * 0.30, r * 0.27), color, main_stroke, true)
+			draw_arc(read_right, r * 0.42, PI * 0.5, TAU * 1.5, 16, color, fine_stroke, true)
+			draw_arc(read_right, r * 0.22, PI * 0.5, TAU * 1.5, 14, color, fine_stroke, true)
 		"CUP":
 			draw_line(center + Vector2(-r * 0.82, -r * 0.62), center + Vector2(0.0, r * 0.72), color, main_stroke, true)
 			draw_line(center + Vector2(0.0, r * 0.72), center + Vector2(r * 0.82, -r * 0.62), color, main_stroke, true)
@@ -1615,29 +1892,29 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 		"TWIN":
 			var twin_left := center + Vector2(-r * 0.34, 0.0)
 			var twin_right := center + Vector2(r * 0.34, 0.0)
-			draw_arc(twin_left, r * 0.48, 0.0, TAU, 18, color, main_stroke, true)
-			draw_arc(twin_right, r * 0.48, 0.0, TAU, 18, color, main_stroke, true)
+			_draw_ring(twin_left, r * 0.48, color, main_stroke)
+			_draw_ring(twin_right, r * 0.48, color, main_stroke)
 		"KNOT":
 			draw_line(center + Vector2(-r * 0.9, -r * 0.5), center + Vector2(r * 0.9, r * 0.5), color, main_stroke, true)
 			draw_line(center + Vector2(-r * 0.9, r * 0.5), center + Vector2(r * 0.9, -r * 0.5), color, main_stroke, true)
-			draw_circle(center + Vector2(-r * 0.62, -r * 0.34), r * 0.16, color)
-			draw_circle(center + Vector2(r * 0.62, r * 0.34), r * 0.16, color)
+			_draw_filled_circle(center + Vector2(-r * 0.62, -r * 0.34), r * 0.16, color)
+			_draw_filled_circle(center + Vector2(r * 0.62, r * 0.34), r * 0.16, color)
 		"SLASH":
 			draw_line(center + Vector2(-r * 0.62, r * 0.9), center + Vector2(r * 0.62, -r * 0.9), color, main_stroke, true)
-			draw_circle(center + Vector2(-r * 0.58, -r * 0.62), r * 0.15, color)
-			draw_circle(center + Vector2(r * 0.58, r * 0.62), r * 0.15, color)
+			_draw_filled_circle(center + Vector2(-r * 0.58, -r * 0.62), r * 0.15, color)
+			_draw_filled_circle(center + Vector2(r * 0.58, r * 0.62), r * 0.15, color)
 		"SPIRAL":
 			draw_arc(center, r * 0.82, PI * 0.18, TAU * 0.92, 20, color, main_stroke, true)
 			draw_arc(center + Vector2(r * 0.13, 0.0), r * 0.42, PI * 1.08, TAU * 1.82, 16, color, main_stroke, true)
-			draw_circle(center + Vector2(-r * 0.28, -r * 0.12), r * 0.11, color)
+			_draw_filled_circle(center + Vector2(-r * 0.28, -r * 0.12), r * 0.11, color)
 		"DASH":
 			draw_line(center + Vector2(-r * 0.92, 0.0), center + Vector2(r * 0.92, 0.0), color, main_stroke, true)
 			draw_line(center + Vector2(-r * 0.38, -r * 0.42), center + Vector2(r * 0.38, -r * 0.42), color, fine_stroke, true)
 		"EQ":
 			draw_line(center + Vector2(-r * 0.86, -r * 0.32), center + Vector2(r * 0.86, -r * 0.32), color, main_stroke, true)
 			draw_line(center + Vector2(-r * 0.86, r * 0.32), center + Vector2(r * 0.86, r * 0.32), color, main_stroke, true)
-			draw_circle(center + Vector2(0.0, -r * 0.32), r * 0.14, color)
-			draw_circle(center + Vector2(0.0, r * 0.32), r * 0.14, color)
+			_draw_filled_circle(center + Vector2(0.0, -r * 0.32), r * 0.14, color)
+			_draw_filled_circle(center + Vector2(0.0, r * 0.32), r * 0.14, color)
 		"NEQ":
 			draw_line(center + Vector2(-r * 0.86, -r * 0.32), center + Vector2(r * 0.86, -r * 0.32), color, fine_stroke, true)
 			draw_line(center + Vector2(-r * 0.86, r * 0.32), center + Vector2(r * 0.86, r * 0.32), color, fine_stroke, true)
@@ -1657,9 +1934,9 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 			draw_line(center + Vector2(r * 0.60, -r * 0.06), center + Vector2(-r * 0.60, r * 0.68), color, main_stroke, true)
 			draw_line(center + Vector2(-r * 0.72, r * 0.86), center + Vector2(r * 0.72, r * 0.86), color, fine_stroke, true)
 		"NOT":
-			draw_arc(center, r * 0.76, 0.0, TAU, 20, color, fine_stroke, true)
+			_draw_ring(center, r * 0.76, color, fine_stroke)
 			draw_line(center + Vector2(-r * 0.66, r * 0.66), center + Vector2(r * 0.66, -r * 0.66), color, main_stroke, true)
-			draw_circle(center + Vector2(r * 0.58, r * 0.58), r * 0.12, color)
+			_draw_filled_circle(center + Vector2(r * 0.58, r * 0.58), r * 0.12, color)
 		"AND":
 			var and_left := center + Vector2(-r * 0.84, 0.0)
 			var and_right := center + Vector2(r * 0.84, 0.0)
@@ -1686,7 +1963,7 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 			draw_line(letter_left, letter_top, color, main_stroke, true)
 			draw_line(letter_top, letter_right, color, main_stroke, true)
 			draw_line(center + Vector2(-r * 0.36, r * 0.12), center + Vector2(r * 0.36, r * 0.12), color, fine_stroke, true)
-			draw_circle(center + Vector2(0.0, r * 0.52), r * 0.10, color)
+			_draw_filled_circle(center + Vector2(0.0, r * 0.52), r * 0.10, color)
 		"JUMP_IF_TRUE":
 			var jump_start := center + Vector2(-r * 0.82, r * 0.62)
 			var jump_branch := center + Vector2(-r * 0.12, r * 0.08)
@@ -1695,7 +1972,7 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 			draw_line(jump_branch, jump_tip, color, main_stroke, true)
 			draw_line(jump_tip, jump_tip + Vector2(-r * 0.34, -r * 0.06), color, main_stroke, true)
 			draw_line(jump_tip, jump_tip + Vector2(-r * 0.06, r * 0.34), color, main_stroke, true)
-			draw_circle(jump_branch, r * 0.16, color)
+			_draw_filled_circle(jump_branch, r * 0.16, color)
 		"WARP":
 			draw_arc(center, r * 0.84, PI * 0.14, TAU * 0.86, 20, color, main_stroke, true)
 			draw_arc(center, r * 0.48, PI * 1.14, TAU * 1.86, 16, color, fine_stroke, true)
@@ -1703,21 +1980,21 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 			draw_line(center + Vector2(r * 0.28, 0.0), center + Vector2(r * 0.03, -r * 0.23), color, fine_stroke, true)
 			draw_line(center + Vector2(r * 0.28, 0.0), center + Vector2(r * 0.03, r * 0.23), color, fine_stroke, true)
 		"WARP_ENDPOINT":
-			draw_arc(center, r * 0.84, 0.0, TAU, 22, color, main_stroke, true)
-			draw_arc(center, r * 0.50, 0.0, TAU, 18, color, fine_stroke, true)
-			draw_circle(center, r * 0.18, color)
+			_draw_ring(center, r * 0.84, color, main_stroke)
+			_draw_ring(center, r * 0.50, color, fine_stroke)
+			_draw_filled_circle(center, r * 0.18, color)
 			draw_line(center + Vector2(0.0, -r * 1.02), center + Vector2(0.0, -r * 0.62), color, fine_stroke, true)
 			draw_line(center + Vector2(0.0, r * 0.62), center + Vector2(0.0, r * 1.02), color, fine_stroke, true)
 		"INT_MOD":
-			draw_arc(center, r * 0.82, 0.0, TAU, 20, color, main_stroke, true)
+			_draw_ring(center, r * 0.82, color, main_stroke)
 			draw_line(center + Vector2(-r * 0.42, 0.0), center + Vector2(r * 0.42, 0.0), color, fine_stroke, true)
 			draw_line(center + Vector2(0.0, -r * 0.42), center + Vector2(0.0, r * 0.42), color, fine_stroke, true)
-			draw_circle(center, r * 0.14, color)
+			_draw_filled_circle(center, r * 0.14, color)
 		"INT_SET":
 			var set_rect := Rect2(center - Vector2(r * 0.64, r * 0.64), Vector2(r * 1.28, r * 1.28))
 			draw_rect(set_rect, color, false, main_stroke, true)
 			draw_line(center + Vector2(-r * 0.33, 0.0), center + Vector2(r * 0.33, 0.0), color, fine_stroke, true)
-			draw_circle(center + Vector2(r * 0.46, 0.0), r * 0.12, color)
+			_draw_filled_circle(center + Vector2(r * 0.46, 0.0), r * 0.12, color)
 
 
 func _is_canvas_position(screen_position: Vector2) -> bool:
@@ -2079,6 +2356,7 @@ func _update_selection_move() -> void:
 
 func _complete_selection_move() -> void:
 	if not selection_move_offset.is_zero_approx() and diagram.move_connections(selected_connections, selection_move_offset):
+		_invalidate_sequence_side_multiplier_cache()
 		selected_symbol_connection = -1
 		_clear_diagram_animations()
 	selection_move_offset = Vector2.ZERO
@@ -2176,6 +2454,8 @@ func _paste_connections_from_clipboard() -> void:
 			break
 	if pasted_indices.is_empty():
 		return
+	_invalidate_symbol_connection_indices()
+	_invalidate_sequence_side_multiplier_cache()
 	selected_connections = pasted_indices
 	_update_primary_selection()
 	selected_symbol_connection = -1
@@ -2197,12 +2477,25 @@ func _connection_intersects_selection_rect(index: int, rect: Rect2) -> bool:
 	var from_screen := _world_to_screen(connection["from"])
 	var to_screen := _world_to_screen(connection["to"])
 	var expanded_rect := rect.grow(2.0)
-	var sample_count := maxi(2, int(ceil(from_screen.distance_to(to_screen) / 4.0)))
-	for sample_index in range(sample_count + 1):
-		var progress := float(sample_index) / float(sample_count)
-		if expanded_rect.has_point(from_screen.lerp(to_screen, progress)):
-			return true
-	return false
+	if expanded_rect.has_point(from_screen) or expanded_rect.has_point(to_screen):
+		return true
+	var top_left := expanded_rect.position
+	var top_right := Vector2(expanded_rect.end.x, expanded_rect.position.y)
+	var bottom_right := expanded_rect.end
+	var bottom_left := Vector2(expanded_rect.position.x, expanded_rect.end.y)
+	return _segments_intersect(from_screen, to_screen, top_left, top_right) or _segments_intersect(from_screen, to_screen, top_right, bottom_right) or _segments_intersect(from_screen, to_screen, bottom_right, bottom_left) or _segments_intersect(from_screen, to_screen, bottom_left, top_left)
+
+
+func _segments_intersect(first_from: Vector2, first_to: Vector2, second_from: Vector2, second_to: Vector2) -> bool:
+	var first_delta := first_to - first_from
+	var second_delta := second_to - second_from
+	var denominator := first_delta.cross(second_delta)
+	if absf(denominator) < 0.0001:
+		return false
+	var between_starts := second_from - first_from
+	var first_progress := between_starts.cross(second_delta) / denominator
+	var second_progress := between_starts.cross(first_delta) / denominator
+	return first_progress >= 0.0 and first_progress <= 1.0 and second_progress >= 0.0 and second_progress <= 1.0
 
 
 func _delete_selected_connections() -> void:
@@ -2210,11 +2503,14 @@ func _delete_selected_connections() -> void:
 		return
 	if selected_connections.size() == 1 and selected_symbol_connection == selected_connection:
 		if diagram.set_symbol(selected_symbol_connection, ""):
+			_invalidate_symbol_connection_indices()
 			_deselect_connection()
 			_clear_diagram_animations()
 			queue_redraw()
 		return
 	if diagram.remove_connections(selected_connections):
+		_invalidate_symbol_connection_indices()
+		_invalidate_sequence_side_multiplier_cache()
 		_deselect_connection()
 		_clear_diagram_animations()
 		queue_redraw()
@@ -2241,7 +2537,7 @@ func _grid_point_at(screen_position: Vector2) -> Dictionary:
 	return {}
 
 
-func _update_hover() -> void:
+func _update_hover() -> bool:
 	var candidate := _grid_point_at(pointer_screen)
 	hover_point_valid = candidate.has("point")
 	if hover_point_valid:
@@ -2259,23 +2555,29 @@ func _update_hover() -> void:
 	else:
 		hovered_connection = _connection_near(pointer_screen)
 	hovered_palette_index = _palette_index_at(pointer_screen)
-	_sync_hover_animation()
+	return _sync_hover_animation()
 
 
-func _sync_hover_animation() -> void:
+func _sync_hover_animation() -> bool:
+	var changed := false
 	if animated_hover_point_valid != hover_point_valid or (hover_point_valid and not animated_hover_world.is_equal_approx(hover_world)):
 		animated_hover_point_valid = hover_point_valid
 		animated_hover_world = hover_world
 		point_hover_started_at = animation_clock
+		changed = true
 	if animated_hover_connection != hovered_connection:
 		animated_hover_connection = hovered_connection
 		connection_hover_started_at = animation_clock
+		changed = true
 	if animated_hover_symbol != hovered_symbol:
 		animated_hover_symbol = hovered_symbol
 		symbol_hover_started_at = animation_clock
+		changed = true
 	if animated_hover_palette_index != hovered_palette_index:
 		animated_hover_palette_index = hovered_palette_index
 		palette_hover_started_at = animation_clock
+		changed = true
+	return changed
 
 
 func _hover_alpha(started_at: float) -> float:
@@ -2338,10 +2640,15 @@ func _palette_rows() -> int:
 func _palette_tile_size() -> float:
 	if not top_panel_open:
 		return PALETTE_MIN_TILE_SIZE
+	var height_limited_size := PALETTE_MIN_TILE_SIZE
 	if _palette_rows() == 1:
-		return PALETTE_MIN_TILE_SIZE
-	var available_height := top_panel_size - PALETTE_TOP_Y - PALETTE_BOTTOM_PADDING
-	return clampf((available_height - PALETTE_TILE_GAP) * 0.5, PALETTE_MIN_TILE_SIZE, PALETTE_MAX_TILE_SIZE)
+		height_limited_size = PALETTE_MIN_TILE_SIZE
+	else:
+		var available_height := top_panel_size - PALETTE_TOP_Y - PALETTE_BOTTOM_PADDING
+		height_limited_size = clampf((available_height - PALETTE_TILE_GAP) * 0.5, PALETTE_MIN_TILE_SIZE, PALETTE_MAX_TILE_SIZE)
+	var available_width := maxf(_top_panel_rect().size.x - 40.0, 0.0)
+	var width_limited_size := (available_width - PALETTE_TILE_GAP * float(PALETTE_COMPACT_COLUMNS - 1)) / float(PALETTE_COMPACT_COLUMNS)
+	return clampf(minf(height_limited_size, width_limited_size), PALETTE_MIN_TILE_SIZE, PALETTE_MAX_TILE_SIZE)
 
 
 func _palette_columns() -> int:
@@ -2378,6 +2685,7 @@ func _begin_palette_scroll_gesture() -> void:
 func _update_palette_scroll_drag() -> void:
 	var offset := palette_scroll_drag_start_offset - (pointer_screen.x - palette_scroll_drag_start_mouse.x)
 	palette_scroll_target = clampf(offset, 0.0, _palette_max_scroll())
+	palette_scroll = palette_scroll_target
 
 
 func _palette_scroll_is_moving() -> bool:
@@ -2390,7 +2698,7 @@ func _update_palette_scroll(delta: float) -> void:
 		palette_scroll_target = 0.0
 		return
 	_clamp_palette_scroll()
-	var amount := clampf(delta * PALETTE_SCROLL_SMOOTHNESS, 0.0, 1.0)
+	var amount := 1.0 - exp(-delta * PALETTE_SCROLL_SMOOTHNESS)
 	palette_scroll = lerpf(palette_scroll, palette_scroll_target, amount)
 	if absf(palette_scroll_target - palette_scroll) <= 0.1:
 		palette_scroll = palette_scroll_target
@@ -2437,11 +2745,19 @@ func _draw_palette_scroll_masks(viewport: Rect2) -> void:
 		draw_rect(Rect2(viewport.end.x, viewport.position.y, right_mask_width, viewport.size.y), PANEL_BACKGROUND, true)
 
 
+func _palette_tile_is_visible(tile: Rect2, viewport: Rect2) -> bool:
+	if tile.size.x <= 0.0 or tile.size.y <= 0.0 or viewport.size.x <= 0.0 or viewport.size.y <= 0.0:
+		return false
+	return tile.position.x >= viewport.position.x and tile.end.x <= viewport.end.x and tile.position.y >= viewport.position.y and tile.end.y <= viewport.end.y
+
+
 func _palette_index_at(screen_position: Vector2) -> int:
-	if not top_panel_open or not _palette_viewport_rect().has_point(screen_position):
+	var viewport := _palette_viewport_rect()
+	if not top_panel_open or not viewport.has_point(screen_position):
 		return -1
 	for index in range(PALETTE_SYMBOLS.size()):
-		if _palette_rect(index).has_point(screen_position):
+		var tile := _palette_rect(index)
+		if _palette_tile_is_visible(tile, viewport) and tile.has_point(screen_position):
 			return index
 	return -1
 
@@ -2458,24 +2774,69 @@ func _symbol_data(kind: String) -> Dictionary:
 
 
 func _symbol_at(screen_position: Vector2) -> int:
-	for index in range(connections.size()):
+	var radius := maxf(12.0, 24.0 * zoom)
+	var radius_squared := radius * radius
+	for index in _symbol_connection_indices():
 		var connection: Dictionary = connections[index]
-		if str(connection.get("symbol", "")).is_empty():
-			continue
-		if screen_position.distance_to(_symbol_position(connection, index)) <= maxf(12.0, 24.0 * zoom):
+		if screen_position.distance_squared_to(_symbol_position(connection, index)) <= radius_squared:
 			return index
 	return -1
+
+
+func _ensure_connection_hit_buckets() -> void:
+	if not connection_hit_buckets_dirty:
+		return
+	connection_hit_buckets.clear()
+	for connection_index in range(connections.size()):
+		var connection: Dictionary = connections[connection_index]
+		var from_point: Vector2 = connection["from"]
+		var to_point: Vector2 = connection["to"]
+		var first_x := int(floor(minf(from_point.x, to_point.x) / CONNECTION_HIT_BUCKET_SIZE))
+		var last_x := int(floor(maxf(from_point.x, to_point.x) / CONNECTION_HIT_BUCKET_SIZE))
+		var first_y := int(floor(minf(from_point.y, to_point.y) / CONNECTION_HIT_BUCKET_SIZE))
+		var last_y := int(floor(maxf(from_point.y, to_point.y) / CONNECTION_HIT_BUCKET_SIZE))
+		for bucket_x in range(first_x, last_x + 1):
+			for bucket_y in range(first_y, last_y + 1):
+				var bucket_key := "%d:%d" % [bucket_x, bucket_y]
+				var bucket_connections: Array = connection_hit_buckets.get(bucket_key, [])
+				bucket_connections.append(connection_index)
+				connection_hit_buckets[bucket_key] = bucket_connections
+	connection_hit_buckets_dirty = false
+
+
+func _connection_hit_candidates(screen_position: Vector2) -> Array[int]:
+	_ensure_connection_hit_buckets()
+	var world_position := _screen_to_world(screen_position)
+	var world_radius := LINE_HIT_RADIUS / maxf(zoom, 0.001)
+	var first_x := int(floor((world_position.x - world_radius) / CONNECTION_HIT_BUCKET_SIZE))
+	var last_x := int(floor((world_position.x + world_radius) / CONNECTION_HIT_BUCKET_SIZE))
+	var first_y := int(floor((world_position.y - world_radius) / CONNECTION_HIT_BUCKET_SIZE))
+	var last_y := int(floor((world_position.y + world_radius) / CONNECTION_HIT_BUCKET_SIZE))
+	var candidates: Array[int] = []
+	var seen := {}
+	for bucket_x in range(first_x, last_x + 1):
+		for bucket_y in range(first_y, last_y + 1):
+			var bucket_key := "%d:%d" % [bucket_x, bucket_y]
+			var bucket_connections: Array = connection_hit_buckets.get(bucket_key, [])
+			for raw_connection_index in bucket_connections:
+				var connection_index := int(raw_connection_index)
+				if not seen.has(connection_index):
+					seen[connection_index] = true
+					candidates.append(connection_index)
+	return candidates
 
 
 func _connection_near(screen_position: Vector2) -> int:
 	var closest_index := -1
 	var closest_distance := INF
-	for index in range(connections.size()):
+	for index in _connection_hit_candidates(screen_position):
 		var connection: Dictionary = connections[index]
 		var from_point: Vector2 = connection["from"]
 		var to_point: Vector2 = connection["to"]
 		var a := _world_to_screen(from_point)
 		var b := _world_to_screen(to_point)
+		if screen_position.x < minf(a.x, b.x) - LINE_HIT_RADIUS or screen_position.x > maxf(a.x, b.x) + LINE_HIT_RADIUS or screen_position.y < minf(a.y, b.y) - LINE_HIT_RADIUS or screen_position.y > maxf(a.y, b.y) + LINE_HIT_RADIUS:
+			continue
 		var ab := b - a
 		var denominator := maxf(ab.length_squared(), 0.001)
 		var t := clampf((screen_position - a).dot(ab) / denominator, 0.0, 1.0)
@@ -2494,14 +2855,23 @@ func _place_active_symbol() -> void:
 		if dragged_symbol_source >= 0:
 			if target == dragged_symbol_source:
 				_set_connection_symbol(target, active_symbol, false)
+				_set_connection_intensity(target, dragged_symbol_intensity, false)
 			else:
 				_record_undo_snapshot(symbol_drag_start_snapshot)
 				_set_connection_symbol(target, active_symbol, false)
+				_set_connection_intensity(target, dragged_symbol_intensity, false)
 		else:
-			_set_connection_symbol(target, active_symbol)
+			var target_connection: Dictionary = connections[target]
+			var target_symbol := str(target_connection.get("symbol", ""))
+			var target_intensity := _connection_intensity(target_connection)
+			if target_symbol != active_symbol or target_intensity != DEFAULT_RUNE_INTENSITY:
+				_record_current_state()
+				_set_connection_symbol(target, active_symbol, false)
+				_set_connection_intensity(target, DEFAULT_RUNE_INTENSITY, false)
 		_start_symbol_settle(target)
 	elif dragged_symbol_source >= 0:
 		_set_connection_symbol(dragged_symbol_source, active_symbol, false)
+		_set_connection_intensity(dragged_symbol_source, dragged_symbol_intensity, false)
 
 
 func _start_symbol_settle(target: int) -> void:
@@ -2518,7 +2888,8 @@ func _start_symbol_settle(target: int) -> void:
 
 
 func _set_connection_symbol(index: int, symbol: String, record_history := true) -> void:
-	diagram.set_symbol(index, symbol, record_history)
+	if diagram.set_symbol(index, symbol, record_history):
+		_invalidate_symbol_connection_indices()
 
 
 func _set_connection_intensity(index: int, intensity: int, record_history := true) -> void:
@@ -2526,7 +2897,9 @@ func _set_connection_intensity(index: int, intensity: int, record_history := tru
 
 
 func _add_connection(from: Vector2, to: Vector2) -> void:
-	diagram.add_connection(from, to)
+	if diagram.add_connection(from, to):
+		_invalidate_symbol_connection_indices()
+		_invalidate_sequence_side_multiplier_cache()
 
 
 func _begin_pan() -> void:
@@ -2545,6 +2918,7 @@ func _zoom_at_pointer(multiplier: float) -> void:
 func _cancel_drag() -> void:
 	if drag_mode == "symbol" and dragged_symbol_source >= 0:
 		_set_connection_symbol(dragged_symbol_source, active_symbol, false)
+		_set_connection_intensity(dragged_symbol_source, dragged_symbol_intensity, false)
 	elif drag_mode == "intensity" and not intensity_drag_start_snapshot.is_empty():
 		_restore_connections(intensity_drag_start_snapshot)
 	_reset_drag()
@@ -2554,6 +2928,7 @@ func _reset_drag() -> void:
 	drag_mode = ""
 	active_symbol = ""
 	dragged_symbol_source = -1
+	dragged_symbol_intensity = DEFAULT_RUNE_INTENSITY
 	symbol_drag_start_snapshot = []
 	symbol_press_screen = Vector2.ZERO
 	anchor_snap_active = false
@@ -2561,6 +2936,8 @@ func _reset_drag() -> void:
 	anchor_move_target = Vector2.ZERO
 	anchor_move_snap_target = Vector2.ZERO
 	anchor_move_snap_target_valid = false
+	anchor_move_is_terminal = false
+	anchor_move_snap_started_at = 0.0
 	anchor_move_press_screen = Vector2.ZERO
 	anchor_move_settle_active = false
 	anchor_move_settle_from = Vector2.ZERO
@@ -2591,6 +2968,8 @@ func _record_undo_snapshot(snapshot: Array) -> void:
 
 func _restore_connections(snapshot: Array) -> void:
 	diagram.restore(snapshot)
+	_invalidate_symbol_connection_indices()
+	_invalidate_sequence_side_multiplier_cache()
 
 
 func _clear_diagram_animations() -> void:
@@ -2603,6 +2982,8 @@ func _clear_diagram_animations() -> void:
 func _undo() -> void:
 	if not diagram.undo():
 		return
+	_invalidate_symbol_connection_indices()
+	_invalidate_sequence_side_multiplier_cache()
 	_clear_diagram_animations()
 	_deselect_connection()
 	_reset_drag()
@@ -2612,6 +2993,8 @@ func _undo() -> void:
 func _redo() -> void:
 	if not diagram.redo():
 		return
+	_invalidate_symbol_connection_indices()
+	_invalidate_sequence_side_multiplier_cache()
 	_clear_diagram_animations()
 	_deselect_connection()
 	_reset_drag()

@@ -67,73 +67,172 @@ func export_binary(connections: Array, path: String) -> Dictionary:
 
 
 func _linearize_sequences(connections: Array, errors: Array[String], warnings: Array[String]) -> Array:
-	var incoming_points := {}
-	for raw_connection in connections:
-		var connection: Dictionary = raw_connection
-		incoming_points[_point_key(connection["to"])] = true
-
-	var starts: Array[int] = []
+	var point_connections := _build_point_connections(connections)
+	var remaining_connections := {}
 	for index in range(connections.size()):
-		var indexed_connection: Dictionary = connections[index]
-		var from_point: Vector2 = indexed_connection["from"]
-		if not incoming_points.has(_point_key(from_point)):
-			starts.append(index)
-	if starts.is_empty():
-		errors.append("Não foi encontrado um ponto inicial: o ritual contém um ciclo.")
-		return []
-	var sequences: Array = []
-	var remaining_starts: Array[int] = starts.duplicate()
-	if starts.size() > 1:
-		warnings.append("Foram encontradas %d sequências; o ritual começou pela sequência mais à esquerda." % starts.size())
-	while not remaining_starts.is_empty():
-		var start_index := _leftmost_start(connections, remaining_starts)
-		remaining_starts.erase(start_index)
-		var sequence := _linearize_from_start(connections, start_index, errors)
+		remaining_connections[index] = true
+	var sequence_entries: Array[Dictionary] = []
+	while not remaining_connections.is_empty():
+		var component_start_index := -1
+		for raw_index in remaining_connections:
+			component_start_index = int(raw_index)
+			break
+		var component := _collect_component(connections, component_start_index, point_connections)
+		for connection_index in component:
+			remaining_connections.erase(connection_index)
+		var endpoints := _component_endpoints(connections, component, point_connections, errors)
 		if not errors.is_empty():
 			return []
-		sequences.append(sequence)
+		if endpoints.size() != 2:
+			errors.append("A sequência ligada à célula %d não possui duas pontas abertas." % (component_start_index + 1))
+			return []
+		var start_point: Vector2 = endpoints[0]
+		if _is_point_before(endpoints[1], start_point):
+			start_point = endpoints[1]
+		var sequence := _linearize_component(connections, component, start_point, point_connections, errors)
+		if not errors.is_empty():
+			return []
+		sequence_entries.append({
+			"connections": sequence,
+			"start_point": start_point,
+		})
+
+	if sequence_entries.size() > 1:
+		warnings.append("Foram encontradas %d sequências; o ritual começou pela sequência mais à esquerda." % sequence_entries.size())
+	var sequences: Array = []
+	while not sequence_entries.is_empty():
+		var entry_index := _leftmost_sequence_entry(sequence_entries)
+		var entry: Dictionary = sequence_entries[entry_index]
+		sequences.append(entry["connections"])
+		sequence_entries.remove_at(entry_index)
 	return sequences
 
 
-func _linearize_from_start(connections: Array, start_index: int, errors: Array[String]) -> Array[int]:
-	var ordered: Array[int] = []
-	var current_index := start_index
+func _build_point_connections(connections: Array) -> Dictionary:
+	var point_connections := {}
+	for connection_index in range(connections.size()):
+		var connection: Dictionary = connections[connection_index]
+		var from_point: Vector2 = connection["from"]
+		var to_point: Vector2 = connection["to"]
+		_add_connection_at_point(point_connections, from_point, connection_index)
+		_add_connection_at_point(point_connections, to_point, connection_index)
+	return point_connections
+
+
+func _add_connection_at_point(point_connections: Dictionary, point: Vector2, connection_index: int) -> void:
+	var point_key := _point_key(point)
+	var linked_connections: Array = point_connections.get(point_key, [])
+	linked_connections.append(connection_index)
+	point_connections[point_key] = linked_connections
+
+
+func _collect_component(connections: Array, start_index: int, point_connections: Dictionary) -> Array[int]:
+	var component: Array[int] = []
+	var pending: Array[int] = [start_index]
 	var visited := {}
-	while true:
-		if visited.has(current_index):
-			errors.append("Ciclo encontrado na ligação %d." % (current_index + 1))
-			break
-		visited[current_index] = true
-		ordered.append(current_index)
-		var current: Dictionary = connections[current_index]
-		var current_to: Vector2 = current["to"]
-		var next_indices: Array[int] = []
-		for candidate_index in range(connections.size()):
-			var candidate: Dictionary = connections[candidate_index]
-			var candidate_from: Vector2 = candidate["from"]
-			if candidate_from.is_equal_approx(current_to):
-				next_indices.append(candidate_index)
-		if next_indices.size() > 1:
-			errors.append("Ramificação na ligação %d: saltos ainda não foram implementados." % (current_index + 1))
-			break
-		if next_indices.is_empty():
-			break
-		current_index = next_indices[0]
+	while not pending.is_empty():
+		var connection_index: int = pending.pop_back()
+		if visited.has(connection_index):
+			continue
+		visited[connection_index] = true
+		component.append(connection_index)
+		var connection: Dictionary = connections[connection_index]
+		var from_point: Vector2 = connection["from"]
+		var to_point: Vector2 = connection["to"]
+		_append_unvisited_connections(point_connections, from_point, visited, pending)
+		_append_unvisited_connections(point_connections, to_point, visited, pending)
+	return component
+
+
+func _append_unvisited_connections(point_connections: Dictionary, point: Vector2, visited: Dictionary, pending: Array[int]) -> void:
+	var linked_connections: Array = point_connections[_point_key(point)]
+	for raw_linked_index in linked_connections:
+		var linked_index := int(raw_linked_index)
+		if not visited.has(linked_index):
+			pending.append(linked_index)
+
+
+func _component_endpoints(connections: Array, component: Array[int], point_connections: Dictionary, errors: Array[String]) -> Array[Vector2]:
+	var component_members := {}
+	for connection_index in component:
+		component_members[connection_index] = true
+	var endpoints: Array[Vector2] = []
+	var checked_points := {}
+	for connection_index in component:
+		var connection: Dictionary = connections[connection_index]
+		var from_point: Vector2 = connection["from"]
+		var to_point: Vector2 = connection["to"]
+		_inspect_component_point(from_point, component_members, point_connections, checked_points, endpoints, errors)
+		if not errors.is_empty():
+			return []
+		_inspect_component_point(to_point, component_members, point_connections, checked_points, endpoints, errors)
+		if not errors.is_empty():
+			return []
+	return endpoints
+
+
+func _inspect_component_point(point: Vector2, component_members: Dictionary, point_connections: Dictionary, checked_points: Dictionary, endpoints: Array[Vector2], errors: Array[String]) -> void:
+	var point_key := _point_key(point)
+	if checked_points.has(point_key):
+		return
+	checked_points[point_key] = true
+	var degree := 0
+	var linked_connections: Array = point_connections[point_key]
+	for raw_linked_index in linked_connections:
+		if component_members.has(int(raw_linked_index)):
+			degree += 1
+	if degree > 2:
+		errors.append("Ramificação no ponto %s: saltos por bifurcação ainda não foram implementados." % point_key)
+	elif degree == 1:
+		endpoints.append(point)
+
+
+func _linearize_component(connections: Array, component: Array[int], start_point: Vector2, point_connections: Dictionary, errors: Array[String]) -> Array[int]:
+	var component_members := {}
+	for connection_index in component:
+		component_members[connection_index] = true
+	var ordered: Array[int] = []
+	var current_point := start_point
+	var previous_index := -1
+	while ordered.size() < component.size():
+		var next_index := -1
+		var linked_connections: Array = point_connections[_point_key(current_point)]
+		for raw_linked_index in linked_connections:
+			var candidate_index := int(raw_linked_index)
+			if candidate_index == previous_index or not component_members.has(candidate_index):
+				continue
+			if next_index >= 0:
+				errors.append("Ramificação no ponto %s: saltos por bifurcação ainda não foram implementados." % _point_key(current_point))
+				return []
+			next_index = candidate_index
+		if next_index < 0:
+			errors.append("A sequência foi interrompida antes da última célula.")
+			return []
+		ordered.append(next_index)
+		var connection: Dictionary = connections[next_index]
+		var from_point: Vector2 = connection["from"]
+		var to_point: Vector2 = connection["to"]
+		current_point = to_point if from_point.is_equal_approx(current_point) else from_point
+		previous_index = next_index
 
 	return ordered
 
 
-func _leftmost_start(connections: Array, starts: Array[int]) -> int:
-	var chosen_index := starts[0]
-	var chosen_connection: Dictionary = connections[chosen_index]
-	var chosen_point: Vector2 = chosen_connection["from"]
-	for candidate_index in starts:
-		var candidate_connection: Dictionary = connections[candidate_index]
-		var candidate_point: Vector2 = candidate_connection["from"]
-		if candidate_point.x < chosen_point.x or (is_equal_approx(candidate_point.x, chosen_point.x) and candidate_point.y < chosen_point.y):
-			chosen_index = candidate_index
+func _leftmost_sequence_entry(entries: Array[Dictionary]) -> int:
+	var chosen_index := 0
+	var chosen_entry: Dictionary = entries[chosen_index]
+	var chosen_point: Vector2 = chosen_entry["start_point"]
+	for entry_index in range(1, entries.size()):
+		var candidate_entry: Dictionary = entries[entry_index]
+		var candidate_point: Vector2 = candidate_entry["start_point"]
+		if _is_point_before(candidate_point, chosen_point):
+			chosen_index = entry_index
 			chosen_point = candidate_point
 	return chosen_index
+
+
+func _is_point_before(candidate: Vector2, reference: Vector2) -> bool:
+	return candidate.x < reference.x or (is_equal_approx(candidate.x, reference.x) and candidate.y < reference.y)
 
 
 func _point_key(point: Vector2) -> String:

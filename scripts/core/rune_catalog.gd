@@ -32,6 +32,7 @@ const OPCODE_OR := 0x1a
 const OPCODE_WARP_ENDPOINT := 0x1b
 const OPCODE_PRINTLETTER := 0x1c
 const OPCODE_JUMP_IF_TRUE := 0x1d
+const OPCODE_READ := 0x1e
 
 const SYMBOLS := [
 	{"kind": "ORB", "label": "PUSH", "description": "Coloca a intensidade na pilha.", "extra": "valor", "opcode": OPCODE_PUSH, "takes_operand": true, "result_type": "int"},
@@ -55,14 +56,15 @@ const SYMBOLS := [
 	{"kind": "OR", "label": "OR", "description": "Combina dois booleanos com OU.", "extra": "lógica: ou", "opcode": OPCODE_OR, "takes_operand": false, "result_type": "int"},
 	{"kind": "WARP", "label": "WARP", "description": "Salta para outro WARP com a mesma intensidade.", "extra": "portal", "opcode": OPCODE_WARP, "takes_operand": true},
 	{"kind": "WARP_ENDPOINT", "label": "WARP END", "description": "Destino de todos os WARP com a mesma intensidade.", "extra": "portal destino", "opcode": OPCODE_WARP_ENDPOINT, "takes_operand": true},
-	{"kind": "JUMP_IF_TRUE", "label": "JUMP_IF_TRUE", "description": "Se o selo seguinte tiver intensidade 001, salta pelo WARP da mesma intensidade.", "extra": "salto condicional", "opcode": OPCODE_JUMP_IF_TRUE, "takes_operand": true},
+	{"kind": "JUMP_IF_TRUE", "label": "JUMP_IF_TRUE", "description": "Se o topo da pilha for 001, salta pelo WARP da mesma intensidade.", "extra": "salto condicional", "opcode": OPCODE_JUMP_IF_TRUE, "takes_operand": true},
 	{"kind": "INT_MOD", "label": "INT_MOD", "description": "Modifica a intensidade do selo seguinte com uma operação matemática.", "extra": "controle", "opcode": OPCODE_INT_MOD, "takes_operand": false},
 	{"kind": "INT_SET", "label": "INT_SET", "description": "Espera o próximo inteiro e aplica-o ao selo seguinte.", "extra": "controle", "opcode": OPCODE_INT_SET, "takes_operand": false},
 	{"kind": "TRIANGLE", "label": "PRINT", "description": "Mostra o valor do topo no oráculo.", "extra": "saída", "opcode": OPCODE_PRINT, "takes_operand": false},
 	{"kind": "PRINTLETTER", "label": "PRINTLETTER", "description": "Mostra o caractere Unicode da intensidade (032 = espaço).", "extra": "caractere", "opcode": OPCODE_PRINTLETTER, "takes_operand": true},
 	{"kind": "CROSS", "label": "HALT", "description": "Encerra a execução do ritual.", "extra": "fim", "opcode": OPCODE_HALT, "takes_operand": false},
 	{"kind": "SQUARE", "label": "STORE", "description": "Guarda o topo em uma posição de memória.", "extra": "memória", "opcode": OPCODE_STORE, "takes_operand": true},
-	{"kind": "FORK", "label": "LOAD", "description": "Lê uma posição de memória para a pilha.", "extra": "memória", "opcode": OPCODE_LOAD, "takes_operand": true, "result_type": "int"}
+	{"kind": "FORK", "label": "LOAD", "description": "Lê uma posição de memória indicada pela intensidade para a pilha.", "extra": "memória", "opcode": OPCODE_LOAD, "takes_operand": true, "result_type": "int"},
+	{"kind": "READ", "label": "READ", "description": "Usa o topo como endereço e empilha a memória sem remover o endereço.", "extra": "leitura indireta", "opcode": OPCODE_READ, "takes_operand": false, "result_type": "int"}
 ]
 
 

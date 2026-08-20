@@ -72,7 +72,7 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 | Arco aberto | `OR` | Coloca `1` quando pelo menos um dos booleanos for `1`. |
 | Portal | `WARP` | Salta para outro `WARP` com a mesma intensidade. |
 | Portal selado | `WARP END` | Destino compartilhado por todos os `WARP` com a mesma intensidade. |
-| Seta de decisão | `JUMP_IF_TRUE` | Se o selo seguinte tiver intensidade `001`, salta para o `WARP` ou `WARP END` com a mesma intensidade. |
+| Seta de decisão | `JUMP_IF_TRUE` | Se o topo da pilha for `001`, salta para o `WARP` ou `WARP END` com a mesma intensidade. |
 | Círculo modificado | `INT_MOD` | Aplica uma operação à intensidade do selo-alvo. |
 | Quadrado modificado | `INT_SET` | Aguarda qualquer runa que produza um inteiro e o aplica ao selo-alvo. |
 | Triângulo | `PRINT` | Mostra o valor no Oráculo. |
@@ -80,6 +80,7 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 | Cruz (X) | `HALT` | Encerra a execução. |
 | Quadrado | `STORE` | Guarda o topo da pilha em uma posição de memória. |
 | Forquilha | `LOAD` | Lê uma posição de memória para a pilha. |
+| Seta para o olho | `READ` | Usa o topo da pilha como endereço, empilha o valor da memória e preserva o endereço. |
 
 Para uma runa nova poder alimentar um `INT_SET`, ela deve produzir seu valor no topo da pilha e declarar `"result_type": "int"` no catálogo. Assim o `INT_SET` não precisa ser alterado a cada selo numérico novo.
 
@@ -150,6 +151,7 @@ Cada instrução ocupa dois bytes: `[opcode][intensidade]`. Por exemplo, `PUSH 0
 | `WARP END` | `1B` | `00011011` |
 | `PRINTLETTER` | `1C` | `00011100` |
 | `JUMP_IF_TRUE` | `1D` | `00011101` |
+| `READ` | `1E` | `00011110` |
 
 ## Próximos passos
 
