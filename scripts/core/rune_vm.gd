@@ -216,14 +216,11 @@ func step(instruction: Dictionary, state: Dictionary, instruction_index := -1) -
 			else:
 				stack.append(int(memory[slot]))
 		RuneCatalog.OPCODE_READ:
-			if stack.is_empty():
-				errors.append("READ precisa de um endereço no topo da pilha.")
+			var read_slot := int(instruction.get("operand", instruction.get("intensity", 0)))
+			if not memory.has(read_slot):
+				errors.append("READ tentou ler a posição %d, que está vazia." % read_slot)
 			else:
-				var read_slot := int(stack.back())
-				if not memory.has(read_slot):
-					errors.append("READ tentou ler a posição %d, que está vazia." % read_slot)
-				else:
-					stack.append(int(memory[read_slot]))
+				stack.append(int(memory[read_slot]))
 		RuneCatalog.OPCODE_WARP:
 			var warp_targets: Dictionary = state["warp_targets"]
 			var warp_intensity := int(instruction.get("intensity", instruction.get("operand", 0)))

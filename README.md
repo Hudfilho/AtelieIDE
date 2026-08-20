@@ -80,7 +80,7 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 | Cruz (X) | `HALT` | Encerra a execução. |
 | Quadrado | `STORE` | Guarda o topo da pilha em uma posição de memória. |
 | Forquilha | `LOAD` | Lê uma posição de memória para a pilha. |
-| Seta para o olho | `READ` | Usa o topo da pilha como endereço, empilha o valor da memória e preserva o endereço. |
+| Seta para o olho | `READ` | Empilha o valor da memória no endereço indicado pela intensidade do selo. |
 
 Para uma runa nova poder alimentar um `INT_SET`, ela deve produzir seu valor no topo da pilha e declarar `"result_type": "int"` no catálogo. Assim o `INT_SET` não precisa ser alterado a cada selo numérico novo.
 
@@ -116,7 +116,7 @@ scripts/
 
 ## Bytecode `RUNE`
 
-O formato binário começa com a assinatura `RUNE`, seguida por uma versão, quantidade de instruções e os opcodes. Cada instrução carrega sua intensidade de `0` a `255`; em instruções como `PUSH`, `STORE`, `LOAD`, `WARP` e `PRINTLETTER`, essa intensidade também é o operando numérico.
+O formato binário começa com a assinatura `RUNE`, seguida por uma versão, quantidade de instruções e os opcodes. Cada instrução carrega sua intensidade de `0` a `255`; em instruções como `PUSH`, `STORE`, `LOAD`, `READ`, `WARP` e `PRINTLETTER`, essa intensidade também é o operando numérico.
 
 Cada instrução ocupa dois bytes: `[opcode][intensidade]`. Por exemplo, `PUSH 006` é `01 06` em hexadecimal, ou `00000001 00000110` em binário. Selos que não usam operando ainda carregam o segundo byte como intensidade visual.
 

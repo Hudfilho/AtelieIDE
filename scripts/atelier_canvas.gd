@@ -119,6 +119,7 @@ var selected_connection := -1
 var selected_connections: Array[int] = []
 var selected_symbol_connection := -1
 var ritual_running := false
+var ritual_paused := false
 var execution_speed_rps := EXECUTION_MIN_RPS
 var execution_instructions: Array[Dictionary] = []
 var execution_state: Dictionary = {}
@@ -251,8 +252,14 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if not event.ctrl_pressed:
 		return
-	if event.keycode == KEY_C:
+	if event.keycode == KEY_A:
+		_select_all_connections()
+		get_viewport().set_input_as_handled()
+	elif event.keycode == KEY_C:
 		_copy_selected_connections_to_clipboard()
+		get_viewport().set_input_as_handled()
+	elif event.keycode == KEY_X:
+		_cut_selected_connections()
 		get_viewport().set_input_as_handled()
 	elif event.keycode == KEY_V:
 		_paste_connections_from_clipboard()
@@ -379,13 +386,25 @@ func _gui_input(event: InputEvent) -> void:
 			accept_event()
 			return
 		if _play_button_rect().has_point(pointer_screen):
-			if not ritual_running:
+			if ritual_paused:
+				_resume_ritual()
+			elif not ritual_running:
 				_run_ritual()
 			queue_redraw()
 			accept_event()
 			return
+		if _pause_button_rect().has_point(pointer_screen):
+			_pause_ritual()
+			queue_redraw()
+			accept_event()
+			return
+		if _step_button_rect().has_point(pointer_screen):
+			_step_paused_ritual()
+			queue_redraw()
+			accept_event()
+			return
 		if _stop_button_rect().has_point(pointer_screen):
-			if ritual_running:
+			if _ritual_is_active():
 				_stop_ritual()
 			queue_redraw()
 			accept_event()
@@ -401,7 +420,7 @@ func _gui_input(event: InputEvent) -> void:
 			_begin_resize(resize_handle)
 			accept_event()
 			return
-		if ritual_running:
+		if _ritual_is_active():
 			accept_event()
 			return
 		if _intensity_value_rect().has_point(pointer_screen):
@@ -498,7 +517,7 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _run_ritual() -> void:
-	if ritual_running:
+	if _ritual_is_active():
 		_stop_ritual()
 		return
 	execution_output = ""
@@ -510,6 +529,7 @@ func _run_ritual() -> void:
 	execution_step_elapsed = 0.0
 	execution_connection = -1
 	execution_intensity_overrides.clear()
+	ritual_paused = false
 	var compilation := compiler.compile(connections)
 	for warning in compilation.get("warnings", []):
 		execution_warnings.append(str(warning))
@@ -563,7 +583,7 @@ func _advance_ritual(delta: float) -> void:
 
 func _execute_next_ritual_step() -> void:
 	if execution_instruction_cursor >= execution_instructions.size():
-		ritual_running = false
+		_finish_ritual()
 		return
 	var instruction_index := execution_instruction_cursor
 	var instruction: Dictionary = execution_instructions[instruction_index]
@@ -584,12 +604,49 @@ func _execute_next_ritual_step() -> void:
 	if jump_target >= 0:
 		execution_instruction_cursor = jump_target
 	if not errors.is_empty() or bool(execution_state["halted"]):
-		ritual_running = false
+		_finish_ritual()
 		execution_highlight_ends_at = animation_clock + _execution_step_duration()
 
 
-func _stop_ritual() -> void:
+func _ritual_is_active() -> bool:
+	return ritual_running or ritual_paused
+
+
+func _ritual_can_step() -> bool:
+	return ritual_paused and not execution_instructions.is_empty() and not execution_state.is_empty() and not bool(execution_state.get("halted", false)) and execution_instruction_cursor < execution_instructions.size()
+
+
+func _pause_ritual() -> void:
+	if not ritual_running:
+		return
 	ritual_running = false
+	ritual_paused = true
+	execution_step_elapsed = 0.0
+
+
+func _resume_ritual() -> void:
+	if not ritual_paused:
+		return
+	ritual_paused = false
+	ritual_running = true
+	execution_step_elapsed = 0.0
+
+
+func _step_paused_ritual() -> void:
+	if not _ritual_can_step():
+		return
+	execution_step_elapsed = 0.0
+	_execute_next_ritual_step()
+
+
+func _finish_ritual() -> void:
+	ritual_running = false
+	ritual_paused = false
+	execution_step_elapsed = 0.0
+
+
+func _stop_ritual() -> void:
+	_finish_ritual()
 	execution_instructions.clear()
 	execution_connection = -1
 	execution_highlight_ends_at = animation_clock
@@ -607,7 +664,7 @@ func _execution_highlight_active() -> bool:
 func _execution_highlight_alpha() -> float:
 	if execution_connection < 0:
 		return 0.0
-	if ritual_running:
+	if _ritual_is_active():
 		return 1.0
 	var fade_duration := minf(EXECUTION_HIGHLIGHT_FADE_DURATION, _execution_step_duration())
 	return clampf((execution_highlight_ends_at - animation_clock) / maxf(fade_duration, 0.001), 0.0, 1.0)
@@ -1261,9 +1318,12 @@ func _continue_terminal_anchor_move() -> void:
 		return
 	var source := anchor_move_source
 	var target := anchor_move_snap_target
-	if source.is_equal_approx(target) or not diagram.move_anchor(source, target):
+	if source.is_equal_approx(target):
 		return
-	_invalidate_sequence_side_multiplier_cache()
+	# Segurar o terminal sobre outro ponto inicia uma nova célula a partir do
+	# terminal original. Antes o ponto era movido para frente, esticando a célula
+	# anterior e deixando um "buraco" na sequência reta.
+	_add_connection(source, target)
 	_clear_diagram_animations()
 	anchor_move_source = Vector2.ZERO
 	anchor_move_target = Vector2.ZERO
@@ -1581,6 +1641,8 @@ func _draw_top_panel() -> void:
 	_draw_toggle_button(_top_toggle_rect(), "up" if top_panel_open else "down")
 	_draw_execution_speed_control()
 	_draw_play_button(_play_button_rect())
+	_draw_pause_button(_pause_button_rect())
+	_draw_step_button(_step_button_rect())
 	_draw_stop_button(_stop_button_rect())
 	if not top_panel_open:
 		draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 16.0, 27.0), "SELOS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
@@ -1618,12 +1680,18 @@ func _draw_bottom_panel() -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, panel.position.y + 91.0), "ERROS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, PANEL_ACCENT)
 	var output_position := Vector2(panel.position.x + 24.0, panel.position.y + 116.0)
 	var output_width := divider_x - panel.position.x - 42.0
+	var output_font: Font = ThemeDB.fallback_font
+	var warning_y := output_position.y
 	if not execution_output.is_empty():
-		draw_multiline_string(ThemeDB.fallback_font, output_position, "> " + execution_output, HORIZONTAL_ALIGNMENT_LEFT, output_width, 14, -1, Color("e3cea2"))
-	var warning_y := panel.position.y + 116.0
+		var output_text := "> " + execution_output
+		var output_size := output_font.get_multiline_string_size(output_text, HORIZONTAL_ALIGNMENT_LEFT, output_width, 14)
+		draw_multiline_string(output_font, output_position, output_text, HORIZONTAL_ALIGNMENT_LEFT, output_width, 14, -1, Color("e3cea2"))
+		warning_y += output_size.y + 10.0
 	for warning in execution_warnings:
-		draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 24.0, warning_y), "~ " + warning, HORIZONTAL_ALIGNMENT_LEFT, divider_x - panel.position.x - 42.0, 12, Color("d8c783"))
-		warning_y += 18.0
+		var warning_text := "~ " + warning
+		var warning_size := output_font.get_multiline_string_size(warning_text, HORIZONTAL_ALIGNMENT_LEFT, output_width, 12)
+		draw_multiline_string(output_font, Vector2(panel.position.x + 24.0, warning_y), warning_text, HORIZONTAL_ALIGNMENT_LEFT, output_width, 12, -1, Color("d8c783"))
+		warning_y += warning_size.y + 5.0
 	var error_y := panel.position.y + 116.0
 	for error in execution_errors:
 		draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, error_y), "! " + error, HORIZONTAL_ALIGNMENT_LEFT, panel.end.x - divider_x - 40.0, 13, Color("ff8791"))
@@ -1788,9 +1856,32 @@ func _draw_play_button(rect: Rect2) -> void:
 	draw_colored_polygon(PackedVector2Array([a, b, c]), accent)
 
 
+func _draw_pause_button(rect: Rect2) -> void:
+	var center := rect.get_center()
+	var accent := GOLD_GLOW if ritual_running else Color("6b5130")
+	draw_rect(rect, Color("1a140e"), true)
+	draw_rect(rect, accent, false, 1.0)
+	_draw_ring(center, 11.0, accent.darkened(0.45), 1.0)
+	draw_rect(Rect2(center + Vector2(-5.0, -6.0), Vector2(3.0, 12.0)), accent, true)
+	draw_rect(Rect2(center + Vector2(2.0, -6.0), Vector2(3.0, 12.0)), accent, true)
+
+
+func _draw_step_button(rect: Rect2) -> void:
+	var center := rect.get_center()
+	var accent := GOLD_GLOW if _ritual_can_step() else Color("6b5130")
+	draw_rect(rect, Color("1a140e"), true)
+	draw_rect(rect, accent, false, 1.0)
+	_draw_ring(center, 11.0, accent.darkened(0.45), 1.0)
+	var a := center + Vector2(-5.0, -6.0)
+	var b := center + Vector2(3.0, 0.0)
+	var c := center + Vector2(-5.0, 6.0)
+	draw_colored_polygon(PackedVector2Array([a, b, c]), accent)
+	draw_rect(Rect2(center + Vector2(5.0, -6.0), Vector2(2.0, 12.0)), accent, true)
+
+
 func _draw_stop_button(rect: Rect2) -> void:
 	var center := rect.get_center()
-	var accent := Color("d46c4d") if ritual_running else Color("6b5130")
+	var accent := Color("d46c4d") if _ritual_is_active() else Color("6b5130")
 	draw_rect(rect, Color("1a140e"), true)
 	draw_rect(rect, accent, false, 1.0)
 	_draw_ring(center, 11.0, accent.darkened(0.45), 1.0)
@@ -2091,11 +2182,19 @@ func _toggle_panel(panel: String) -> void:
 
 
 func _play_button_rect() -> Rect2:
-	return Rect2(_top_panel_rect().end.x - 110.0, 6.0, 30.0, 30.0)
+	return Rect2(_top_panel_rect().end.x - 218.0, 6.0, 30.0, 30.0)
+
+
+func _pause_button_rect() -> Rect2:
+	return Rect2(_top_panel_rect().end.x - 182.0, 6.0, 30.0, 30.0)
+
+
+func _step_button_rect() -> Rect2:
+	return Rect2(_top_panel_rect().end.x - 146.0, 6.0, 30.0, 30.0)
 
 
 func _stop_button_rect() -> Rect2:
-	return Rect2(_top_panel_rect().end.x - 74.0, 6.0, 30.0, 30.0)
+	return Rect2(_top_panel_rect().end.x - 110.0, 6.0, 30.0, 30.0)
 
 
 func _execution_speed_slider_rect() -> Rect2:
@@ -2292,6 +2391,17 @@ func _select_connection(index: int, additive := false, select_symbol := false) -
 		selected_symbol_connection = -1
 
 
+func _select_all_connections() -> void:
+	if connections.is_empty():
+		return
+	selected_connections.clear()
+	for index in range(connections.size()):
+		selected_connections.append(index)
+	_update_primary_selection()
+	selected_symbol_connection = -1
+	queue_redraw()
+
+
 func _is_connection_selected(index: int) -> bool:
 	return selected_connections.has(index)
 
@@ -2391,8 +2501,22 @@ func _copy_selected_connections_to_clipboard() -> void:
 	DisplayServer.clipboard_set(CLIPBOARD_RITUAL_PREFIX + "\n" + JSON.stringify(payload))
 
 
+func _cut_selected_connections() -> void:
+	if _ritual_is_active() or selected_connections.is_empty():
+		return
+	_copy_selected_connections_to_clipboard()
+	# Cortar sempre remove as células completas. Diferente de Delete em uma
+	# runa isolada, não deixa a linha para trás depois de copiar o bloco.
+	if diagram.remove_connections(selected_connections):
+		_invalidate_symbol_connection_indices()
+		_invalidate_sequence_side_multiplier_cache()
+		_deselect_connection()
+		_clear_diagram_animations()
+		queue_redraw()
+
+
 func _paste_connections_from_clipboard() -> void:
-	if ritual_running:
+	if _ritual_is_active():
 		return
 	var clipboard_text: String = DisplayServer.clipboard_get()
 	if not clipboard_text.begins_with(CLIPBOARD_RITUAL_PREFIX):

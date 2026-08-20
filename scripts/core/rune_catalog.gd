@@ -64,7 +64,7 @@ const SYMBOLS := [
 	{"kind": "CROSS", "label": "HALT", "description": "Encerra a execução do ritual.", "extra": "fim", "opcode": OPCODE_HALT, "takes_operand": false},
 	{"kind": "SQUARE", "label": "STORE", "description": "Guarda o topo em uma posição de memória.", "extra": "memória", "opcode": OPCODE_STORE, "takes_operand": true},
 	{"kind": "FORK", "label": "LOAD", "description": "Lê uma posição de memória indicada pela intensidade para a pilha.", "extra": "memória", "opcode": OPCODE_LOAD, "takes_operand": true, "result_type": "int"},
-	{"kind": "READ", "label": "READ", "description": "Usa o topo como endereço e empilha a memória sem remover o endereço.", "extra": "leitura indireta", "opcode": OPCODE_READ, "takes_operand": false, "result_type": "int"}
+	{"kind": "READ", "label": "READ", "description": "Empilha a memória no endereço indicado pela intensidade.", "extra": "memória", "opcode": OPCODE_READ, "takes_operand": true, "result_type": "int"}
 ]
 
 
