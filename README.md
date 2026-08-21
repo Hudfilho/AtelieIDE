@@ -25,16 +25,19 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 - Intensidade configurável por slider ou valor numérico.
 - Seleção individual e múltipla de células.
 - Seleção retangular e remoção com histórico (`Ctrl+Z` / `Ctrl+Y`).
-- Painéis redimensionáveis para grimório, selos e saída.
+- Painéis nativos redimensionáveis e recolhíveis para grimório, selos, execução e pilha.
 - Compilador visual → bytecode `RUNE` → máquina virtual.
-- Oráculo de execução com saída, avisos e erros.
+- Execução com saída e diagnósticos roláveis, selecionáveis e copiáveis.
+- Play, pause, step e stop com destaque animado da runa atual.
+- Interface localizada em português e inglês, com nomes acessíveis nos controles.
+- Overlay de desempenho com `F3` (p50/p95, redraws, células visíveis e draw calls).
 - Ateliê à luz de vela ou pergaminho iluminado, com o tema guardado entre sessões.
 
 ## Controles
 
 | Ação | Controle |
 | --- | --- |
-| Criar uma ligação | Arraste de um ponto vermelho até outro ponto |
+| Criar uma ligação | Arraste de um ponto azul até outro ponto |
 | Continuar uma sequência | Mantenha o botão esquerdo pressionado ao alcançar uma âncora |
 | Navegar pelo canvas | Arraste com o botão do meio |
 | Zoom | Roda do mouse sobre o canvas |
@@ -47,7 +50,9 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 | Desfazer / refazer | `Ctrl+Z` / `Ctrl+Y` |
 | Rolar o grimório | Roda do mouse ou arraste a lista para cima/baixo |
 | Executar o ritual | Botão ▶ no canto superior direito |
+| Pausar / executar um passo / parar | Botões `Ⅱ`, `▷│` e `■` |
 | Alternar dia / noite | Botão ☾ / ☀ no canto superior direito |
+| Diagnóstico de desempenho | `F3` |
 
 ## Selos disponíveis
 
@@ -104,17 +109,29 @@ Os booleanos da linguagem usam `1` para verdadeiro e `0` para falso. `EQ`, `NEQ`
 
 ```text
 scenes/
-└── Main.tscn                 # Cena principal
+├── Main.tscn                 # Cena principal e canvas
+└── ui/                       # Cenas dos painéis nativos
 
 scripts/
-├── atelier_canvas.gd         # Canvas, interação e interface
-└── core/
+├── atelier_canvas.gd         # Gestos e render dinâmico do diagrama
+├── core/
     ├── atelier_palette.gd    # Paleta do ateliê nos dois temas
     ├── rune_catalog.gd       # Catálogo de selos e opcodes
     ├── rune_diagram.gd       # Estado do diagrama e histórico
     ├── rune_compiler.gd      # Diagrama → instruções → bytecode
     ├── rune_bytecode.gd      # Formato binário RUNE
-    └── rune_vm.gd            # Máquina virtual baseada em pilha
+│   └── rune_vm.gd            # Máquina virtual baseada em pilha
+├── rendering/
+│   ├── atelier_static_layer.gd # Fundo e moldura em camadas estáticas
+│   └── rune_painter.gd       # Geometria compartilhada dos glifos
+└── ui/                       # Painéis, tema, localização e log de execução
+
+localization/
+└── ui.csv                    # Textos pt_BR e en
+
+tests/
+├── ui_refactor_smoke.gd      # Regressão de UI e ritual 2 + 2
+└── render_benchmark.gd       # Casos com 50, 500 e 5.000 células
 ```
 
 ## Bytecode `RUNE`
@@ -161,7 +178,7 @@ Cada instrução ocupa dois bytes: `[opcode][intensidade]`. Por exemplo, `PUSH 0
 - Ramificações e controle de fluxo visual.
 - Salvar e abrir rituais pelo editor.
 - Exportação de arquivos `.rune` pela interface.
-- Depurador passo a passo com destaque da célula atual.
+- Breakpoints e inspeção de memória no depurador passo a passo.
 - Mais selos e ferramentas de linguagem.
 
 ---

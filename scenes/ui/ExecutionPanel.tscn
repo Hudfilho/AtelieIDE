@@ -1,0 +1,164 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/execution_panel.gd" id="1_panel"]
+
+[node name="ExecutionPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+mouse_filter = 0
+script = ExtResource("1_panel")
+
+[node name="Background" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 6
+
+[node name="Body" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="Margin/Body"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 8
+
+[node name="Heading" type="VBoxContainer" parent="Margin/Body/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 1
+theme_override_constants/separation = 1
+
+[node name="Title" type="Label" parent="Margin/Body/Header/Heading"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+text = "EXECUÇÃO"
+text_overrun_behavior = 3
+
+[node name="Description" type="Label" parent="Margin/Body/Header/Heading"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+text = "A saída, os avisos e os erros do ritual aparecem aqui."
+text_overrun_behavior = 3
+
+[node name="CollapseButton" type="Button" parent="Margin/Body/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+focus_mode = 2
+mouse_default_cursor_shape = 2
+text = "⌄"
+
+[node name="HeaderSeparator" type="HSeparator" parent="Margin/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ContentSplit" type="HSplitContainer" parent="Margin/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 1
+split_offset = 420
+dragger_visibility = 1
+
+[node name="OutputCard" type="PanelContainer" parent="Margin/Body/ContentSplit"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="OutputMargin" type="MarginContainer" parent="Margin/Body/ContentSplit/OutputCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 7
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="OutputColumn" type="VBoxContainer" parent="Margin/Body/ContentSplit/OutputCard/OutputMargin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="OutputTitle" type="Label" parent="Margin/Body/ContentSplit/OutputCard/OutputMargin/OutputColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+text = "SAÍDA"
+text_overrun_behavior = 3
+
+[node name="OutputLog" type="RichTextLabel" parent="Margin/Body/ContentSplit/OutputCard/OutputMargin/OutputColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+focus_mode = 2
+bbcode_enabled = false
+fit_content = false
+scroll_active = true
+scroll_following = true
+selection_enabled = true
+context_menu_enabled = true
+shortcut_keys_enabled = true
+
+[node name="DiagnosticsCard" type="PanelContainer" parent="Margin/Body/ContentSplit"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="DiagnosticsMargin" type="MarginContainer" parent="Margin/Body/ContentSplit/DiagnosticsCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 7
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="DiagnosticsColumn" type="VBoxContainer" parent="Margin/Body/ContentSplit/DiagnosticsCard/DiagnosticsMargin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="DiagnosticsTitle" type="Label" parent="Margin/Body/ContentSplit/DiagnosticsCard/DiagnosticsMargin/DiagnosticsColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+text = "DIAGNÓSTICOS"
+text_overrun_behavior = 3
+
+[node name="DiagnosticsLog" type="RichTextLabel" parent="Margin/Body/ContentSplit/DiagnosticsCard/DiagnosticsMargin/DiagnosticsColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+focus_mode = 2
+bbcode_enabled = false
+fit_content = false
+scroll_active = true
+scroll_following = true
+selection_enabled = true
+context_menu_enabled = true
+shortcut_keys_enabled = true
+
+[node name="ResizeHandle" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = -4.0
+offset_bottom = 7.0
+grow_horizontal = 2
+mouse_filter = 0
+mouse_default_cursor_shape = 9

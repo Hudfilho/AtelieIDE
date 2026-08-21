@@ -67,21 +67,28 @@ const SYMBOLS := [
 	{"kind": "READ", "label": "READ", "description": "Empilha a memória no endereço indicado pela intensidade.", "extra": "memória", "opcode": OPCODE_READ, "takes_operand": true, "result_type": "int"}
 ]
 
+static var _symbols_by_kind: Dictionary = {}
+static var _symbols_by_opcode: Dictionary = {}
+
+
+static func _ensure_indices() -> void:
+	if not _symbols_by_kind.is_empty():
+		return
+	for raw_symbol: Dictionary in SYMBOLS:
+		_symbols_by_kind[str(raw_symbol["kind"])] = raw_symbol
+		_symbols_by_opcode[int(raw_symbol["opcode"])] = raw_symbol
+
 
 static func symbol_data(kind: String) -> Dictionary:
-	for raw_symbol in SYMBOLS:
-		var symbol: Dictionary = raw_symbol
-		if str(symbol["kind"]) == kind:
-			return symbol.duplicate(true)
+	_ensure_indices()
+	if _symbols_by_kind.has(kind):
+		return _symbols_by_kind[kind]
 	return {"kind": kind, "label": kind, "description": "Símbolo desconhecido.", "extra": "", "opcode": -1, "takes_operand": false, "result_type": ""}
 
 
 static func symbol_for_opcode(opcode: int) -> Dictionary:
-	for raw_symbol in SYMBOLS:
-		var symbol: Dictionary = raw_symbol
-		if int(symbol["opcode"]) == opcode:
-			return symbol.duplicate(true)
-	return {}
+	_ensure_indices()
+	return _symbols_by_opcode.get(opcode, {})
 
 
 static func opcode_for_kind(kind: String) -> int:
@@ -99,3 +106,17 @@ static func produces_value_type(opcode: int, value_type: String) -> bool:
 
 static func name_for_opcode(opcode: int) -> String:
 	return str(symbol_for_opcode(opcode).get("label", "UNKNOWN"))
+
+
+static func localized_description(kind: String) -> String:
+	var data := symbol_data(kind)
+	var key := "RUNE_%s_DESCRIPTION" % kind
+	var translated := TranslationServer.translate(key)
+	return str(data.get("description", "")) if translated == key else translated
+
+
+static func localized_extra(kind: String) -> String:
+	var data := symbol_data(kind)
+	var key := "RUNE_%s_EXTRA" % kind
+	var translated := TranslationServer.translate(key)
+	return str(data.get("extra", "")) if translated == key else translated

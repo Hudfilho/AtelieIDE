@@ -26,6 +26,11 @@ window/stretch/aspect="expand"
 
 3d/physics_engine="Jolt Physics"
 
+[internationalization]
+
+locale/fallback="pt_BR"
+locale/translations=PackedStringArray("res://localization/ui.en.translation", "res://localization/ui.pt_BR.translation")
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
