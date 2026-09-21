@@ -59,6 +59,24 @@ const SYMBOL_HOVER_FADE_DURATION := 0.20
 const EXECUTION_MIN_RPS := 0.1
 const EXECUTION_MAX_RPS := 100.0
 const EXECUTION_HIGHLIGHT_FADE_DURATION := 0.22
+# As runas foram pré-renderizadas uma vez em um atlas. Desenhar um recorte da
+# textura é muito mais barato do que reconstruir dezenas de arcos e linhas por
+# selo, a cada frame.
+const RUNE_ATLAS_TEXTURE: Texture2D = preload("res://art/generated/rune_atlas.png")
+const RUNE_ATLAS_COLUMNS := 8
+const RUNE_ATLAS_TILE_SIZE := 128.0
+const RUNE_ATLAS_BAKE_SCALE := 4.0
+const RUNE_ATLAS_INDEX := {
+	"ORB": 0, "CUP": 1, "TWIN": 2, "KNOT": 3, "DIAMOND": 4, "MOON": 5,
+	"PLUS": 6, "SLASH": 7, "SPIRAL": 8, "DASH": 9, "EQ": 10, "NEQ": 11,
+	"LT": 12, "GT": 13, "LTE": 14, "GTE": 15, "NOT": 16, "AND": 17,
+	"OR": 18, "WARP": 19, "WARP_ENDPOINT": 20, "JUMP_IF_TRUE": 21,
+	"INT_MOD": 22, "INT_SET": 23, "TRIANGLE": 24, "PRINTLETTER": 25,
+	"CROSS": 26, "SQUARE": 27, "FORK": 28, "READ": 29,
+}
+const TEXTURED_PANEL_SKINS := true
+const PANEL_SKIN_EXTENT := 64
+const PANEL_SKIN_MARGIN := 12
 const CLIPBOARD_RITUAL_PREFIX := "ATELIER_IDE_CELLS_V1"
 const THEME_SETTINGS_PATH := "user://atelier_theme.cfg"
 
@@ -246,6 +264,10 @@ var performance_connections_ms := 0.0
 var performance_panels_ms := 0.0
 var performance_visible_connections := 0
 var performance_grid_dots := 0
+var diagnostic_static_layer_visible := true
+var atlas_baking_mode := false
+var panel_skin_texture: Texture2D
+var panel_skin_nodes: Dictionary = {}
 var grid_dot_textures := {}
 var filled_circle_texture: Texture2D
 var ring_textures := {}
@@ -295,6 +317,7 @@ func _ready() -> void:
 	grain_texture = _create_grain_texture()
 	_build_star_field()
 	_apply_theme(_load_saved_theme())
+	_create_textured_panel_skins()
 	grab_focus()
 	queue_redraw()
 
@@ -307,7 +330,84 @@ func _apply_theme(theme_name: String) -> void:
 	for key in table:
 		set("col_%s" % key, table[key])
 	_build_theme_resources()
+	_refresh_panel_skin_texture()
 	queue_redraw()
+
+
+func _create_textured_panel_skins() -> void:
+	if not TEXTURED_PANEL_SKINS or not panel_skin_nodes.is_empty():
+		return
+	for skin_name in ["left", "top", "bottom", "right", "inspector"]:
+		var skin := NinePatchRect.new()
+		skin.name = "Skin_%s" % skin_name.capitalize()
+		skin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		skin.patch_margin_left = PANEL_SKIN_MARGIN
+		skin.patch_margin_top = PANEL_SKIN_MARGIN
+		skin.patch_margin_right = PANEL_SKIN_MARGIN
+		skin.patch_margin_bottom = PANEL_SKIN_MARGIN
+		skin.draw_center = false
+		skin.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
+		skin.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
+		skin.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		skin.visible = diagnostic_static_layer_visible
+		add_child(skin)
+		panel_skin_nodes[skin_name] = skin
+	_refresh_panel_skin_texture()
+
+
+func _refresh_panel_skin_texture() -> void:
+	if not TEXTURED_PANEL_SKINS or panel_skin_nodes.is_empty():
+		return
+	var image := Image.create(PANEL_SKIN_EXTENT, PANEL_SKIN_EXTENT, false, Image.FORMAT_RGBA8)
+	var extent := float(PANEL_SKIN_EXTENT)
+	var radius := 11.0
+	for y in range(PANEL_SKIN_EXTENT):
+		for x in range(PANEL_SKIN_EXTENT):
+			var point := Vector2(float(x) + 0.5, float(y) + 0.5)
+			var distance := _rounded_distance(point, Vector2.ONE * extent, radius)
+			if distance > 0.6:
+				image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.0))
+				continue
+			var edge_distance := minf(minf(point.x, point.y), minf(extent - point.x, extent - point.y))
+			if edge_distance >= float(PANEL_SKIN_MARGIN):
+				image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.0))
+				continue
+			var color := col_brass
+			if edge_distance < 1.25:
+				color = col_gold_bright if point.y < 2.0 else col_brass
+			elif edge_distance < 3.0:
+				color = col_frame_inner
+			else:
+				color = col_leather_light
+				color.a *= clampf((float(PANEL_SKIN_MARGIN) - edge_distance) / 10.0, 0.0, 0.34)
+			color.a *= clampf(0.7 - distance, 0.0, 1.0)
+			image.set_pixel(x, y, color)
+	panel_skin_texture = ImageTexture.create_from_image(image)
+	for raw_skin in panel_skin_nodes.values():
+		var skin := raw_skin as NinePatchRect
+		if skin != null:
+			skin.texture = panel_skin_texture
+
+
+func _sync_textured_panel_skins() -> void:
+	if not TEXTURED_PANEL_SKINS or panel_skin_nodes.is_empty():
+		return
+	var panel_rects := {
+		"left": _left_panel_rect(),
+		"top": _top_panel_rect(),
+		"bottom": _bottom_panel_rect(),
+		"right": _right_panel_rect(),
+		"inspector": _intensity_inspector_rect(),
+	}
+	for skin_name in panel_skin_nodes:
+		var skin := panel_skin_nodes[skin_name] as NinePatchRect
+		var panel: Rect2 = panel_rects.get(skin_name, Rect2())
+		if skin == null:
+			continue
+		skin.visible = diagnostic_static_layer_visible and panel.size.x > 0.0 and panel.size.y > 0.0
+		if skin.visible:
+			skin.position = panel.position
+			skin.size = panel.size
 
 
 func _toggle_theme() -> void:
@@ -659,6 +759,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if event.keycode == KEY_F3:
 		performance_overlay_visible = not performance_overlay_visible
+		queue_redraw()
+		get_viewport().set_input_as_handled()
+		return
+	if event.keycode == KEY_F7:
+		diagnostic_static_layer_visible = not diagnostic_static_layer_visible
 		queue_redraw()
 		get_viewport().set_input_as_handled()
 		return
@@ -1112,17 +1217,25 @@ func export_current_ritual(path: String) -> Dictionary:
 
 
 func _draw() -> void:
+	if atlas_baking_mode:
+		_draw_rune_atlas()
+		return
+	_sync_textured_panel_skins()
 	var draw_started_us: int = Time.get_ticks_usec()
 	performance_visible_connections = 0
 	performance_grid_dots = 0
 	var canvas_rect := _canvas_rect()
-	_draw_room(Rect2(Vector2.ZERO, size))
-	_draw_canvas_backdrop(canvas_rect)
+	if diagnostic_static_layer_visible:
+		_draw_room(Rect2(Vector2.ZERO, size))
+		_draw_canvas_backdrop(canvas_rect)
+	else:
+		draw_rect(canvas_rect, col_sky)
 	var point_counts := _anchor_point_counts()
 	var stage_started_us: int = Time.get_ticks_usec()
 	_draw_grid(canvas_rect, point_counts)
 	_draw_grid_edge_mask(canvas_rect)
-	_draw_compass(canvas_rect)
+	if diagnostic_static_layer_visible:
+		_draw_compass(canvas_rect)
 	performance_grid_ms = float(Time.get_ticks_usec() - stage_started_us) / 1000.0
 	stage_started_us = Time.get_ticks_usec()
 	_draw_connections(canvas_rect, point_counts)
@@ -1132,16 +1245,19 @@ func _draw() -> void:
 	_draw_dragged_symbol()
 	_draw_settling_symbol()
 	performance_connections_ms = float(Time.get_ticks_usec() - stage_started_us) / 1000.0
-	# A mesa nao recorta o proprio desenho. A sala volta por cima do que escapou,
-	# e basta cobrir a folga em volta: dali para fora quem tapa sao os paineis.
-	_draw_room(canvas_rect.grow(PANEL_GAP), canvas_rect)
-	_draw_canvas_corners(canvas_rect)
-	_draw_canvas_edge(canvas_rect)
+	if diagnostic_static_layer_visible:
+		# A mesa nao recorta o proprio desenho. A sala volta por cima do que escapou,
+		# e basta cobrir a folga em volta: dali para fora quem tapa sao os paineis.
+		_draw_room(canvas_rect.grow(PANEL_GAP), canvas_rect)
+		_draw_canvas_corners(canvas_rect)
+		_draw_canvas_edge(canvas_rect)
 	stage_started_us = Time.get_ticks_usec()
-	_draw_intensity_inspector()
-	_draw_interface_panels()
+	if diagnostic_static_layer_visible:
+		_draw_intensity_inspector()
+		_draw_interface_panels()
 	performance_panels_ms = float(Time.get_ticks_usec() - stage_started_us) / 1000.0
-	_draw_vignette()
+	if diagnostic_static_layer_visible:
+		_draw_vignette()
 	if performance_overlay_visible:
 		_draw_performance_overlay()
 	performance_draw_ms = float(Time.get_ticks_usec() - draw_started_us) / 1000.0
@@ -2134,7 +2250,8 @@ func _draw_left_scroll_masks(panel: Rect2, list_rect: Rect2) -> void:
 		draw_style_box(mask_top_stylebox, top_band)
 	if bottom_band.size.y > 0.0:
 		draw_style_box(mask_bottom_stylebox, bottom_band)
-	_draw_frame_chrome(panel)
+	if not TEXTURED_PANEL_SKINS:
+		_draw_frame_chrome(panel)
 
 
 func _draw_left_panel_header(panel: Rect2) -> void:
@@ -2373,6 +2490,14 @@ func _draw_palette_tooltip() -> void:
 func _draw_arcane_frame(rect: Rect2) -> void:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
+	if TEXTURED_PANEL_SKINS:
+		# O centro do NinePatch e transparente para permitir redimensionamento.
+		# Portanto o fundo precisa ser opaco aqui, antes de desenhar o diagrama;
+		# col_inset e apenas uma sombra de 10%, e deixava os fios vazarem.
+		var panel_fill := frame_stylebox.bg_color
+		panel_fill.a = 1.0
+		draw_rect(rect, panel_fill)
+		return
 	draw_style_box(frame_stylebox, rect)
 	# Fio de luz na aresta de cima, como o inset do desenho original.
 	draw_line(rect.position + Vector2(FRAME_RADIUS, 1.5), Vector2(rect.end.x - FRAME_RADIUS, rect.position.y + 1.5), col_frame_sheen, 1.0, true)
@@ -2525,7 +2650,20 @@ func _draw_resize_grip(center: Vector2, vertical: bool) -> void:
 		_draw_filled_circle(center + step * offset, 1.6, col_gold_glow)
 
 
+func _draw_rune_atlas() -> void:
+	for index in range(PALETTE_SYMBOLS.size()):
+		var symbol: Dictionary = PALETTE_SYMBOLS[index]
+		var column := index % RUNE_ATLAS_COLUMNS
+		var row := index / RUNE_ATLAS_COLUMNS
+		var center := Vector2(
+				(float(column) + 0.5) * RUNE_ATLAS_TILE_SIZE,
+				(float(row) + 0.5) * RUNE_ATLAS_TILE_SIZE)
+		_draw_rune(str(symbol["kind"]), center, 4.0, Color.WHITE)
+
+
 func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) -> void:
+	if not atlas_baking_mode and _draw_rune_from_atlas(kind, center, rune_scale, color):
+		return
 	var r := 11.0 * rune_scale
 	var main_stroke := 2.5 * rune_scale
 	var fine_stroke := 1.2 * rune_scale
@@ -2687,6 +2825,21 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 			draw_rect(set_rect, color, false, main_stroke, true)
 			draw_line(center + Vector2(-r * 0.33, 0.0), center + Vector2(r * 0.33, 0.0), color, fine_stroke, true)
 			_draw_filled_circle(center + Vector2(r * 0.46, 0.0), r * 0.12, color)
+
+
+func _draw_rune_from_atlas(kind: String, center: Vector2, rune_scale: float, color: Color) -> bool:
+	if not RUNE_ATLAS_INDEX.has(kind):
+		return false
+	var index: int = RUNE_ATLAS_INDEX[kind]
+	var source := Rect2(
+			Vector2(float(index % RUNE_ATLAS_COLUMNS), float(index / RUNE_ATLAS_COLUMNS)) * RUNE_ATLAS_TILE_SIZE,
+			Vector2.ONE * RUNE_ATLAS_TILE_SIZE)
+	# A imagem foi assada com escala 4; o quadrado todo mede 32 px na escala 1.
+	# Isso preserva tanto o tamanho visual original quanto uma margem transparente
+	# para os traços não encostarem na borda do recorte.
+	var draw_size := Vector2.ONE * (RUNE_ATLAS_TILE_SIZE * rune_scale / RUNE_ATLAS_BAKE_SCALE)
+	draw_texture_rect_region(RUNE_ATLAS_TEXTURE, Rect2(center - draw_size * 0.5, draw_size), source, color, false, true)
+	return true
 
 
 func _is_canvas_position(screen_position: Vector2) -> bool:
@@ -3033,7 +3186,7 @@ func _update_primary_selection() -> void:
 	selected_connection = selected_connections[0] if selected_connections.size() == 1 else -1
 	if selected_symbol_connection != selected_connection:
 		selected_symbol_connection = -1
-	_cancel_intensity_text_edit()
+		_cancel_intensity_text_edit()
 
 
 func _begin_rectangle_selection(additive: bool) -> void:
