@@ -31,13 +31,20 @@ func record_undo_snapshot(snapshot_data: Array) -> void:
 func add_connection(from: Vector2, to: Vector2) -> bool:
 	if from.is_equal_approx(to):
 		return false
+	var from_uses := 0
 	for connection in connections:
 		var connection_from: Vector2 = connection["from"]
 		var connection_to: Vector2 = connection["to"]
+		if connection_from.is_equal_approx(to) or connection_to.is_equal_approx(to):
+			return false # Não gruda em outro nó nem fecha um círculo.
+		if connection_from.is_equal_approx(from) or connection_to.is_equal_approx(from):
+			from_uses += 1
 		var same_direction := connection_from.is_equal_approx(from) and connection_to.is_equal_approx(to)
 		var opposite_direction := connection_from.is_equal_approx(to) and connection_to.is_equal_approx(from)
 		if same_direction or opposite_direction:
 			return false
+	if from_uses > 1:
+		return false # Só uma ponta livre pode iniciar a próxima célula.
 	record_current_state()
 	connections.append({"from": from, "to": to, "symbol": "", "intensity": 128})
 	return true
@@ -112,6 +119,9 @@ func move_connections(indices: Array[int], offset: Vector2) -> bool:
 func move_anchor(from: Vector2, to: Vector2) -> bool:
 	if from.is_equal_approx(to):
 		return false
+	for connection in connections:
+		if Vector2(connection["from"]).is_equal_approx(to) or Vector2(connection["to"]).is_equal_approx(to):
+			return false # Mover também não pode fundir dois nós ocupados.
 	var moved_any := false
 	var updated_connections: Array[Dictionary] = []
 	for raw_connection in connections:

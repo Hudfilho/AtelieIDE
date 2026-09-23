@@ -28,13 +28,19 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 - Painéis redimensionáveis para grimório, selos e saída.
 - Compilador visual → bytecode `RUNE` → máquina virtual.
 - Oráculo de execução com saída, avisos e erros.
+- Ateliê à luz de vela ou pergaminho iluminado, com o tema guardado entre sessões.
+- Menu File para salvar e abrir rituais editáveis (`.atelier`).
+- Verificação de erros no Play com marcação da célula problemática.
 
 ## Controles
 
 | Ação | Controle |
 | --- | --- |
 | Criar uma ligação | Arraste de um ponto vermelho até outro ponto |
-| Continuar uma sequência | Mantenha o botão esquerdo pressionado ao alcançar uma âncora |
+| Continuar uma sequência | Arraste de uma ponta livre, passando pelos pontos sem soltar o botão esquerdo |
+| Apagar a última célula durante o traçado | Volte ao ponto imediatamente anterior sem soltar o botão |
+| Alternar o modo de mover uma ponta | Dê duplo clique nela; a barrinha perpendicular indica o modo ativo |
+| Mover uma junção | Arraste-a para um ponto livre |
 | Navegar pelo canvas | Arraste com o botão do meio |
 | Zoom | Roda do mouse sobre o canvas |
 | Colocar ou mover um selo | Arraste um selo da paleta para uma linha |
@@ -46,6 +52,9 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 | Desfazer / refazer | `Ctrl+Z` / `Ctrl+Y` |
 | Rolar o grimório | Roda do mouse ou arraste a lista para cima/baixo |
 | Executar o ritual | Botão ▶ no canto superior direito |
+| Alternar dia / noite | Botão ☾ / ☀ no canto superior direito |
+| Salvar / abrir ritual | Menu File ou `Ctrl+S` / `Ctrl+O` |
+| Diagnóstico de desempenho | `F3`; `F6` alterna o cache dos painéis e `F7` a camada visual |
 
 ## Selos disponíveis
 
@@ -107,6 +116,7 @@ scenes/
 scripts/
 ├── atelier_canvas.gd         # Canvas, interação e interface
 └── core/
+    ├── atelier_palette.gd    # Paleta do ateliê nos dois temas
     ├── rune_catalog.gd       # Catálogo de selos e opcodes
     ├── rune_diagram.gd       # Estado do diagrama e histórico
     ├── rune_compiler.gd      # Diagrama → instruções → bytecode

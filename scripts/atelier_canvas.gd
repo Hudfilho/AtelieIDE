@@ -7,11 +7,17 @@ extends Control
 ## - Arraste uma área vazia para selecionar várias ligações.
 
 const RuneCatalog = preload("res://scripts/core/rune_catalog.gd")
+const Palette = preload("res://scripts/core/atelier_palette.gd")
 const RuneDiagram = preload("res://scripts/core/rune_diagram.gd")
 const RuneCompiler = preload("res://scripts/core/rune_compiler.gd")
 const RuneBytecode = preload("res://scripts/core/rune_bytecode.gd")
 const RuneVM = preload("res://scripts/core/rune_vm.gd")
+const RitualFile = preload("res://scripts/core/atelier_ritual_file.gd")
 
+const FILE_BAR_HEIGHT := 40.0
+const FILE_MENU_SAVE := 1
+const FILE_MENU_OPEN := 2
+const FILE_MENU_ASSEMBLY := 3
 const PANEL_TAB_SIZE := 42.0
 const DEFAULT_LEFT_PANEL_WIDTH := 304.0
 const DEFAULT_RIGHT_PANEL_WIDTH := 236.0
@@ -26,7 +32,7 @@ const LEFT_COMMAND_LIST_TOP := 82.0
 const LEFT_COMMAND_SCROLL_STEP := 28.0
 const LEFT_SCROLL_DRAG_THRESHOLD := 4.0
 const LEFT_SCROLL_SMOOTHNESS := 30.0
-const PALETTE_TOP_Y := 38.0
+const PALETTE_TOP_Y := 56.0
 const PALETTE_MAX_TILE_SIZE := 58.0
 const PALETTE_MIN_TILE_SIZE := 34.0
 const PALETTE_TILE_GAP := 8.0
@@ -58,28 +64,96 @@ const SYMBOL_HOVER_FADE_DURATION := 0.20
 const EXECUTION_MIN_RPS := 0.1
 const EXECUTION_MAX_RPS := 100.0
 const EXECUTION_HIGHLIGHT_FADE_DURATION := 0.22
+# As runas foram pré-renderizadas uma vez em um atlas. Desenhar um recorte da
+# textura é muito mais barato do que reconstruir dezenas de arcos e linhas por
+# selo, a cada frame.
+const RUNE_ATLAS_TEXTURE: Texture2D = preload("res://art/generated/rune_atlas.png")
+const RUNE_ATLAS_COLUMNS := 8
+const RUNE_ATLAS_TILE_SIZE := 128.0
+const RUNE_ATLAS_BAKE_SCALE := 4.0
+const RUNE_ATLAS_INDEX := {
+	"ORB": 0, "CUP": 1, "TWIN": 2, "KNOT": 3, "DIAMOND": 4, "MOON": 5,
+	"PLUS": 6, "SLASH": 7, "SPIRAL": 8, "DASH": 9, "EQ": 10, "NEQ": 11,
+	"LT": 12, "GT": 13, "LTE": 14, "GTE": 15, "NOT": 16, "AND": 17,
+	"OR": 18, "WARP": 19, "WARP_ENDPOINT": 20, "JUMP_IF_TRUE": 21,
+	"INT_MOD": 22, "INT_SET": 23, "TRIANGLE": 24, "PRINTLETTER": 25,
+	"CROSS": 26, "SQUARE": 27, "FORK": 28, "READ": 29,
+}
+const TEXTURED_PANEL_SKINS := true
+const PANEL_SKIN_EXTENT := 64
+const PANEL_SKIN_MARGIN := 12
+const PANEL_RASTER_CACHE_ENABLED := true
 const CLIPBOARD_RITUAL_PREFIX := "ATELIER_IDE_CELLS_V1"
+const THEME_SETTINGS_PATH := "user://atelier_theme.cfg"
 
-const BACKGROUND := Color("17100b")
-const CANVAS_BACKGROUND := Color("0f1420")
-const PANEL_BACKGROUND := Color("241a12")
-const PANEL_INNER := Color("2c2116")
-const PANEL_BORDER := Color("8a6d3b")
-const PANEL_ACCENT := Color("b48a3c")
-const GOLD_BRIGHT := Color("d9b45c")
-const GOLD_GLOW := Color("e6c56a")
-const LEATHER_LIGHT := Color("3a2f1c")
-const PARCHMENT := Color("d9c9a4")
-const PARCHMENT_DEEP := Color("c7b487")
-const PARCHMENT_BORDER := Color("7a6540")
-const PARCHMENT_INK := Color("2a2013")
-const PARCHMENT_MUTED := Color("6a5533")
-const GRID_DOT := Color(0.59, 0.67, 0.82, 0.18)
-const GRID_DOT_HOVER := Color(0.78, 0.70, 0.43, 0.58)
-const RUNE_LINE_COLOR := Color("d9b45c")
-const CELL_BORDER := Color("b48a3c")
-const TEXT_PRIMARY := Color("c9b590")
-const TEXT_MUTED := Color("8a7c5f")
+const PANEL_GAP := 12.0
+const FRAME_RADIUS := 10.0
+const CARD_RADIUS := 7.0
+const CARD_TEXTURE_WIDTH := 256
+const CARD_MARGIN := 6
+const TITLE_TRACKING := 1.9
+## A dica de selo fica escura nos dois temas, como no desenho original.
+const TOOLTIP_TEXT := Color("c9b590")
+const VIGNETTE_SPREAD := 190.0
+const GRAIN_TILE := 96
+const STAR_COUNT := 44
+
+## Paleta ativa. Os campos abaixo espelham as chaves de AtelierPalette e são
+## preenchidos uma única vez por _apply_theme; o desenho por quadro só lê
+## valores já tipados, sem nenhuma busca por texto.
+var active_theme := "dark"
+var col_body_top: Color
+var col_body_mid: Color
+var col_body_bottom: Color
+var col_candle_warm: Color
+var col_candle_gold: Color
+var col_grain: Color
+var col_vignette_outer: Color
+var col_vignette_warm: Color
+var col_frame_top: Color
+var col_frame_bottom: Color
+var col_frame_inner: Color
+var col_frame_sheen: Color
+var col_frame_shadow: Color
+var col_spellstrip: Color
+var col_ink_deep: Color
+var col_brass: Color
+var col_gold: Color
+var col_gold_bright: Color
+var col_gold_glow: Color
+var col_rune_line: Color
+var col_leather_light: Color
+var col_inset: Color
+var col_inset_deep: Color
+var col_text: Color
+var col_text_faint: Color
+var col_output: Color
+var col_warning: Color
+var col_error: Color
+var col_halt: Color
+var col_disabled: Color
+var col_ember: Color
+var col_ember_soft: Color
+var col_sky: Color
+var col_sky_high: Color
+var col_canvas_tint: Color
+var col_dot: Color
+var col_dot_hover: Color
+var col_star: Color
+var col_compass: Color
+var col_seal_high: Color
+var col_seal_low: Color
+var col_seal_glyph: Color
+var col_parch_top: Color
+var col_parch_bottom: Color
+var col_parch_border: Color
+var col_parch_dash: Color
+var col_parch_ink: Color
+var col_parch_muted: Color
+var col_parch_shadow: Color
+var col_sigil_high: Color
+var col_sigil_low: Color
+var col_title_shadow: Color
 
 const PALETTE_SYMBOLS = RuneCatalog.SYMBOLS
 
@@ -91,6 +165,7 @@ var vm: AtelierRuneVM = RuneVM.new()
 var execution_output: String = ""
 var execution_errors: Array[String] = []
 var execution_warnings: Array[String] = []
+var invalid_connection_indices: Dictionary = {}
 var last_bytecode := PackedByteArray()
 var connections: Array[Dictionary]:
 	get:
@@ -159,9 +234,10 @@ var anchor_move_source := Vector2.ZERO
 var anchor_move_target := Vector2.ZERO
 var anchor_move_snap_target := Vector2.ZERO
 var anchor_move_snap_target_valid := false
-var anchor_move_is_terminal := false
 var anchor_move_snap_started_at := 0.0
 var anchor_move_press_screen := Vector2.ZERO
+var terminal_move_point := Vector2.ZERO
+var terminal_move_connection_index := -1
 var anchor_move_settle_active := false
 var anchor_move_settle_from := Vector2.ZERO
 var anchor_move_settle_to := Vector2.ZERO
@@ -196,9 +272,52 @@ var performance_connections_ms := 0.0
 var performance_panels_ms := 0.0
 var performance_visible_connections := 0
 var performance_grid_dots := 0
+var diagnostic_static_layer_visible := true
+var atlas_baking_mode := false
+var panel_skin_texture: Texture2D
+var panel_skin_nodes: Dictionary = {}
+var panel_raster_cache_enabled := PANEL_RASTER_CACHE_ENABLED
+var panel_cache_textures: Dictionary = {}
+var panel_cache_rects: Dictionary = {}
+var panel_cache_valid := false
+var panel_cache_capture_pending := false
+var panel_cache_revision := 0
+var panel_cache_state_signature := 0
+var file_toolbar: Panel
+var file_menu_button: MenuButton
+var file_title_label: Label
+var save_file_dialog: FileDialog
+var open_file_dialog: FileDialog
+var file_error_dialog: AcceptDialog
+var open_confirmation: ConfirmationDialog
+var current_ritual_path := ""
+var saved_connections_signature := 0
 var grid_dot_textures := {}
 var filled_circle_texture: Texture2D
 var ring_textures := {}
+var glow_texture: GradientTexture2D
+var edge_mask_texture: GradientTexture2D
+var sparkle_texture: Texture2D
+var grain_texture: Texture2D
+var body_gradient_texture: GradientTexture2D
+var canvas_gradient_texture: GradientTexture2D
+var card_textures := {}
+var seal_textures := {}
+var sigil_textures := {}
+var frame_stylebox: StyleBoxFlat
+var frame_inner_stylebox: StyleBoxFlat
+var canvas_stylebox: StyleBoxFlat
+var card_stylebox: StyleBoxFlat
+var corner_mask_texture: Texture2D
+var vignette_mask: Texture2D
+var vignette_mask_size := Vector2i.ZERO
+var edge_stylebox: StyleBoxFlat
+var mask_top_stylebox: StyleBoxFlat
+var mask_bottom_stylebox: StyleBoxFlat
+var control_stylebox: StyleBoxFlat
+var tooltip_stylebox: StyleBoxFlat
+var star_points := PackedVector2Array()
+var star_sizes := PackedFloat32Array()
 var symbol_connection_indices_cache: Array[int] = []
 var symbol_connection_indices_dirty := true
 var sequence_side_multiplier_cache: Array[float] = []
@@ -212,9 +331,772 @@ func _ready() -> void:
 	focus_mode = Control.FOCUS_ALL
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	resized.connect(_invalidate_panel_cache)
+	resized.connect(_layout_file_toolbar)
 	filled_circle_texture = _create_filled_circle_texture()
+	# Texturas neutras: sao desenhadas em branco e tingidas na hora, por isso
+	# sobrevivem a troca de tema sem precisar ser refeitas.
+	glow_texture = _create_radial_texture(false)
+	edge_mask_texture = _create_radial_texture(true)
+	sparkle_texture = _create_sparkle_texture()
+	corner_mask_texture = _create_corner_mask_texture()
+	grain_texture = _create_grain_texture()
+	_build_star_field()
+	_apply_theme(_load_saved_theme())
+	_create_textured_panel_skins()
+	_create_file_toolbar()
+	_create_file_dialogs()
+	saved_connections_signature = hash(connections)
 	grab_focus()
 	queue_redraw()
+
+
+## ======================== TEMA DO ATELIE ========================
+
+func _apply_theme(theme_name: String) -> void:
+	active_theme = "light" if theme_name == "light" else "dark"
+	var table := Palette.table(active_theme)
+	for key in table:
+		set("col_%s" % key, table[key])
+	_build_theme_resources()
+	_refresh_panel_skin_texture()
+	_refresh_file_toolbar_theme()
+	_invalidate_panel_cache()
+	queue_redraw()
+
+
+func _create_textured_panel_skins() -> void:
+	if not TEXTURED_PANEL_SKINS or not panel_skin_nodes.is_empty():
+		return
+	for skin_name in ["left", "top", "bottom", "right", "inspector"]:
+		var skin := NinePatchRect.new()
+		skin.name = "Skin_%s" % skin_name.capitalize()
+		skin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		skin.patch_margin_left = PANEL_SKIN_MARGIN
+		skin.patch_margin_top = PANEL_SKIN_MARGIN
+		skin.patch_margin_right = PANEL_SKIN_MARGIN
+		skin.patch_margin_bottom = PANEL_SKIN_MARGIN
+		skin.draw_center = false
+		skin.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
+		skin.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
+		skin.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		skin.visible = diagnostic_static_layer_visible
+		add_child(skin)
+		panel_skin_nodes[skin_name] = skin
+	_refresh_panel_skin_texture()
+
+
+func _refresh_panel_skin_texture() -> void:
+	if not TEXTURED_PANEL_SKINS or panel_skin_nodes.is_empty():
+		return
+	var image := Image.create(PANEL_SKIN_EXTENT, PANEL_SKIN_EXTENT, false, Image.FORMAT_RGBA8)
+	var extent := float(PANEL_SKIN_EXTENT)
+	var radius := 11.0
+	for y in range(PANEL_SKIN_EXTENT):
+		for x in range(PANEL_SKIN_EXTENT):
+			var point := Vector2(float(x) + 0.5, float(y) + 0.5)
+			var distance := _rounded_distance(point, Vector2.ONE * extent, radius)
+			if distance > 0.6:
+				image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.0))
+				continue
+			var edge_distance := minf(minf(point.x, point.y), minf(extent - point.x, extent - point.y))
+			if edge_distance >= float(PANEL_SKIN_MARGIN):
+				image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.0))
+				continue
+			var color := col_brass
+			if edge_distance < 1.25:
+				color = col_gold_bright if point.y < 2.0 else col_brass
+			elif edge_distance < 3.0:
+				color = col_frame_inner
+			else:
+				color = col_leather_light
+				color.a *= clampf((float(PANEL_SKIN_MARGIN) - edge_distance) / 10.0, 0.0, 0.34)
+			color.a *= clampf(0.7 - distance, 0.0, 1.0)
+			image.set_pixel(x, y, color)
+	panel_skin_texture = ImageTexture.create_from_image(image)
+	for raw_skin in panel_skin_nodes.values():
+		var skin := raw_skin as NinePatchRect
+		if skin != null:
+			skin.texture = panel_skin_texture
+
+
+func _sync_textured_panel_skins() -> void:
+	if not TEXTURED_PANEL_SKINS or panel_skin_nodes.is_empty():
+		return
+	var panel_rects := {
+		"left": _left_panel_rect(),
+		"top": _top_panel_rect(),
+		"bottom": _bottom_panel_rect(),
+		"right": _right_panel_rect(),
+		"inspector": _intensity_inspector_rect(),
+	}
+	for skin_name in panel_skin_nodes:
+		var skin := panel_skin_nodes[skin_name] as NinePatchRect
+		var panel: Rect2 = panel_rects.get(skin_name, Rect2())
+		if skin == null:
+			continue
+		var live_during_ritual: bool = ritual_running and (skin_name == "left" or skin_name == "bottom" or skin_name == "right")
+		skin.visible = diagnostic_static_layer_visible and (not _panel_cache_can_draw() or live_during_ritual) and panel.size.x > 0.0 and panel.size.y > 0.0
+		if skin.visible:
+			skin.position = panel.position
+			skin.size = panel.size
+
+
+func _invalidate_panel_cache() -> void:
+	panel_cache_revision += 1
+	panel_cache_valid = false
+	panel_cache_textures.clear()
+	panel_cache_rects.clear()
+
+
+# O diagrama pode redesenhar a cada movimento do mouse. Só uma alteração do
+# conteúdo dos painéis exige uma nova captura.
+func _panel_cache_signature() -> int:
+	# Durante a execução, saída/pilha são desenhadas ao vivo; mudanças nelas não
+	# devem refazer a captura da paleta a cada instrução.
+	var stack: Array = [] if ritual_running else execution_state.get("stack", [])
+	var output := "" if ritual_running else execution_output
+	var errors: Array = [] if ritual_running else execution_errors
+	var warnings: Array = [] if ritual_running else execution_warnings
+	var selected_intensity := -1
+	var selected_kind := ""
+	if _has_selected_connection():
+		selected_intensity = _connection_intensity(connections[selected_connection])
+		selected_kind = str(connections[selected_connection].get("symbol", ""))
+	return hash([
+		size, active_theme,
+		left_panel_open, right_panel_open, top_panel_open, bottom_panel_open,
+		left_panel_size, right_panel_size, top_panel_size, bottom_panel_size,
+		left_command_scroll, palette_scroll, execution_speed_rps,
+		ritual_running, ritual_paused,
+		selected_connection, selected_symbol_connection, selected_connections,
+		selected_intensity, selected_kind, editing_intensity_text, intensity_text,
+		output, errors, warnings, stack,
+	])
+
+
+func _panel_cache_is_volatile() -> bool:
+	if panel_cache_capture_pending or performance_overlay_visible:
+		return true
+	if editing_intensity_text or _left_scroll_is_moving() or _palette_scroll_is_moving():
+		return true
+	if drag_mode == "intensity" or drag_mode == "left_scroll" or drag_mode == "left_scroll_pending" or drag_mode == "palette_scroll" or drag_mode == "execution_speed" or drag_mode.begins_with("resize_"):
+		return true
+	return top_panel_open and (hovered_palette_index >= 0 or animated_hover_palette_index >= 0)
+
+
+func _panel_cache_can_draw() -> bool:
+	return panel_raster_cache_enabled and diagnostic_static_layer_visible and panel_cache_valid and not _panel_cache_is_volatile()
+
+
+func _panel_cache_can_capture() -> bool:
+	return panel_raster_cache_enabled and diagnostic_static_layer_visible and not panel_cache_valid and not _panel_cache_is_volatile()
+
+
+func _panel_cache_regions() -> Array[Dictionary]:
+	var regions: Array[Dictionary] = [
+		{"name": "left", "rect": _left_panel_rect()},
+		{"name": "top", "rect": _top_panel_rect()},
+		{"name": "bottom", "rect": _bottom_panel_rect()},
+		{"name": "right", "rect": _right_panel_rect()},
+	]
+	var inspector := _intensity_inspector_rect()
+	if inspector.size.x > 0.0 and inspector.size.y > 0.0:
+		regions.append({"name": "inspector", "rect": inspector})
+	return regions
+
+
+func _draw_cached_panel_regions(static_only: bool) -> void:
+	for cache_name in ["left", "top", "bottom", "right", "inspector"]:
+		if static_only and cache_name in ["left", "bottom", "right"]:
+			continue
+		var texture := panel_cache_textures.get(cache_name) as Texture2D
+		var rect: Rect2 = panel_cache_rects.get(cache_name, Rect2())
+		if texture != null and rect.size.x > 0.0 and rect.size.y > 0.0:
+			draw_texture_rect(texture, rect, false, Color.WHITE)
+
+
+func _request_panel_cache_capture() -> void:
+	if not _panel_cache_can_capture():
+		return
+	panel_cache_capture_pending = true
+	call_deferred("_capture_panel_cache_after_draw", panel_cache_revision)
+
+
+func _capture_panel_cache_after_draw(requested_revision: int) -> void:
+	await RenderingServer.frame_post_draw
+	if requested_revision != panel_cache_revision:
+		panel_cache_capture_pending = false
+		return
+	var viewport_texture := get_viewport().get_texture()
+	if viewport_texture == null or size.x <= 0.0 or size.y <= 0.0:
+		panel_cache_capture_pending = false
+		return
+	var screenshot := viewport_texture.get_image()
+	if screenshot == null or screenshot.is_empty():
+		panel_cache_capture_pending = false
+		return
+	var screenshot_size := screenshot.get_size()
+	var scale := Vector2(float(screenshot_size.x) / size.x, float(screenshot_size.y) / size.y)
+	var textures := {}
+	var rects := {}
+	for entry in _panel_cache_regions():
+		var logical_rect: Rect2 = entry["rect"]
+		var pixel_position := Vector2i(
+				clampi(floori(logical_rect.position.x * scale.x), 0, screenshot_size.x),
+				clampi(floori(logical_rect.position.y * scale.y), 0, screenshot_size.y))
+		var pixel_end := Vector2i(
+				clampi(ceili(logical_rect.end.x * scale.x), 0, screenshot_size.x),
+				clampi(ceili(logical_rect.end.y * scale.y), 0, screenshot_size.y))
+		var pixel_rect := Rect2i(pixel_position, pixel_end - pixel_position)
+		if pixel_rect.size.x <= 0 or pixel_rect.size.y <= 0:
+			continue
+		var image := screenshot.get_region(pixel_rect)
+		var cache_name := str(entry["name"])
+		textures[cache_name] = ImageTexture.create_from_image(image)
+		rects[cache_name] = logical_rect
+	if requested_revision == panel_cache_revision and not textures.is_empty():
+		panel_cache_textures = textures
+		panel_cache_rects = rects
+		panel_cache_valid = true
+	panel_cache_capture_pending = false
+	queue_redraw()
+
+
+func _toggle_theme() -> void:
+	_apply_theme("dark" if active_theme == "light" else "light")
+	_save_theme()
+
+
+func _load_saved_theme() -> String:
+	var config := ConfigFile.new()
+	if config.load(THEME_SETTINGS_PATH) != OK:
+		return "dark"
+	return str(config.get_value("atelier", "theme", "dark"))
+
+
+func _save_theme() -> void:
+	var config := ConfigFile.new()
+	config.set_value("atelier", "theme", active_theme)
+	config.save(THEME_SETTINGS_PATH)
+
+
+func _create_file_toolbar() -> void:
+	file_toolbar = Panel.new()
+	file_toolbar.name = "FileToolbar"
+	file_toolbar.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(file_toolbar)
+
+	file_menu_button = MenuButton.new()
+	file_menu_button.name = "FileMenu"
+	file_menu_button.text = "File"
+	file_menu_button.flat = false
+	file_menu_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	file_menu_button.focus_mode = Control.FOCUS_ALL
+	file_toolbar.add_child(file_menu_button)
+	var menu := file_menu_button.get_popup()
+	menu.add_item("Salvar runa...", FILE_MENU_SAVE)
+	menu.add_item("Abrir runa...", FILE_MENU_OPEN)
+	menu.add_separator()
+	menu.add_item("Passar para Assembly (em breve)", FILE_MENU_ASSEMBLY)
+	menu.set_item_disabled(menu.get_item_index(FILE_MENU_ASSEMBLY), true)
+	menu.id_pressed.connect(_on_file_menu_item_pressed)
+
+	file_title_label = Label.new()
+	file_title_label.name = "FileTitle"
+	file_title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	file_toolbar.add_child(file_title_label)
+	_layout_file_toolbar()
+	_refresh_file_toolbar_theme()
+	_refresh_file_title()
+
+
+func _layout_file_toolbar() -> void:
+	if file_toolbar == null:
+		return
+	file_toolbar.position = Vector2.ZERO
+	file_toolbar.size = Vector2(size.x, FILE_BAR_HEIGHT)
+	file_menu_button.position = Vector2(12.0, 5.0)
+	file_menu_button.size = Vector2(80.0, 30.0)
+	file_title_label.position = Vector2(112.0, 5.0)
+	file_title_label.size = Vector2(maxf(size.x - 126.0, 0.0), 30.0)
+
+
+func _refresh_file_toolbar_theme() -> void:
+	if file_toolbar == null:
+		return
+	var bar_style := StyleBoxFlat.new()
+	bar_style.bg_color = col_frame_top
+	bar_style.border_color = col_brass
+	bar_style.set_border_width(SIDE_BOTTOM, 1)
+	file_toolbar.add_theme_stylebox_override("panel", bar_style)
+	var button_style := StyleBoxFlat.new()
+	button_style.bg_color = col_frame_bottom
+	button_style.border_color = col_brass
+	button_style.set_border_width_all(1)
+	button_style.set_corner_radius_all(5)
+	var hover_style := button_style.duplicate() as StyleBoxFlat
+	hover_style.bg_color = col_leather_light
+	file_menu_button.add_theme_stylebox_override("normal", button_style)
+	file_menu_button.add_theme_stylebox_override("hover", hover_style)
+	file_menu_button.add_theme_stylebox_override("pressed", hover_style)
+	file_menu_button.add_theme_color_override("font_color", col_gold_bright)
+	file_menu_button.add_theme_color_override("font_hover_color", col_gold_glow)
+	file_menu_button.add_theme_color_override("font_pressed_color", col_gold_glow)
+	file_menu_button.add_theme_font_size_override("font_size", 14)
+	var popup_style := StyleBoxFlat.new()
+	popup_style.bg_color = col_frame_top
+	popup_style.border_color = col_brass
+	popup_style.set_border_width_all(1)
+	popup_style.set_corner_radius_all(6)
+	var popup := file_menu_button.get_popup()
+	popup.add_theme_stylebox_override("panel", popup_style)
+	popup.add_theme_color_override("font_color", col_text)
+	popup.add_theme_color_override("font_disabled_color", col_text_faint)
+	file_title_label.add_theme_color_override("font_color", col_text_faint)
+	file_title_label.add_theme_font_size_override("font_size", 12)
+
+
+func _refresh_file_title() -> void:
+	if file_title_label == null:
+		return
+	file_title_label.text = "ATELIER IDE   /   %s" % ("SEM TÍTULO" if current_ritual_path.is_empty() else current_ritual_path.get_file())
+
+
+func _create_file_dialogs() -> void:
+	var documents_dir := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
+	save_file_dialog = FileDialog.new()
+	save_file_dialog.name = "SaveRitualDialog"
+	save_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	save_file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	save_file_dialog.use_native_dialog = true
+	save_file_dialog.mode_overrides_title = false
+	save_file_dialog.title = "Salvar runa"
+	if not documents_dir.is_empty():
+		save_file_dialog.current_dir = documents_dir
+	save_file_dialog.add_filter("*.atelier", "Runas do Ateliê")
+	save_file_dialog.file_selected.connect(_on_save_file_selected)
+	add_child(save_file_dialog)
+
+	open_file_dialog = FileDialog.new()
+	open_file_dialog.name = "OpenRitualDialog"
+	open_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	open_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	open_file_dialog.use_native_dialog = true
+	open_file_dialog.mode_overrides_title = false
+	open_file_dialog.title = "Abrir runa"
+	if not documents_dir.is_empty():
+		open_file_dialog.current_dir = documents_dir
+	open_file_dialog.add_filter("*.atelier", "Runas do Ateliê")
+	open_file_dialog.file_selected.connect(_on_open_file_selected)
+	add_child(open_file_dialog)
+
+	file_error_dialog = AcceptDialog.new()
+	file_error_dialog.title = "Arquivo de runa"
+	add_child(file_error_dialog)
+	open_confirmation = ConfirmationDialog.new()
+	open_confirmation.title = "Abrir outra runa?"
+	open_confirmation.dialog_text = "O ritual atual tem alterações não salvas. Abrir outra runa vai descartá-las."
+	open_confirmation.confirmed.connect(_show_open_file_dialog)
+	add_child(open_confirmation)
+
+
+func _on_file_menu_item_pressed(id: int) -> void:
+	if editing_intensity_text:
+		_commit_intensity_text()
+	_cancel_drag()
+	queue_redraw()
+	match id:
+		FILE_MENU_SAVE:
+			_show_save_file_dialog()
+		FILE_MENU_OPEN:
+			if hash(connections) != saved_connections_signature:
+				open_confirmation.popup_centered()
+			else:
+				_show_open_file_dialog()
+
+
+func _show_save_file_dialog() -> void:
+	if not current_ritual_path.is_empty():
+		save_file_dialog.current_dir = current_ritual_path.get_base_dir()
+		save_file_dialog.current_file = current_ritual_path.get_file()
+	else:
+		save_file_dialog.current_file = "runa.atelier"
+	save_file_dialog.popup_centered(Vector2i(900, 600))
+
+
+func _show_open_file_dialog() -> void:
+	if not current_ritual_path.is_empty():
+		open_file_dialog.current_dir = current_ritual_path.get_base_dir()
+	open_file_dialog.popup_centered(Vector2i(900, 600))
+
+
+func _on_save_file_selected(path: String) -> void:
+	var result: Dictionary = RitualFile.save_file(path, connections, pan, zoom)
+	if not result.get("ok", false):
+		_show_file_error(str(result.get("error", "Falha ao salvar a runa.")))
+		return
+	current_ritual_path = str(result["path"])
+	saved_connections_signature = hash(connections)
+	_refresh_file_title()
+
+
+func _on_open_file_selected(path: String) -> void:
+	var result: Dictionary = RitualFile.load_file(path)
+	if not result.get("ok", false):
+		_show_file_error(str(result.get("error", "Falha ao abrir a runa.")))
+		return
+	_apply_opened_ritual(result)
+
+
+func _apply_opened_ritual(document: Dictionary) -> void:
+	ritual_running = false
+	ritual_paused = false
+	execution_output = ""
+	execution_errors.clear()
+	execution_warnings.clear()
+	invalid_connection_indices.clear()
+	execution_instructions.clear()
+	execution_state.clear()
+	execution_intensity_overrides.clear()
+	execution_instruction_cursor = 0
+	execution_connection = -1
+	execution_highlight_ends_at = animation_clock
+	execution_step_elapsed = 0.0
+	last_bytecode.clear()
+	_reset_drag()
+	_deselect_connection()
+	_clear_diagram_animations()
+	diagram.restore(document["connections"])
+	terminal_move_connection_index = -1
+	terminal_move_point = Vector2.ZERO
+	diagram.undo_history.clear()
+	diagram.redo_history.clear()
+	pan = document["pan"]
+	zoom = document["zoom"]
+	left_command_scroll = 0.0
+	left_command_scroll_target = 0.0
+	_invalidate_symbol_connection_indices()
+	_invalidate_sequence_side_multiplier_cache()
+	current_ritual_path = str(document["path"])
+	saved_connections_signature = hash(connections)
+	_refresh_file_title()
+	_update_hover()
+	queue_redraw()
+
+
+func _show_file_error(message: String) -> void:
+	file_error_dialog.dialog_text = message
+	file_error_dialog.popup_centered()
+
+
+## Recursos que carregam cor propria e por isso sao refeitos a cada tema.
+func _build_theme_resources() -> void:
+	# A sala repete o gradiente de 160 graus do desenho original.
+	body_gradient_texture = _create_linear_texture(
+			PackedFloat32Array([0.0, 0.6, 1.0]),
+			PackedColorArray([col_body_top, col_body_mid, col_body_bottom]),
+			Vector2(0.329, 0.030), Vector2(0.671, 0.970))
+	canvas_gradient_texture = _create_linear_texture(
+			PackedFloat32Array([0.0, 1.0]),
+			PackedColorArray([col_sky_high, col_sky]),
+			Vector2(0.5, 0.0), Vector2(0.5, 1.0))
+
+	frame_stylebox = _create_frame_stylebox(col_frame_top.lerp(col_frame_bottom, 0.5))
+	canvas_stylebox = _create_frame_stylebox(col_sky)
+
+	edge_stylebox = StyleBoxFlat.new()
+	edge_stylebox.draw_center = false
+	edge_stylebox.border_color = col_brass
+	edge_stylebox.set_border_width_all(1)
+	edge_stylebox.set_corner_radius_all(int(FRAME_RADIUS))
+	edge_stylebox.anti_aliasing = true
+
+	# As duas faixas que recortam a lista do grimorio acompanham a curva da
+	# moldura, para o painel nao ganhar quinas quadradas ao rolar.
+	var leather := col_frame_top.lerp(col_frame_bottom, 0.5)
+	mask_top_stylebox = StyleBoxFlat.new()
+	mask_top_stylebox.bg_color = leather
+	mask_top_stylebox.corner_radius_top_left = int(FRAME_RADIUS)
+	mask_top_stylebox.corner_radius_top_right = int(FRAME_RADIUS)
+	mask_top_stylebox.anti_aliasing = true
+	mask_bottom_stylebox = StyleBoxFlat.new()
+	mask_bottom_stylebox.bg_color = leather
+	mask_bottom_stylebox.corner_radius_bottom_left = int(FRAME_RADIUS)
+	mask_bottom_stylebox.corner_radius_bottom_right = int(FRAME_RADIUS)
+	mask_bottom_stylebox.anti_aliasing = true
+
+	control_stylebox = StyleBoxFlat.new()
+	control_stylebox.bg_color = col_inset
+	control_stylebox.set_border_width_all(1)
+	control_stylebox.set_corner_radius_all(7)
+	control_stylebox.anti_aliasing = true
+
+	tooltip_stylebox = StyleBoxFlat.new()
+	tooltip_stylebox.set_border_width_all(1)
+	tooltip_stylebox.set_corner_radius_all(8)
+	tooltip_stylebox.anti_aliasing = true
+
+	frame_inner_stylebox = StyleBoxFlat.new()
+	frame_inner_stylebox.draw_center = false
+	frame_inner_stylebox.border_color = col_frame_inner
+	frame_inner_stylebox.set_border_width_all(1)
+	frame_inner_stylebox.set_corner_radius_all(int(FRAME_RADIUS) - 4)
+	frame_inner_stylebox.anti_aliasing = true
+
+	card_stylebox = StyleBoxFlat.new()
+	card_stylebox.draw_center = false
+	card_stylebox.border_color = col_gold_bright
+	card_stylebox.set_border_width_all(1)
+	card_stylebox.set_corner_radius_all(int(CARD_RADIUS))
+	card_stylebox.anti_aliasing = true
+
+	# As pecas de pergaminho e latao sao assadas de novo no proximo desenho.
+	card_textures.clear()
+	seal_textures.clear()
+	sigil_textures.clear()
+
+
+func _create_frame_stylebox(fill: Color) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = fill
+	box.border_color = col_brass
+	box.set_border_width_all(1)
+	box.set_corner_radius_all(int(FRAME_RADIUS))
+	box.shadow_color = col_frame_shadow
+	box.shadow_size = 13
+	box.shadow_offset = Vector2(0.0, 7.0)
+	box.anti_aliasing = true
+	return box
+
+
+## ==================== TEXTURAS DE APOIO ====================
+
+## Disco branco opaco no centro, ou o inverso para mascarar as bordas.
+func _create_radial_texture(inverted: bool) -> GradientTexture2D:
+	var gradient := Gradient.new()
+	var opaque := Color(1.0, 1.0, 1.0, 1.0)
+	var clear := Color(1.0, 1.0, 1.0, 0.0)
+	if inverted:
+		gradient.offsets = PackedFloat32Array([0.55, 1.0])
+		gradient.colors = PackedColorArray([clear, opaque])
+	else:
+		gradient.offsets = PackedFloat32Array([0.0, 1.0])
+		gradient.colors = PackedColorArray([opaque, clear])
+	var texture := GradientTexture2D.new()
+	texture.gradient = gradient
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.fill_from = Vector2(0.5, 0.4) if inverted else Vector2(0.5, 0.5)
+	texture.fill_to = Vector2(1.0, 0.4) if inverted else Vector2(1.0, 0.5)
+	texture.width = 128
+	texture.height = 128
+	return texture
+
+
+## Faixa branca que some para o interior: monta a vinheta das quatro bordas.
+func _create_linear_texture(offsets: PackedFloat32Array, colors: PackedColorArray, from: Vector2, to: Vector2) -> GradientTexture2D:
+	var gradient := Gradient.new()
+	gradient.offsets = offsets
+	gradient.colors = colors
+	var texture := GradientTexture2D.new()
+	texture.gradient = gradient
+	texture.fill = GradientTexture2D.FILL_LINEAR
+	texture.fill_from = from
+	texture.fill_to = to
+	texture.width = 64
+	texture.height = 64
+	return texture
+
+
+## Estrela de quatro pontas, no lugar do glifo do desenho original.
+func _create_sparkle_texture() -> Texture2D:
+	var extent := 32
+	var image := Image.create(extent, extent, false, Image.FORMAT_RGBA8)
+	var half := float(extent) * 0.5
+	for y in range(extent):
+		for x in range(extent):
+			var dx := absf((float(x) + 0.5 - half) / half)
+			var dy := absf((float(y) + 0.5 - half) / half)
+			var horizontal := maxf(1.0 - dx, 0.0) * maxf(1.0 - dy / 0.16, 0.0)
+			var vertical := maxf(1.0 - dy, 0.0) * maxf(1.0 - dx / 0.16, 0.0)
+			var core := maxf(1.0 - sqrt(dx * dx + dy * dy) / 0.22, 0.0)
+			var amount := clampf(maxf(maxf(horizontal, vertical), core), 0.0, 1.0)
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, amount * amount))
+	return ImageTexture.create_from_image(image)
+
+
+## Quina cheia por fora do arco e vazia por dentro: devolve a sala as
+## quatro pontas arredondadas da mesa.
+func _create_corner_mask_texture() -> Texture2D:
+	var extent := int(FRAME_RADIUS)
+	var image := Image.create(extent, extent, false, Image.FORMAT_RGBA8)
+	for y in range(extent):
+		for x in range(extent):
+			var distance := Vector2(float(extent) - 0.5 - float(x), float(extent) - 0.5 - float(y)).length()
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, clampf(distance - float(extent) + 1.0, 0.0, 1.0)))
+	return ImageTexture.create_from_image(image)
+
+
+## Distancia com sinal ate a borda de um retangulo arredondado. Negativa
+## por dentro, positiva por fora: e o que da o antialias das pecas assadas.
+func _rounded_distance(point: Vector2, bounds: Vector2, radius: float) -> float:
+	var q := (point - bounds * 0.5).abs() - (bounds * 0.5 - Vector2.ONE * radius)
+	return Vector2(maxf(q.x, 0.0), maxf(q.y, 0.0)).length() + minf(maxf(q.x, q.y), 0.0) - radius
+
+
+## Carta de pergaminho do grimorio: gradiente vertical, cantos arredondados,
+## borda de tinta e o tracejado interno do desenho original. Assada uma vez e
+## esticada na horizontal, onde nao existe gradiente para distorcer.
+## Carta de pergaminho do grimorio: gradiente vertical, cantos arredondados,
+## borda de tinta e o tracejado interno do desenho original.
+##
+## A peca e assada uma vez por altura e guardada. Assar dentro de _draw a cada
+## quadro nao so custa caro: a textura recem-criada ainda nao subiu para a
+## placa quando o quadro e montado, e a carta sai branca.
+## Carta de pergaminho do grimorio: gradiente vertical, cantos arredondados,
+## borda de tinta, o tracejado interno e a sombra, tudo numa peca so.
+##
+## A peca e assada uma vez por altura e guardada. Assar dentro de _draw a cada
+## quadro nao so custa caro: a textura recem-criada ainda nao subiu para a
+## placa quando o quadro e montado, e a carta sai branca.
+func _spell_card_texture(card_height: int) -> Texture2D:
+	if card_height <= 4:
+		return null
+	if card_textures.has(card_height):
+		return card_textures[card_height]
+	var margin := float(CARD_MARGIN)
+	var bounds := Vector2(float(CARD_TEXTURE_WIDTH) - margin * 2.0, float(card_height))
+	var full_height := card_height + CARD_MARGIN * 2
+	var image := Image.create(CARD_TEXTURE_WIDTH, full_height, false, Image.FORMAT_RGBA8)
+	var shade_tint := col_parch_shadow
+	for y in range(full_height):
+		var inside := Vector2(0.0, float(y) - margin)
+		var row := col_parch_top.lerp(col_parch_bottom, clampf(inside.y / maxf(float(card_height - 1), 1.0), 0.0, 1.0))
+		for x in range(CARD_TEXTURE_WIDTH):
+			inside.x = float(x) - margin + 0.5
+			var point := Vector2(inside.x, inside.y + 0.5)
+			var distance := _rounded_distance(point, bounds, CARD_RADIUS)
+			var coverage := clampf(0.5 - distance, 0.0, 1.0)
+			# Sombra do desenho original: deslocada para baixo e esfumacada.
+			var shade := clampf(1.0 - _rounded_distance(point - Vector2(0.0, 3.0), bounds, CARD_RADIUS) / 6.0, 0.0, 1.0)
+			var shade_alpha := shade_tint.a * shade * shade * (1.0 - coverage)
+			if coverage <= 0.0 and shade_alpha <= 0.0:
+				image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.0))
+				continue
+			var pixel := row
+			if distance > -1.2:
+				pixel = col_parch_border
+			elif distance > -2.6 and inside.y < float(card_height) * 0.5:
+				pixel = pixel.lerp(Color(1.0, 0.98, 0.92), 0.45)
+			elif absf(distance + 3.4) < 0.7 and int((x + y) / 4.0) % 2 == 0:
+				pixel = pixel.lerp(col_parch_dash, col_parch_dash.a)
+			# Carta por cima da sombra.
+			var alpha := coverage + shade_alpha
+			var blended := pixel.lerp(shade_tint, shade_alpha / maxf(alpha, 0.0001))
+			blended.a = alpha
+			image.set_pixel(x, y, blended)
+	var texture := ImageTexture.create_from_image(image)
+	card_textures[card_height] = texture
+	return texture
+
+
+## O retangulo de desenho da carta inclui a margem onde mora a sombra.
+func _spell_card_bounds(row: Rect2) -> Rect2:
+	var horizontal := float(CARD_MARGIN) * row.size.x / maxf(float(CARD_TEXTURE_WIDTH - CARD_MARGIN * 2), 1.0)
+	return row.grow_individual(horizontal, float(CARD_MARGIN), horizontal, float(CARD_MARGIN))
+
+
+## Disco com luz vinda de cima a esquerda, como os medalhoes e sigilos do
+## desenho original.
+func _bake_disc(extent: int, high: Color, low: Color, rim: Color, rim_width: float, halo: Color) -> Texture2D:
+	var image := Image.create(extent, extent, false, Image.FORMAT_RGBA8)
+	var center := Vector2.ONE * float(extent) * 0.5
+	var outer := float(extent) * 0.5 - 1.0
+	var disc := outer - (3.0 if halo.a > 0.0 else 0.0)
+	var light := center + Vector2(-disc * 0.30, -disc * 0.40)
+	var clear := Color(0.0, 0.0, 0.0, 0.0)
+	for y in range(extent):
+		for x in range(extent):
+			var point := Vector2(float(x) + 0.5, float(y) + 0.5)
+			var distance := point.distance_to(center)
+			var pixel := clear
+			if distance <= disc + 0.5:
+				pixel = high.lerp(low, clampf(light.distance_to(point) / (disc * 1.7), 0.0, 1.0))
+				if distance > disc - rim_width:
+					pixel = rim
+				pixel.a = clampf(disc + 0.5 - distance, 0.0, 1.0)
+			elif halo.a > 0.0 and absf(distance - outer) <= 0.8:
+				pixel = halo
+				pixel.a = halo.a * clampf(1.0 - absf(distance - outer), 0.0, 1.0)
+			image.set_pixel(x, y, pixel)
+	return ImageTexture.create_from_image(image)
+
+
+func _seal_medallion_texture(tile_size: float) -> Texture2D:
+	var key := int(roundf(tile_size))
+	if key <= 8:
+		return null
+	if seal_textures.has(key):
+		return seal_textures[key]
+	var rim := col_gold
+	rim.a = 0.35
+	_trim_texture_cache(seal_textures)
+	seal_textures[key] = _bake_disc(key, col_seal_high, col_seal_low, col_brass, 2.0, rim)
+	return seal_textures[key]
+
+
+func _sigil_texture_for(diameter: float) -> Texture2D:
+	var key := int(roundf(diameter))
+	if key <= 8:
+		return null
+	if sigil_textures.has(key):
+		return sigil_textures[key]
+	_trim_texture_cache(sigil_textures)
+	sigil_textures[key] = _bake_disc(key, col_sigil_high, col_sigil_low, col_brass, 1.5, Color(0.0, 0.0, 0.0, 0.0))
+	return sigil_textures[key]
+
+
+## Arrastar a borda de um painel percorre muitos tamanhos. O cache guarda os
+## ultimos e recomeca quando cresce demais.
+func _trim_texture_cache(cache: Dictionary) -> void:
+	if cache.size() >= 24:
+		cache.clear()
+
+
+## Escreve com o espacamento largo dos titulos do desenho original.
+## Escreve com o espacamento largo dos titulos do desenho original.
+## draw_char devolve o avanco do glifo, entao nao ha medicao a parte.
+func _draw_tracked_string(position: Vector2, text: String, font_size: int, tint: Color) -> void:
+	var font: Font = ThemeDB.fallback_font
+	var cursor := position
+	for index in range(text.length()):
+		cursor.x += font.draw_char(get_canvas_item(), cursor, text.unicode_at(index), font_size, tint) + TITLE_TRACKING
+
+
+func _draw_panel_title(position: Vector2, text: String, font_size: int) -> void:
+	_draw_tracked_string(position + Vector2(0.0, 1.0), text, font_size, col_title_shadow)
+	_draw_tracked_string(position, text, font_size, col_gold_bright)
+
+
+## Grao de couro e madeira, repetido por cima da sala inteira.
+func _create_grain_texture() -> Texture2D:
+	var image := Image.create(GRAIN_TILE, GRAIN_TILE, false, Image.FORMAT_RGBA8)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 0x4154454C
+	for y in range(GRAIN_TILE):
+		for x in range(GRAIN_TILE):
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, rng.randf()))
+	return ImageTexture.create_from_image(image)
+
+
+func _build_star_field() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 0x53544152
+	star_points.resize(STAR_COUNT)
+	star_sizes.resize(STAR_COUNT)
+	for index in range(STAR_COUNT):
+		star_points[index] = Vector2(rng.randf(), rng.randf())
+		star_sizes[index] = 6.0 + rng.randf() * 10.0
 
 
 func _process(delta: float) -> void:
@@ -225,8 +1107,6 @@ func _process(delta: float) -> void:
 	_update_palette_scroll(delta)
 	if anchor_snap_active and animation_clock - anchor_snap_started_at >= ANCHOR_SNAP_DURATION:
 		_complete_anchor_snap()
-	if drag_mode == "move_anchor" and anchor_move_is_terminal and anchor_move_snap_target_valid and animation_clock - anchor_move_snap_started_at >= ANCHOR_SNAP_DURATION:
-		_continue_terminal_anchor_move()
 	if anchor_move_settle_active and animation_clock - anchor_move_settle_started_at >= ANCHOR_SNAP_DURATION:
 		_complete_anchor_move_settle()
 	if ritual_running:
@@ -240,6 +1120,22 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if event.keycode == KEY_F3:
 		performance_overlay_visible = not performance_overlay_visible
 		queue_redraw()
+		get_viewport().set_input_as_handled()
+		return
+	if event.keycode == KEY_F6:
+		panel_raster_cache_enabled = not panel_raster_cache_enabled
+		_invalidate_panel_cache()
+		queue_redraw()
+		get_viewport().set_input_as_handled()
+		return
+	if event.keycode == KEY_F7:
+		diagnostic_static_layer_visible = not diagnostic_static_layer_visible
+		_invalidate_panel_cache()
+		queue_redraw()
+		get_viewport().set_input_as_handled()
+		return
+	if event.ctrl_pressed and (event.keycode == KEY_S or event.keycode == KEY_O):
+		_on_file_menu_item_pressed(FILE_MENU_SAVE if event.keycode == KEY_S else FILE_MENU_OPEN)
 		get_viewport().set_input_as_handled()
 		return
 	if editing_intensity_text:
@@ -285,6 +1181,11 @@ func _gui_input(event: InputEvent) -> void:
 					var target: Vector2 = candidate["point"]
 					if not target.is_equal_approx(line_start_world):
 						_begin_anchor_snap(target)
+		elif drag_mode == "extend_terminal":
+			var candidate := _grid_point_at(pointer_screen)
+			if candidate.has("point"):
+				var target: Vector2 = candidate["point"]
+				_trace_to_point(target)
 		elif drag_mode == "move_anchor":
 			_update_anchor_move_target()
 		elif drag_mode == "selection_pending":
@@ -321,7 +1222,7 @@ func _gui_input(event: InputEvent) -> void:
 			_update_execution_speed(pointer_screen)
 		elif drag_mode.begins_with("resize_"):
 			_resize_panel(pointer_screen)
-		var redraw_for_drag := drag_mode == "pan" or drag_mode == "connect" or drag_mode == "move_anchor" or drag_mode == "selection" or drag_mode == "selection_move" or drag_mode == "left_scroll" or drag_mode == "palette_scroll" or drag_mode == "symbol" or drag_mode == "intensity" or drag_mode == "execution_speed" or drag_mode.begins_with("resize_")
+		var redraw_for_drag := drag_mode == "pan" or drag_mode == "connect" or drag_mode == "extend_terminal" or drag_mode == "move_anchor" or drag_mode == "selection" or drag_mode == "selection_move" or drag_mode == "left_scroll" or drag_mode == "palette_scroll" or drag_mode == "symbol" or drag_mode == "intensity" or drag_mode == "execution_speed" or drag_mode.begins_with("resize_")
 		if hover_changed or redraw_for_drag:
 			queue_redraw()
 		accept_event()
@@ -383,6 +1284,10 @@ func _gui_input(event: InputEvent) -> void:
 		if not panel_toggle.is_empty():
 			_toggle_panel(panel_toggle)
 			queue_redraw()
+			accept_event()
+			return
+		if _theme_button_rect().has_point(pointer_screen):
+			_toggle_theme()
 			accept_event()
 			return
 		if _play_button_rect().has_point(pointer_screen):
@@ -467,10 +1372,16 @@ func _gui_input(event: InputEvent) -> void:
 				var start_candidate := _grid_point_at(pointer_screen)
 				if start_candidate.has("point"):
 					var start_point: Vector2 = start_candidate["point"]
-					if selected_connections.size() > 1 and _selected_connection_uses_anchor(start_point) and not event.ctrl_pressed:
-						_begin_selection_move()
-					elif _connection_point_uses(start_point) > 0:
+					if event.double_click and _is_terminal_point(start_point):
+						_toggle_terminal_move_mode(start_point)
+					elif _terminal_move_armed_at(start_point):
 						_begin_anchor_move(start_point)
+					elif selected_connections.size() > 1 and _selected_connection_uses_anchor(start_point) and not event.ctrl_pressed:
+						_begin_selection_move()
+					elif _connection_point_uses(start_point) > 1:
+						_begin_anchor_move(start_point) # Move a junção; não cria outra célula.
+					elif _is_terminal_point(start_point):
+						_begin_terminal_extension(start_point)
 					else:
 						_deselect_connection()
 						drag_mode = "connect"
@@ -486,15 +1397,19 @@ func _gui_input(event: InputEvent) -> void:
 					else:
 						_begin_rectangle_selection(event.ctrl_pressed)
 	else:
-		if drag_mode == "connect":
+		if drag_mode == "extend_terminal":
+			var end_candidate := _grid_point_at(pointer_screen)
+			if end_candidate.has("point"):
+				var end_point: Vector2 = end_candidate["point"]
+				_trace_to_point(end_point)
+		elif drag_mode == "connect":
 			if anchor_snap_active:
 				_complete_anchor_snap()
 			else:
 				var end_candidate := _grid_point_at(pointer_screen)
 				if end_candidate.has("point"):
 					var end_point: Vector2 = end_candidate["point"]
-					if not end_point.is_equal_approx(line_start_world):
-						_add_connection(line_start_world, end_point)
+					_trace_to_point(end_point)
 		elif drag_mode == "move_anchor":
 			_complete_anchor_move()
 		elif drag_mode == "symbol":
@@ -523,6 +1438,7 @@ func _run_ritual() -> void:
 	execution_output = ""
 	execution_errors.clear()
 	execution_warnings.clear()
+	invalid_connection_indices.clear()
 	execution_instructions.clear()
 	execution_state = {}
 	execution_instruction_cursor = 0
@@ -536,6 +1452,10 @@ func _run_ritual() -> void:
 	if not compilation["ok"]:
 		for error in compilation.get("errors", []):
 			execution_errors.append(str(error))
+		for diagnostic in compilation.get("diagnostics", []):
+			var connection_index := int(diagnostic.get("connection_index", -1))
+			if connection_index >= 0 and connection_index < connections.size():
+				invalid_connection_indices[connection_index] = true
 		bottom_panel_open = true
 		return
 
@@ -600,6 +1520,8 @@ func _execute_next_ritual_step() -> void:
 		execution_output += str(output[output_index])
 	for error_index in range(error_count, errors.size()):
 		execution_errors.append(str(errors[error_index]))
+		if execution_connection >= 0:
+			invalid_connection_indices[execution_connection] = true
 	var jump_target := int(execution_state["jump_target"])
 	if jump_target >= 0:
 		execution_instruction_cursor = jump_target
@@ -688,53 +1610,230 @@ func export_current_ritual(path: String) -> Dictionary:
 
 
 func _draw() -> void:
+	if atlas_baking_mode:
+		_draw_rune_atlas()
+		return
+	var current_panel_signature := _panel_cache_signature()
+	if current_panel_signature != panel_cache_state_signature:
+		panel_cache_state_signature = current_panel_signature
+		_invalidate_panel_cache()
+	_sync_textured_panel_skins()
 	var draw_started_us: int = Time.get_ticks_usec()
 	performance_visible_connections = 0
 	performance_grid_dots = 0
-	draw_rect(Rect2(Vector2.ZERO, size), BACKGROUND, true)
 	var canvas_rect := _canvas_rect()
-	draw_rect(canvas_rect, CANVAS_BACKGROUND, true)
-	_draw_canvas_frame(canvas_rect)
+	if diagnostic_static_layer_visible:
+		_draw_room(Rect2(Vector2.ZERO, size))
+		_draw_canvas_backdrop(canvas_rect)
+	else:
+		draw_rect(canvas_rect, col_sky)
 	var point_counts := _anchor_point_counts()
 	var stage_started_us: int = Time.get_ticks_usec()
 	_draw_grid(canvas_rect, point_counts)
+	_draw_grid_edge_mask(canvas_rect)
+	if diagnostic_static_layer_visible:
+		_draw_compass(canvas_rect)
 	performance_grid_ms = float(Time.get_ticks_usec() - stage_started_us) / 1000.0
 	stage_started_us = Time.get_ticks_usec()
 	_draw_connections(canvas_rect, point_counts)
 	_draw_selection_move_preview()
 	_draw_connection_preview()
+	_draw_terminal_move_marker()
 	_draw_selection_rectangle()
 	_draw_dragged_symbol()
 	_draw_settling_symbol()
 	performance_connections_ms = float(Time.get_ticks_usec() - stage_started_us) / 1000.0
+	if diagnostic_static_layer_visible:
+		# A mesa nao recorta o proprio desenho. A sala volta por cima do que escapou,
+		# e basta cobrir a folga em volta: dali para fora quem tapa sao os paineis.
+		_draw_room(canvas_rect.grow(PANEL_GAP), canvas_rect)
+		_draw_canvas_corners(canvas_rect)
+		_draw_canvas_edge(canvas_rect)
 	stage_started_us = Time.get_ticks_usec()
-	_draw_intensity_inspector()
-	_draw_interface_panels()
+	var drawing_cached_panels := diagnostic_static_layer_visible and _panel_cache_can_draw()
+	if diagnostic_static_layer_visible:
+		if drawing_cached_panels:
+			if ritual_running:
+				_draw_left_panel()
+				_draw_bottom_panel()
+				_draw_right_panel()
+			_draw_resize_handles()
+			_draw_vignette()
+			_draw_cached_panel_regions(ritual_running)
+		else:
+			_draw_intensity_inspector()
+			_draw_interface_panels()
+			if _panel_cache_can_capture():
+				_request_panel_cache_capture()
 	performance_panels_ms = float(Time.get_ticks_usec() - stage_started_us) / 1000.0
+	if diagnostic_static_layer_visible and not drawing_cached_panels:
+		_draw_vignette()
 	if performance_overlay_visible:
 		_draw_performance_overlay()
 	performance_draw_ms = float(Time.get_ticks_usec() - draw_started_us) / 1000.0
 
 
-func _draw_room_candlelight() -> void:
-	_draw_soft_glow(Vector2(size.x * 0.12, size.y * 0.88), minf(size.x, size.y) * 0.72, Color(1.0, 0.52, 0.16, 0.055))
-	_draw_soft_glow(Vector2(size.x * 0.92, size.y * 0.10), minf(size.x, size.y) * 0.62, Color(0.90, 0.72, 0.30, 0.035))
+## Desenha a sala inteira, ou so o anel em volta de `hole` quando a mesa ja
+## ocupou o meio da tela.
+## Desenha a sala dentro de `region`, ou so o anel em volta de `hole` quando a
+## mesa ja ocupou o meio.
+func _draw_room(region: Rect2, hole := Rect2()) -> void:
+	if hole.size.x <= 0.0 or hole.size.y <= 0.0:
+		_draw_room_region(region)
+		return
+	_draw_room_region(Rect2(region.position, Vector2(region.size.x, hole.position.y - region.position.y)))
+	_draw_room_region(Rect2(Vector2(region.position.x, hole.end.y), Vector2(region.size.x, region.end.y - hole.end.y)))
+	_draw_room_region(Rect2(Vector2(region.position.x, hole.position.y), Vector2(hole.position.x - region.position.x, hole.size.y)))
+	_draw_room_region(Rect2(Vector2(hole.end.x, hole.position.y), Vector2(region.end.x - hole.end.x, hole.size.y)))
 
 
-func _draw_soft_glow(center: Vector2, radius: float, color: Color) -> void:
-	for ring in range(5, 0, -1):
-		var amount := float(ring) / 5.0
-		var glow := color
-		glow.a *= 1.0 - amount * 0.78
-		draw_circle(center, radius * amount, glow)
+func _draw_room_region(region: Rect2) -> void:
+	if region.size.x <= 0.5 or region.size.y <= 0.5:
+		return
+	var full := Rect2(Vector2.ZERO, size)
+	_draw_texture_slice(body_gradient_texture, full, region, Color.WHITE)
+	_draw_texture_slice(glow_texture, _candle_rect(true), region, col_candle_warm)
+	_draw_texture_slice(glow_texture, _candle_rect(false), region, col_candle_gold)
+	draw_texture_rect(grain_texture, region, true, col_grain)
 
-func _draw_canvas_frame(canvas_rect: Rect2) -> void:
-	draw_rect(canvas_rect, PANEL_BORDER, false, 1.0)
-	var inner := canvas_rect.grow(-7.0)
-	if inner.size.x > 0.0 and inner.size.y > 0.0:
-		var inner_color := PANEL_ACCENT
-		inner_color.a = 0.35
-		draw_rect(inner, inner_color, false, 1.0)
+
+## As duas velas do desenho original: uma quente embaixo a esquerda e uma
+## dourada em cima a direita.
+func _candle_rect(warm: bool) -> Rect2:
+	var reach := minf(size.x, size.y)
+	if warm:
+		var warm_radius := reach * 1.55
+		return Rect2(Vector2(size.x * 0.12, size.y * 0.88) - Vector2.ONE * warm_radius, Vector2.ONE * warm_radius * 2.0)
+	var gold_radius := reach * 1.35
+	return Rect2(Vector2(size.x * 0.92, size.y * 0.10) - Vector2.ONE * gold_radius, Vector2.ONE * gold_radius * 2.0)
+
+
+## Recorta de `target` apenas o pedaco que cai dentro de `region`, mantendo o
+## mapeamento da textura. E o que permite repintar a sala em faixas.
+func _draw_texture_slice(texture: Texture2D, target: Rect2, region: Rect2, tint: Color) -> void:
+	var visible := target.intersection(region)
+	if visible.size.x <= 0.0 or visible.size.y <= 0.0:
+		return
+	var ratio := texture.get_size() / target.size
+	var source := Rect2((visible.position - target.position) * ratio, visible.size * ratio)
+	draw_texture_rect_region(texture, visible, source, tint)
+
+
+## Cor da sala num ponto qualquer, seguindo o mesmo gradiente de 160 graus.
+func _room_tint_at(point: Vector2) -> Color:
+	var uv := Vector2(point.x / maxf(size.x, 1.0), point.y / maxf(size.y, 1.0))
+	var from := Vector2(0.329, 0.030)
+	var axis := Vector2(0.671, 0.970) - from
+	var amount := clampf((uv - from).dot(axis) / axis.length_squared(), 0.0, 1.0)
+	if amount <= 0.6:
+		return col_body_top.lerp(col_body_mid, amount / 0.6)
+	return col_body_mid.lerp(col_body_bottom, (amount - 0.6) / 0.4)
+
+
+## Vinheta de vela: quatro faixas que escurecem as bordas da sala.
+## Vinheta de vela: uma mascara so, assada em baixa resolucao e esticada por
+## cima de tudo. Sai mais barato que quatro faixas e escurece as quinas na
+## medida certa, porque as duas quedas se somam ali.
+func _draw_vignette() -> void:
+	var mask := _vignette_mask()
+	if mask == null:
+		return
+	var full := Rect2(Vector2.ZERO, size)
+	draw_texture_rect(mask, full, false, col_vignette_outer)
+	draw_texture_rect(mask, full, false, col_vignette_warm)
+
+
+func _vignette_mask() -> Texture2D:
+	var wanted := Vector2i(maxi(int(size.x / 10.0), 8), maxi(int(size.y / 10.0), 8))
+	if vignette_mask != null and vignette_mask_size == wanted:
+		return vignette_mask
+	var spread := maxf(VIGNETTE_SPREAD * float(wanted.x) / maxf(size.x, 1.0), 1.0)
+	var image := Image.create(wanted.x, wanted.y, false, Image.FORMAT_RGBA8)
+	for y in range(wanted.y):
+		var vertical := clampf(1.0 - minf(float(y), float(wanted.y - 1 - y)) / spread, 0.0, 1.0)
+		for x in range(wanted.x):
+			var horizontal := clampf(1.0 - minf(float(x), float(wanted.x - 1 - x)) / spread, 0.0, 1.0)
+			var amount := 1.0 - (1.0 - horizontal) * (1.0 - vertical)
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, pow(amount, 2.2)))
+	vignette_mask = ImageTexture.create_from_image(image)
+	vignette_mask_size = wanted
+	return vignette_mask
+
+
+## Fundo da mesa: gradiente do ceu, brilho central e o campo de estrelas.
+func _draw_canvas_backdrop(canvas_rect: Rect2) -> void:
+	if canvas_rect.size.x <= 0.0 or canvas_rect.size.y <= 0.0:
+		return
+	draw_style_box(canvas_stylebox, canvas_rect)
+	draw_texture_rect(canvas_gradient_texture, canvas_rect.grow(-1.0), false, Color.WHITE)
+	var reach := maxf(canvas_rect.size.x, canvas_rect.size.y) * 0.85
+	var center := canvas_rect.position + canvas_rect.size * Vector2(0.6, 0.4)
+	_draw_texture_slice(glow_texture, Rect2(center - Vector2.ONE * reach, Vector2.ONE * reach * 2.0), canvas_rect, col_canvas_tint)
+	_draw_canvas_stars(canvas_rect)
+
+
+func _draw_canvas_stars(canvas_rect: Rect2) -> void:
+	var tint := col_star
+	tint.a *= 0.34
+	for index in range(star_points.size()):
+		var extent := star_sizes[index]
+		var spot := canvas_rect.position + star_points[index] * canvas_rect.size
+		draw_texture_rect(sparkle_texture, Rect2(spot - Vector2.ONE * extent * 0.5, Vector2.ONE * extent), false, tint)
+
+
+## Recria a mascara radial do desenho: a grade some ao chegar nas bordas.
+func _draw_grid_edge_mask(canvas_rect: Rect2) -> void:
+	if canvas_rect.size.x <= 0.0 or canvas_rect.size.y <= 0.0:
+		return
+	draw_texture_rect(edge_mask_texture, canvas_rect, false, _sky_at(canvas_rect.get_center().y, canvas_rect))
+
+
+## Cor do ceu na altura pedida, acompanhando o gradiente vertical da mesa.
+func _sky_at(y: float, canvas_rect: Rect2) -> Color:
+	return col_sky_high.lerp(col_sky, clampf((y - canvas_rect.position.y) / maxf(canvas_rect.size.y, 1.0), 0.0, 1.0))
+
+
+## Rosa dos ventos no canto inferior esquerdo da mesa.
+func _draw_compass(canvas_rect: Rect2) -> void:
+	var reach := minf(canvas_rect.size.x, canvas_rect.size.y)
+	if reach < 220.0:
+		return
+	var radius := 44.0
+	var center := Vector2(canvas_rect.position.x + 22.0 + radius, canvas_rect.end.y - 20.0 - radius)
+	_draw_ring(center, radius, col_compass, 1.0)
+	_draw_ring(center, radius * 0.74, col_compass, 0.6)
+	var long_arm := radius * 0.96
+	var short_arm := radius * 0.15
+	var needle := col_compass
+	needle.a *= 0.6
+	draw_colored_polygon(PackedVector2Array([
+			center + Vector2(0.0, -long_arm), center + Vector2(short_arm, 0.0),
+			center + Vector2(0.0, long_arm), center + Vector2(-short_arm, 0.0)]), needle)
+	draw_colored_polygon(PackedVector2Array([
+			center + Vector2(-long_arm, 0.0), center + Vector2(0.0, -short_arm),
+			center + Vector2(long_arm, 0.0), center + Vector2(0.0, short_arm)]), needle)
+	var diagonal := radius * 0.61
+	var hairline := col_compass
+	hairline.a *= 0.5
+	for corner: Vector2 in [Vector2(-1.0, -1.0), Vector2(1.0, -1.0), Vector2(-1.0, 1.0), Vector2(1.0, 1.0)]:
+		draw_line(center, center + corner * diagonal, hairline, 0.8, true)
+
+
+## As quinas arredondadas do canvas voltam a mostrar a sala.
+func _draw_canvas_corners(canvas_rect: Rect2) -> void:
+	var extent := FRAME_RADIUS
+	if canvas_rect.size.x <= extent * 2.0 or canvas_rect.size.y <= extent * 2.0:
+		return
+	var patch := Rect2(Vector2.ZERO, Vector2.ONE * extent)
+	for corner: Vector2 in [Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, 1.0), Vector2(1.0, 1.0)]:
+		var origin := canvas_rect.position + canvas_rect.size * corner
+		draw_set_transform(origin, 0.0, Vector2.ONE - corner * 2.0)
+		draw_texture_rect(corner_mask_texture, patch, false, _room_tint_at(origin))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_canvas_edge(canvas_rect: Rect2) -> void:
+	_draw_frame_chrome(canvas_rect)
 
 
 func _draw_grid(canvas_rect: Rect2, point_counts: Dictionary) -> void:
@@ -750,7 +1849,7 @@ func _draw_grid(canvas_rect: Rect2, point_counts: Dictionary) -> void:
 	var source_scale := float(GRID_TEXTURE_TILE_SIZE) / maxf(screen_spacing, 0.001)
 	var source_origin := (canvas_rect.position - pan) * source_scale + Vector2.ONE * (float(GRID_TEXTURE_TILE_SIZE) * 0.5)
 	var source_rect := Rect2(source_origin, canvas_rect.size * source_scale)
-	var grid_color := GRID_DOT
+	var grid_color := col_dot
 	grid_color.a *= density_alpha
 	draw_texture_rect_region(_grid_dot_texture(grid_step), canvas_rect, source_rect, grid_color)
 
@@ -762,12 +1861,12 @@ func _draw_grid(canvas_rect: Rect2, point_counts: Dictionary) -> void:
 		var used_point: Vector2 = raw_point
 		var used_screen := _world_to_screen(used_point)
 		if canvas_rect.grow(DOT_RADIUS * zoom + 1.0).has_point(used_screen):
-			_draw_filled_circle(used_screen, DOT_RADIUS * zoom + 0.9, CANVAS_BACKGROUND)
+			_draw_filled_circle(used_screen, DOT_RADIUS * zoom + 0.9, _sky_at(used_screen.y, canvas_rect))
 
 	# O ponto embaixo do mouse é desenhado à parte para preservar o highlight.
 	if animated_hover_point_valid and int(point_counts.get(animated_hover_world, 0)) <= 1:
 		var hover_radius := lerpf(DOT_RADIUS * zoom, 5.0 * zoom, _hover_alpha(point_hover_started_at))
-		var hover_color := GRID_DOT.lerp(GRID_DOT_HOVER, _hover_alpha(point_hover_started_at))
+		var hover_color := col_dot.lerp(col_dot_hover, _hover_alpha(point_hover_started_at))
 		_draw_filled_circle(_world_to_screen(animated_hover_world), hover_radius, hover_color)
 	if performance_overlay_visible:
 		performance_grid_dots = int(ceil(canvas_rect.size.x / maxf(screen_spacing, 1.0))) * int(ceil(canvas_rect.size.y / maxf(screen_spacing, 1.0)))
@@ -913,7 +2012,7 @@ func _draw_connections(canvas_rect: Rect2, point_counts: Dictionary) -> void:
 	var visible_indices := _visible_connection_indices(canvas_rect)
 	performance_visible_connections = visible_indices.size()
 	var visible_points := _visible_connection_points(visible_indices)
-	var line_shadow := RUNE_LINE_COLOR.darkened(0.72)
+	var line_shadow := col_rune_line.darkened(0.72)
 	var shadow_segments := PackedVector2Array()
 	for index in visible_indices:
 		var connection: Dictionary = connections[index]
@@ -933,8 +2032,8 @@ func _draw_connections(canvas_rect: Rect2, point_counts: Dictionary) -> void:
 		main_segments.append(_world_to_screen(from_point))
 		main_segments.append(_world_to_screen(to_point))
 	if not main_segments.is_empty():
-		draw_multiline(main_segments, RUNE_LINE_COLOR, 2.0 * zoom, true)
-	_draw_line_joins_and_caps(visible_points, RUNE_LINE_COLOR, 1.0 * zoom)
+		draw_multiline(main_segments, col_rune_line, 2.0 * zoom, true)
+	_draw_line_joins_and_caps(visible_points, col_rune_line, 1.0 * zoom)
 	_draw_terminal_markers(visible_indices, point_counts, line_shadow)
 
 	var selection_segments := PackedVector2Array()
@@ -950,7 +2049,7 @@ func _draw_connections(canvas_rect: Rect2, point_counts: Dictionary) -> void:
 		selection_points[selected_from] = true
 		selection_points[selected_to] = true
 	if not selection_segments.is_empty():
-		var selection_glow := RUNE_LINE_COLOR.lightened(0.45)
+		var selection_glow := col_rune_line.lightened(0.45)
 		selection_glow.a = 0.20
 		draw_multiline(selection_segments, selection_glow, 3.2 * zoom, true)
 		_draw_line_joins_and_caps(selection_points, selection_glow, 1.6 * zoom)
@@ -965,16 +2064,19 @@ func _draw_connections(canvas_rect: Rect2, point_counts: Dictionary) -> void:
 		var to_screen := _world_to_screen(to_point)
 		var has_symbol := not str(connection.get("symbol", "")).is_empty()
 		var intensity := _display_connection_intensity(index, connection)
+		var has_error := invalid_connection_indices.has(index)
+		if has_error:
+			_draw_invalid_connection_cell(from_screen, to_screen)
 		var execution_alpha := _execution_highlight_alpha() if index == execution_connection else 0.0
 		if execution_alpha > 0.0:
 			_draw_execution_connection_glow(from_screen, to_screen, execution_alpha)
 		if index == animated_hover_connection:
 			var highlight_alpha := _hover_alpha(connection_hover_started_at)
-			var soft_glow := RUNE_LINE_COLOR.lightened(0.35)
+			var soft_glow := col_rune_line.lightened(0.35)
 			soft_glow.a = 0.10 * highlight_alpha
 			draw_line(from_screen, to_screen, soft_glow, 6.0 * zoom, true)
 			_draw_rounded_segment_caps(from_screen, to_screen, soft_glow, 3.0 * zoom)
-			var bright_glow := RUNE_LINE_COLOR.lightened(0.55)
+			var bright_glow := col_rune_line.lightened(0.55)
 			bright_glow.a = 0.26 * highlight_alpha
 			draw_line(from_screen, to_screen, bright_glow, 2.2 * zoom, true)
 			_draw_rounded_segment_caps(from_screen, to_screen, bright_glow, 1.1 * zoom)
@@ -985,14 +2087,30 @@ func _draw_connections(canvas_rect: Rect2, point_counts: Dictionary) -> void:
 			var symbol_position := _symbol_position(connection, index)
 			var kind := str(connection["symbol"])
 			var rune_color := _intensity_color(intensity)
+			if has_error:
+				rune_color = rune_color.lerp(col_error, 0.85)
 			if index == animated_hover_symbol:
 				_draw_symbol_hover_glow(kind, symbol_position, rune_color, _symbol_hover_alpha())
 			if _is_connection_selected(index):
 				_draw_symbol_selection_glow(kind, symbol_position, rune_color)
 			if execution_alpha > 0.0:
 				_draw_execution_symbol_glow(kind, symbol_position, rune_color, execution_alpha)
-				rune_color = rune_color.lerp(Color("fff2b2"), 0.72 * execution_alpha)
+				rune_color = rune_color.lerp(col_ember, 0.72 * execution_alpha)
 			_draw_rune(kind, symbol_position, zoom, rune_color)
+
+
+func _draw_invalid_connection_cell(from_screen: Vector2, to_screen: Vector2) -> void:
+	# Um único traço curto no centro evita a sobreposição com os pontos da grade.
+	var direction := to_screen - from_screen
+	var length := direction.length()
+	if length < 0.001:
+		return
+	var middle := (from_screen + to_screen) * 0.5
+	var half_length := minf(11.0 * zoom, length * 0.28)
+	var offset := direction / length * half_length
+	var marker := col_error
+	marker.a = 0.78
+	draw_line(middle - offset, middle + offset, marker, 7.0 * zoom, true)
 
 
 func _draw_line_joins_and_caps(points: Dictionary, color: Color, radius: float) -> void:
@@ -1010,15 +2128,36 @@ func _draw_terminal_markers(indices: Array[int], point_counts: Dictionary, line_
 		var connection: Dictionary = connections[index]
 		var from_point: Vector2 = connection["from"]
 		var to_point: Vector2 = connection["to"]
-		if int(point_counts.get(from_point, 0)) == 1:
+		if int(point_counts.get(from_point, 0)) == 1 and not _terminal_move_armed_at(from_point):
 			_draw_terminal_marker(_world_to_screen(from_point), line_shadow)
-		if int(point_counts.get(to_point, 0)) == 1:
+		if int(point_counts.get(to_point, 0)) == 1 and not _terminal_move_armed_at(to_point):
 			_draw_terminal_marker(_world_to_screen(to_point), line_shadow)
 
 
 func _draw_terminal_marker(screen_position: Vector2, line_shadow: Color) -> void:
 	_draw_filled_circle(screen_position, 4.4 * zoom, line_shadow)
-	_draw_filled_circle(screen_position, 3.0 * zoom, RUNE_LINE_COLOR)
+	_draw_filled_circle(screen_position, 3.0 * zoom, col_rune_line)
+
+
+func _draw_terminal_move_marker() -> void:
+	if terminal_move_connection_index < 0 or terminal_move_connection_index >= connections.size():
+		return
+	var connection: Dictionary = connections[terminal_move_connection_index]
+	var other_point: Vector2 = connection["to"] if Vector2(connection["from"]).is_equal_approx(terminal_move_point) else connection["from"]
+	var marker_point := terminal_move_point
+	if drag_mode == "move_anchor" and anchor_move_source.is_equal_approx(terminal_move_point):
+		marker_point = anchor_move_target
+	elif anchor_move_settle_active and anchor_move_source.is_equal_approx(terminal_move_point):
+		var progress := clampf((animation_clock - anchor_move_settle_started_at) / ANCHOR_SNAP_DURATION, 0.0, 1.0)
+		marker_point = anchor_move_settle_from.lerp(anchor_move_settle_to, _elastic_settle_ease(progress))
+	var center := _world_to_screen(marker_point)
+	if not _canvas_rect().grow(12.0).has_point(center):
+		return
+	var segment := _world_to_screen(other_point) - center
+	if segment.length_squared() < 0.001:
+		return
+	var normal := Vector2(-segment.y, segment.x).normalized() * (9.0 * zoom)
+	draw_line(center - normal, center + normal, col_gold_glow, 3.0 * zoom, true)
 
 
 func _draw_performance_overlay() -> void:
@@ -1026,13 +2165,13 @@ func _draw_performance_overlay() -> void:
 	var overlay_width := minf(340.0, maxf(canvas_rect.size.x - 24.0, 120.0))
 	var overlay := Rect2(canvas_rect.position + Vector2(12.0, 12.0), Vector2(overlay_width, 110.0))
 	draw_rect(overlay, Color(0.03, 0.05, 0.09, 0.90), true)
-	draw_rect(overlay, GOLD_GLOW, false, 1.0)
+	draw_rect(overlay, col_gold_glow, false, 1.0)
 	var fps := Engine.get_frames_per_second()
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 19.0), "DIAGNÓSTICO  •  F3", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, GOLD_GLOW)
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 39.0), "%.0f FPS  |  desenho %.2f ms" % [fps, performance_draw_ms], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_PRIMARY)
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 58.0), "grade %.2f  |  código %.2f  |  abas %.2f ms" % [performance_grid_ms, performance_connections_ms, performance_panels_ms], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_MUTED)
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 77.0), "%d células  |  %d visíveis" % [connections.size(), performance_visible_connections], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_MUTED)
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 96.0), "%d pontos da grade  |  %d draw calls" % [performance_grid_dots, int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_MUTED)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 19.0), "DIAGNÓSTICO  •  F3", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, col_gold_glow)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 39.0), "%.0f FPS  |  desenho %.2f ms" % [fps, performance_draw_ms], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 58.0), "grade %.2f  |  código %.2f  |  abas %.2f ms" % [performance_grid_ms, performance_connections_ms, performance_panels_ms], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 77.0), "%d células  |  %d visíveis" % [connections.size(), performance_visible_connections], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 96.0), "%d pontos da grade  |  %d draw calls" % [performance_grid_dots, int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
 
 
 func _is_connection_hidden_during_move(connection: Dictionary, connection_index := -1) -> bool:
@@ -1159,6 +2298,8 @@ func _ensure_sequence_side_multiplier_cache() -> void:
 func _invalidate_sequence_side_multiplier_cache() -> void:
 	sequence_side_multiplier_dirty = true
 	connection_hit_buckets_dirty = true
+	_refresh_terminal_move_mode()
+	_clear_rune_diagnostics()
 
 
 func _world_point_key(point: Vector2) -> String:
@@ -1173,9 +2314,15 @@ func _preferred_screen_side(normal: Vector2) -> Vector2:
 
 
 func _draw_connection_preview() -> void:
-	if drag_mode == "connect":
+	if drag_mode == "extend_terminal":
+		var target_screen := pointer_screen
+		var candidate := _grid_point_at(pointer_screen)
+		if candidate.has("point"):
+			target_screen = _world_to_screen(candidate["point"])
+		draw_line(_world_to_screen(line_start_world), target_screen, col_gold_glow, 3.0 * zoom, true)
+	elif drag_mode == "connect":
 		var start_screen := _world_to_screen(line_start_world)
-		draw_line(start_screen, _anchor_snap_endpoint(), GOLD_GLOW, 3.0 * zoom, true)
+		draw_line(start_screen, _anchor_snap_endpoint(), col_gold_glow, 3.0 * zoom, true)
 	elif drag_mode == "move_anchor" or anchor_move_settle_active:
 		_draw_anchor_move_preview()
 
@@ -1183,9 +2330,9 @@ func _draw_connection_preview() -> void:
 func _draw_selection_move_preview() -> void:
 	if drag_mode != "selection_move":
 		return
-	var preview_color := GOLD_GLOW
+	var preview_color := col_gold_glow
 	preview_color.a = 0.72
-	var preview_glow := GOLD_GLOW
+	var preview_glow := col_gold_glow
 	preview_glow.a = 0.16
 	for connection_index in selected_connections:
 		if connection_index < 0 or connection_index >= connections.size():
@@ -1210,7 +2357,7 @@ func _draw_anchor_move_preview() -> void:
 	if anchor_move_settle_active:
 		var settle_progress := clampf((animation_clock - anchor_move_settle_started_at) / ANCHOR_SNAP_DURATION, 0.0, 1.0)
 		preview_target = anchor_move_settle_from.lerp(anchor_move_settle_to, _elastic_settle_ease(settle_progress))
-	var preview_color := GOLD_GLOW
+	var preview_color := col_gold_glow
 	preview_color.a = 0.88 if anchor_move_snap_target_valid else 0.64
 	var glow_color := preview_color
 	glow_color.a = 0.18 if anchor_move_snap_target_valid else 0.10
@@ -1233,9 +2380,10 @@ func _draw_anchor_move_preview() -> void:
 		if not symbol.is_empty():
 			var symbol_position := _symbol_position(connection) + (preview_middle - original_middle)
 			_draw_rune(symbol, symbol_position, zoom, _intensity_color(_connection_intensity(connection)))
-	_draw_filled_circle(_world_to_screen(preview_target), 4.2 * zoom, preview_color)
+	if not _terminal_move_armed_at(anchor_move_source):
+		_draw_filled_circle(_world_to_screen(preview_target), 4.2 * zoom, preview_color)
 	if anchor_move_snap_target_valid and not anchor_move_settle_active:
-		var snap_color := GOLD_GLOW
+		var snap_color := col_gold_glow
 		snap_color.a = 0.42
 		_draw_ring(_world_to_screen(anchor_move_snap_target), 9.0 * zoom, snap_color, 1.1 * zoom)
 
@@ -1243,9 +2391,9 @@ func _draw_anchor_move_preview() -> void:
 func _draw_selection_rectangle() -> void:
 	if drag_mode != "selection":
 		return
-	var fill_color := Color("cdbb8c")
+	var fill_color := col_gold_bright
 	fill_color.a = 0.08
-	var border_color := Color("f4df9d")
+	var border_color := col_gold_glow
 	border_color.a = 0.72
 	draw_rect(selection_rect, fill_color, true)
 	draw_rect(selection_rect, border_color, false, 1.0, true)
@@ -1272,10 +2420,72 @@ func _complete_anchor_snap() -> void:
 		return
 	var target := anchor_snap_target
 	anchor_snap_active = false
-	if not target.is_equal_approx(line_start_world):
-		_add_connection(line_start_world, target)
-		line_start_world = target
+	_trace_to_point(target)
 	hovered_connection = -1
+
+
+func _trace_to_point(target: Vector2) -> void:
+	if target.is_equal_approx(line_start_world):
+		return
+	var terminal_index := _terminal_connection_index(line_start_world)
+	if terminal_index >= 0:
+		var connection: Dictionary = connections[terminal_index]
+		var previous_point: Vector2 = connection["to"] if Vector2(connection["from"]).is_equal_approx(line_start_world) else connection["from"]
+		if previous_point.is_equal_approx(target):
+			var indices: Array[int] = [terminal_index]
+			if diagram.remove_connections(indices):
+				line_start_world = target
+				_invalidate_symbol_connection_indices()
+				_invalidate_sequence_side_multiplier_cache()
+				_clear_diagram_animations()
+			return
+	if _add_connection(line_start_world, target):
+		line_start_world = target
+
+
+func _begin_terminal_extension(source: Vector2) -> void:
+	_deselect_connection()
+	drag_mode = "extend_terminal"
+	line_start_world = source
+	hovered_connection = -1
+
+
+func _toggle_terminal_move_mode(point: Vector2) -> void:
+	if _terminal_move_armed_at(point):
+		terminal_move_connection_index = -1
+		terminal_move_point = Vector2.ZERO
+		_reset_drag()
+		return
+	var connection_index := _terminal_connection_index(point)
+	if connection_index < 0:
+		return
+	terminal_move_point = point
+	terminal_move_connection_index = connection_index
+	# Também permite segurar o segundo clique e já mover a ponta.
+	_begin_anchor_move(point)
+
+
+func _terminal_connection_index(point: Vector2) -> int:
+	var found_index := -1
+	for index in range(connections.size()):
+		var connection: Dictionary = connections[index]
+		if Vector2(connection["from"]).is_equal_approx(point) or Vector2(connection["to"]).is_equal_approx(point):
+			if found_index >= 0:
+				return -1
+			found_index = index
+	return found_index
+
+
+func _terminal_move_armed_at(point: Vector2) -> bool:
+	return terminal_move_connection_index >= 0 and terminal_move_point.is_equal_approx(point)
+
+
+func _refresh_terminal_move_mode() -> void:
+	if terminal_move_connection_index < 0:
+		return
+	terminal_move_connection_index = _terminal_connection_index(terminal_move_point)
+	if terminal_move_connection_index < 0:
+		terminal_move_point = Vector2.ZERO
 
 
 func _begin_anchor_move(source: Vector2) -> void:
@@ -1285,7 +2495,6 @@ func _begin_anchor_move(source: Vector2) -> void:
 	anchor_move_target = source
 	anchor_move_snap_target = source
 	anchor_move_snap_target_valid = false
-	anchor_move_is_terminal = _is_terminal_point(source)
 	anchor_move_snap_started_at = 0.0
 	anchor_move_press_screen = pointer_screen
 	hovered_connection = -1
@@ -1307,35 +2516,12 @@ func _update_anchor_move_target() -> void:
 	var target: Vector2 = candidate["point"]
 	if target.is_equal_approx(anchor_move_source):
 		return
+	if _connection_point_uses(target) > 0:
+		return
 	anchor_move_snap_target = target
 	anchor_move_snap_target_valid = true
 	if not had_valid_snap or not target.is_equal_approx(had_snap_target):
 		anchor_move_snap_started_at = animation_clock
-
-
-func _continue_terminal_anchor_move() -> void:
-	if not anchor_move_is_terminal or not anchor_move_snap_target_valid:
-		return
-	var source := anchor_move_source
-	var target := anchor_move_snap_target
-	if source.is_equal_approx(target):
-		return
-	# Segurar o terminal sobre outro ponto inicia uma nova célula a partir do
-	# terminal original. Antes o ponto era movido para frente, esticando a célula
-	# anterior e deixando um "buraco" na sequência reta.
-	_add_connection(source, target)
-	_clear_diagram_animations()
-	anchor_move_source = Vector2.ZERO
-	anchor_move_target = Vector2.ZERO
-	anchor_move_snap_target = Vector2.ZERO
-	anchor_move_snap_target_valid = false
-	anchor_move_is_terminal = false
-	anchor_move_snap_started_at = 0.0
-	anchor_move_press_screen = Vector2.ZERO
-	drag_mode = "connect"
-	line_start_world = target
-	hovered_connection = -1
-	_update_hover()
 
 
 func _complete_anchor_move() -> void:
@@ -1356,13 +2542,14 @@ func _complete_anchor_move_settle() -> void:
 	var should_move := not anchor_move_source.is_equal_approx(anchor_move_settle_to)
 	anchor_move_settle_active = false
 	if should_move and diagram.move_anchor(anchor_move_source, anchor_move_settle_to):
+		if _terminal_move_armed_at(anchor_move_source):
+			terminal_move_point = anchor_move_settle_to
 		_invalidate_sequence_side_multiplier_cache()
 		_clear_diagram_animations()
 	anchor_move_source = Vector2.ZERO
 	anchor_move_target = Vector2.ZERO
 	anchor_move_snap_target = Vector2.ZERO
 	anchor_move_snap_target_valid = false
-	anchor_move_is_terminal = false
 	anchor_move_snap_started_at = 0.0
 	anchor_move_press_screen = Vector2.ZERO
 	_update_hover()
@@ -1370,7 +2557,7 @@ func _complete_anchor_move_settle() -> void:
 
 func _draw_dragged_symbol() -> void:
 	if drag_mode == "symbol" and not active_symbol.is_empty():
-		_draw_rune(active_symbol, pointer_screen, zoom, GOLD_GLOW)
+		_draw_rune(active_symbol, pointer_screen, zoom, col_gold_glow)
 
 
 func _draw_settling_symbol() -> void:
@@ -1401,18 +2588,18 @@ func _draw_symbol_hover_glow(kind: String, symbol_position: Vector2, rune_color:
 
 
 func _draw_execution_connection_glow(from_screen: Vector2, to_screen: Vector2, highlight_alpha: float) -> void:
-	var outer_glow := Color("ffe8a8")
+	var outer_glow := col_ember_soft
 	outer_glow.a = 0.17 * highlight_alpha
 	draw_line(from_screen, to_screen, outer_glow, 9.0 * zoom, true)
 	_draw_rounded_segment_caps(from_screen, to_screen, outer_glow, 4.5 * zoom)
-	var inner_glow := Color("fff4cd")
+	var inner_glow := col_ember.lightened(0.35)
 	inner_glow.a = 0.80 * highlight_alpha
 	draw_line(from_screen, to_screen, inner_glow, 3.1 * zoom, true)
 	_draw_rounded_segment_caps(from_screen, to_screen, inner_glow, 1.55 * zoom)
 
 
 func _draw_execution_symbol_glow(kind: String, symbol_position: Vector2, rune_color: Color, highlight_alpha: float) -> void:
-	var glow_color := rune_color.lerp(Color("fff2b2"), 0.72)
+	var glow_color := rune_color.lerp(col_ember, 0.72)
 	_draw_rune_aura(kind, symbol_position, glow_color, 6.2 * zoom, 0.048 * highlight_alpha)
 	_draw_rune_aura(kind, symbol_position, glow_color, 2.8 * zoom, 0.085 * highlight_alpha)
 
@@ -1439,14 +2626,16 @@ func _draw_intensity_inspector() -> void:
 	var data := _symbol_data(kind)
 	var intensity := _connection_intensity(connection)
 	_draw_arcane_frame(inspector)
-	_draw_rune(kind, inspector.position + Vector2(23.0, 25.0), 0.72, _intensity_color(intensity))
-	draw_string(ThemeDB.fallback_font, inspector.position + Vector2(42.0, 21.0), "INTENSIDADE", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, TEXT_MUTED)
-	draw_string(ThemeDB.fallback_font, inspector.position + Vector2(42.0, 40.0), str(data["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, TEXT_PRIMARY)
+	_draw_rune(kind, inspector.position + Vector2(25.0, 27.0), 0.72, _intensity_color(intensity))
+	draw_string(ThemeDB.fallback_font, inspector.position + Vector2(44.0, 22.0), "INTENSIDADE", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, col_text_faint)
+	draw_string(ThemeDB.fallback_font, inspector.position + Vector2(44.0, 41.0), str(data["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, col_text)
 	var value_rect := _intensity_value_rect()
-	draw_rect(value_rect, Color("3a2f1c") if editing_intensity_text else Color("1a140e"), true)
-	draw_rect(value_rect, GOLD_GLOW if editing_intensity_text else PANEL_BORDER, false, 1.0)
+	control_stylebox.border_color = col_gold_glow if editing_intensity_text else col_brass
+	control_stylebox.bg_color = col_leather_light if editing_intensity_text else col_inset_deep
+	draw_style_box(control_stylebox, value_rect)
+	control_stylebox.bg_color = col_inset
 	var displayed_intensity := intensity_text if editing_intensity_text else "%03d" % intensity
-	draw_string(ThemeDB.fallback_font, value_rect.position + Vector2(8.0, 19.0), displayed_intensity, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, GOLD_GLOW if editing_intensity_text else TEXT_PRIMARY)
+	draw_string(ThemeDB.fallback_font, value_rect.position + Vector2(9.0, 19.0), displayed_intensity, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, col_gold_glow if editing_intensity_text else col_text)
 
 	var slider := _intensity_slider_rect()
 	for segment in range(24):
@@ -1455,10 +2644,9 @@ func _draw_intensity_inspector() -> void:
 		var start := Vector2(slider.position.x + slider.size.x * start_t, slider.get_center().y)
 		var end := Vector2(slider.position.x + slider.size.x * end_t, slider.get_center().y)
 		draw_line(start, end, _intensity_color(int(start_t * 255.0)), 5.0, true)
-	draw_line(Vector2(slider.position.x, slider.get_center().y), Vector2(slider.end.x, slider.get_center().y), PANEL_BORDER, 1.0, true)
 	var marker_x := slider.position.x + slider.size.x * (float(intensity) / 255.0)
-	_draw_filled_circle(Vector2(marker_x, slider.get_center().y), 7.0, Color("1a140e"))
-	_draw_ring(Vector2(marker_x, slider.get_center().y), 7.0, GOLD_GLOW, 1.5)
+	_draw_filled_circle(Vector2(marker_x, slider.get_center().y), 7.0, col_inset_deep)
+	_draw_ring(Vector2(marker_x, slider.get_center().y), 7.0, col_gold_glow, 1.5)
 
 
 func _draw_interface_panels() -> void:
@@ -1471,7 +2659,7 @@ func _draw_interface_panels() -> void:
 
 
 func _draw_left_panel() -> void:
-	var panel := Rect2(0.0, 0.0, _left_panel_width(), size.y)
+	var panel := _left_panel_rect()
 	_draw_arcane_frame(panel)
 	_draw_toggle_button(_left_toggle_rect(), "left" if left_panel_open else "right")
 	if not left_panel_open:
@@ -1479,33 +2667,28 @@ func _draw_left_panel() -> void:
 
 	var list_rect := _left_command_list_rect()
 	var command_scroll := minf(left_command_scroll, _left_command_max_scroll())
-	var row_y := LEFT_COMMAND_LIST_TOP + 6.0 - command_scroll
+	var row_y := list_rect.position.y + 6.0 - command_scroll
 	var command_count := _symbol_connection_count()
 	for connection_index in _symbol_connection_indices():
 		var connection: Dictionary = connections[connection_index]
 		var kind := str(connection["symbol"])
 		var data := _symbol_data(kind)
-		var row := Rect2(14.0, row_y, panel.size.x - 28.0, 58.0)
+		var row := Rect2(panel.position.x + 14.0, row_y, panel.size.x - 28.0, 58.0)
 		if row.end.y > list_rect.position.y and row.position.y < list_rect.end.y:
-			var row_fill := PARCHMENT_DEEP if _is_connection_selected(connection_index) else PARCHMENT
-			var row_border := GOLD_BRIGHT if _is_connection_selected(connection_index) else PARCHMENT_BORDER
-			draw_rect(row, row_fill, true)
-			draw_rect(row, row_border, false, 1.0)
-			draw_rect(row.grow(-3.0), Color(0.24, 0.17, 0.08, 0.32), false, 1.0)
+			_draw_spell_card(row, _is_connection_selected(connection_index))
 			var intensity := _display_connection_intensity(connection_index, connection)
-			var sigil_center := row.position + Vector2(28.0, 29.0)
-			_draw_filled_circle(sigil_center, 18.0, Color("cdb782"))
-			_draw_ring(sigil_center, 18.0, PANEL_BORDER, 1.4)
-			_draw_filled_circle(sigil_center + Vector2(-4.0, -5.0), 3.0, Color(1.0, 0.95, 0.78, 0.28))
-			_draw_rune(kind, sigil_center, 0.76, PARCHMENT_INK.lerp(PANEL_BORDER, float(intensity) / 255.0))
-			draw_string(ThemeDB.fallback_font, row.position + Vector2(56.0, 25.0), str(data["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, PARCHMENT_INK)
+			var sigil_center := row.position + Vector2(30.0, 29.0)
+			var sigil := _sigil_texture_for(36.0)
+			if sigil != null:
+				draw_texture_rect(sigil, Rect2(sigil_center - sigil.get_size() * 0.5, sigil.get_size()), false, Color.WHITE)
+			_draw_rune(kind, sigil_center, 0.76, col_parch_ink.lerp(col_brass, float(intensity) / 255.0))
+			draw_string(ThemeDB.fallback_font, row.position + Vector2(58.0, 26.0), str(data["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, col_parch_ink)
 			var extra := str(data["extra"])
-			# Só mostramos o número quando a intensidade participa da instrução
-			# como operando; nos outros selos ele é apenas visual.
+			# So mostramos o numero quando a intensidade participa da instrucao
+			# como operando; nos outros selos ela e apenas visual.
 			if RuneCatalog.takes_operand(int(data.get("opcode", -1))):
 				extra = "%s: %03d" % [extra, intensity]
-			draw_string(ThemeDB.fallback_font, row.position + Vector2(56.0, 45.0), extra, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, PARCHMENT_MUTED)
-			draw_line(row.position + Vector2(8.0, 49.0), row.position + Vector2(row.size.x - 8.0, 49.0), Color(0.24, 0.17, 0.08, 0.38), 1.0, true)
+			draw_string(ThemeDB.fallback_font, row.position + Vector2(58.0, 45.0), extra, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, col_parch_muted)
 		row_y += LEFT_COMMAND_ROW_HEIGHT
 		if row.position.y > list_rect.end.y:
 			break
@@ -1516,19 +2699,30 @@ func _draw_left_panel() -> void:
 	_draw_toggle_button(_left_toggle_rect(), "left")
 
 	if command_count == 0:
-		_draw_ring(Vector2(panel.size.x * 0.5, 132.0), 30.0, PANEL_BORDER, 1.0)
-		draw_line(Vector2(panel.size.x * 0.5 - 48.0, 132.0), Vector2(panel.size.x * 0.5 + 48.0, 132.0), PANEL_BORDER, 1.0, true)
-		draw_string(ThemeDB.fallback_font, Vector2(29.0, 192.0), "Ainda não há símbolos no ritual.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
+		var empty_center := Vector2(panel.get_center().x, panel.position.y + 132.0)
+		_draw_ring(empty_center, 30.0, col_brass, 1.0)
+		draw_line(empty_center - Vector2(48.0, 0.0), empty_center + Vector2(48.0, 0.0), col_brass, 1.0, true)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(29.0, 192.0), "Ainda não há símbolos no ritual.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+
+
+## Uma carta de pergaminho do grimorio, com sombra e o selo de escolha.
+## Uma carta de pergaminho do grimorio, com o selo de escolha por cima.
+func _draw_spell_card(row: Rect2, selected: bool) -> void:
+	var texture := _spell_card_texture(int(roundf(row.size.y)))
+	if texture != null:
+		draw_texture_rect(texture, _spell_card_bounds(row), false, Color(0.94, 0.90, 0.80) if selected else Color.WHITE)
+	if selected:
+		draw_style_box(card_stylebox, row)
 
 
 func _command_row_at(screen_position: Vector2) -> int:
-	if not left_panel_open or not _left_command_list_rect().has_point(screen_position):
-		return -1
 	var list_rect := _left_command_list_rect()
-	var row_y := LEFT_COMMAND_LIST_TOP + 6.0 - minf(left_command_scroll, _left_command_max_scroll())
+	if not left_panel_open or not list_rect.has_point(screen_position):
+		return -1
+	var panel := _left_panel_rect()
+	var row_y := list_rect.position.y + 6.0 - minf(left_command_scroll, _left_command_max_scroll())
 	for connection_index in _symbol_connection_indices():
-		var connection: Dictionary = connections[connection_index]
-		var row := Rect2(14.0, row_y, _left_panel_width() - 28.0, 58.0)
+		var row := Rect2(panel.position.x + 14.0, row_y, panel.size.x - 28.0, 58.0)
 		if row.end.y > list_rect.position.y and row.position.y < list_rect.end.y and row.has_point(screen_position):
 			return connection_index
 		row_y += LEFT_COMMAND_ROW_HEIGHT
@@ -1540,39 +2734,41 @@ func _command_row_at(screen_position: Vector2) -> int:
 func _left_command_list_rect() -> Rect2:
 	if not left_panel_open:
 		return Rect2()
-	return Rect2(12.0, LEFT_COMMAND_LIST_TOP, _left_panel_width() - 24.0, maxf(size.y - LEFT_COMMAND_LIST_TOP - 18.0, 0.0))
+	var panel := _left_panel_rect()
+	return Rect2(panel.position.x + 12.0, panel.position.y + LEFT_COMMAND_LIST_TOP, panel.size.x - 24.0, maxf(panel.size.y - LEFT_COMMAND_LIST_TOP - 18.0, 0.0))
 
 
 func _draw_left_scroll_masks(panel: Rect2, list_rect: Rect2) -> void:
-	# As máscaras fazem o recorte da lista sem impedir o scroll contínuo de
-	# mostrar entradas parcialmente na borda da janela.
-	draw_rect(Rect2(0.0, 0.0, panel.size.x, list_rect.position.y), PANEL_BACKGROUND, true)
-	draw_rect(Rect2(0.0, list_rect.end.y, panel.size.x, panel.end.y - list_rect.end.y), PANEL_BACKGROUND, true)
-	# As máscaras cobrem também a moldura; restauramos os traços por cima.
-	draw_rect(panel, PANEL_BORDER, false, 2.0)
-	var inner := panel.grow(-6.0)
-	if inner.size.x > 0.0 and inner.size.y > 0.0:
-		draw_rect(inner, LEATHER_LIGHT, false, 1.0)
-	draw_rect(list_rect, LEATHER_LIGHT, false, 1.0)
+	# As mascaras recortam a lista sem impedir o scroll continuo de mostrar
+	# entradas partindo da borda. Elas seguem a curva da moldura, e o cromo do
+	# painel volta por cima.
+	var top_band := Rect2(panel.position, Vector2(panel.size.x, list_rect.position.y - panel.position.y))
+	var bottom_band := Rect2(Vector2(panel.position.x, list_rect.end.y), Vector2(panel.size.x, panel.end.y - list_rect.end.y))
+	if top_band.size.y > 0.0:
+		draw_style_box(mask_top_stylebox, top_band)
+	if bottom_band.size.y > 0.0:
+		draw_style_box(mask_bottom_stylebox, bottom_band)
+	if not TEXTURED_PANEL_SKINS:
+		_draw_frame_chrome(panel)
 
 
 func _draw_left_panel_header(panel: Rect2) -> void:
-	draw_string(ThemeDB.fallback_font, Vector2(20.0, 32.0), "GRIMÓRIO ATIVO", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 17, GOLD_BRIGHT)
-	draw_string(ThemeDB.fallback_font, Vector2(20.0, 54.0), "Símbolos ligados ao ritual", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_MUTED)
-	draw_line(Vector2(20.0, 70.0), Vector2(panel.size.x - 20.0, 70.0), PANEL_BORDER, 1.0, true)
+	_draw_panel_title(panel.position + Vector2(20.0, 32.0), "GRIMÓRIO ATIVO", 16)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 54.0), "Símbolos ligados ao ritual", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	draw_line(panel.position + Vector2(20.0, 70.0), Vector2(panel.end.x - 20.0, panel.position.y + 70.0), col_spellstrip, 1.0, true)
 
 
 func _draw_left_command_scrollbar(list_rect: Rect2, scroll: float) -> void:
 	var max_scroll := _left_command_max_scroll()
 	if max_scroll <= 0.0:
 		return
-	var track_x := list_rect.end.x - 7.0
+	var track_x := list_rect.end.x - 5.0
 	var track_height := list_rect.size.y - 12.0
 	var thumb_height := maxf(28.0, track_height * list_rect.size.y / (list_rect.size.y + max_scroll))
 	var travel := maxf(track_height - thumb_height, 0.0)
 	var thumb_y := list_rect.position.y + 6.0 + travel * (scroll / max_scroll)
-	draw_line(Vector2(track_x, list_rect.position.y + 6.0), Vector2(track_x, list_rect.end.y - 6.0), Color("1a140e"), 2.0, true)
-	draw_line(Vector2(track_x, thumb_y), Vector2(track_x, thumb_y + thumb_height), PANEL_ACCENT, 2.0, true)
+	draw_line(Vector2(track_x, list_rect.position.y + 6.0), Vector2(track_x, list_rect.end.y - 6.0), col_inset_deep, 3.0, true)
+	draw_line(Vector2(track_x, thumb_y), Vector2(track_x, thumb_y + thumb_height), col_brass, 3.0, true)
 
 
 func _symbol_connection_count() -> int:
@@ -1592,6 +2788,13 @@ func _symbol_connection_indices() -> Array[int]:
 
 func _invalidate_symbol_connection_indices() -> void:
 	symbol_connection_indices_dirty = true
+	_clear_rune_diagnostics()
+	_invalidate_panel_cache()
+
+
+func _clear_rune_diagnostics() -> void:
+	invalid_connection_indices.clear()
+	execution_errors.clear()
 
 
 func _left_command_max_scroll() -> float:
@@ -1644,11 +2847,13 @@ func _draw_top_panel() -> void:
 	_draw_pause_button(_pause_button_rect())
 	_draw_step_button(_step_button_rect())
 	_draw_stop_button(_stop_button_rect())
+	_draw_theme_button(_theme_button_rect())
 	if not top_panel_open:
-		draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 16.0, 27.0), "SELOS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(16.0, 27.0), "SELOS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 		return
 
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 24.0), "SELOS E RUNAS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
+	_draw_panel_title(panel.position + Vector2(20.0, 28.0), "SELOS DO ATELIÊ", 16)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 47.0), "Arraste um símbolo até a linha de um feitiço.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
 
 	var palette_viewport := _palette_viewport_rect()
 	for index in range(PALETTE_SYMBOLS.size()):
@@ -1659,7 +2864,7 @@ func _draw_top_panel() -> void:
 		var highlight_alpha := _hover_alpha(palette_hover_started_at) if index == animated_hover_palette_index else 0.0
 		_draw_arcane_tile_mark(tile, highlight_alpha)
 		var tile_scale := 1.05 * tile.size.x / PALETTE_MAX_TILE_SIZE
-		_draw_rune(str(item["kind"]), tile.get_center(), tile_scale, GOLD_BRIGHT.lerp(Color("fff0bd"), highlight_alpha))
+		_draw_rune(str(item["kind"]), tile.get_center(), tile_scale, col_seal_glyph.lerp(Color(1.0, 0.94, 0.74), highlight_alpha))
 	_draw_palette_scroll_masks(palette_viewport)
 	_draw_palette_scrollbar()
 
@@ -1669,35 +2874,53 @@ func _draw_bottom_panel() -> void:
 	_draw_arcane_frame(panel)
 	_draw_toggle_button(_bottom_toggle_rect(), "down" if bottom_panel_open else "up")
 	if not bottom_panel_open:
-		draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 16.0, panel.position.y + 27.0), "ORÁCULO", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(16.0, 27.0), "ORÁCULO", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 		return
 
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 30.0), "EXECUÇÃO", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 17, TEXT_PRIMARY)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 51.0), "A saída e os erros do programa aparecerão aqui.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_MUTED)
-	var divider_x := panel.position.x + panel.size.x * 0.7
-	draw_line(Vector2(divider_x, panel.position.y + 68.0), Vector2(divider_x, panel.end.y - 16.0), PANEL_BORDER, 1.0, true)
-	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 20.0, panel.position.y + 91.0), "SAÍDA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, PANEL_ACCENT)
-	draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, panel.position.y + 91.0), "ERROS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, PANEL_ACCENT)
-	var output_position := Vector2(panel.position.x + 24.0, panel.position.y + 116.0)
+	_draw_oracle_orb(panel.position + Vector2(38.0, 36.0), 30.0)
+	_draw_panel_title(panel.position + Vector2(62.0, 32.0), "ORÁCULO", 16)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(62.0, 53.0), "A saída e os erros do ritual aparecerão aqui.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	var divider_x := panel.position.x + panel.size.x * 0.58
+	draw_line(Vector2(divider_x, panel.position.y + 72.0), Vector2(divider_x, panel.end.y - 16.0), col_spellstrip, 1.0, true)
+	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 24.0, panel.position.y + 93.0), "SAÍDA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_gold)
+	draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, panel.position.y + 93.0), "ERROS (%d)" % execution_errors.size(), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_gold)
+	var output_position := Vector2(panel.position.x + 24.0, panel.position.y + 118.0)
 	var output_width := divider_x - panel.position.x - 42.0
 	var output_font: Font = ThemeDB.fallback_font
 	var warning_y := output_position.y
 	if not execution_output.is_empty():
 		var output_text := "> " + execution_output
 		var output_size := output_font.get_multiline_string_size(output_text, HORIZONTAL_ALIGNMENT_LEFT, output_width, 14)
-		draw_multiline_string(output_font, output_position, output_text, HORIZONTAL_ALIGNMENT_LEFT, output_width, 14, -1, Color("e3cea2"))
+		draw_multiline_string(output_font, output_position, output_text, HORIZONTAL_ALIGNMENT_LEFT, output_width, 14, -1, col_output)
 		warning_y += output_size.y + 10.0
 	for warning in execution_warnings:
 		var warning_text := "~ " + warning
 		var warning_size := output_font.get_multiline_string_size(warning_text, HORIZONTAL_ALIGNMENT_LEFT, output_width, 12)
-		draw_multiline_string(output_font, Vector2(panel.position.x + 24.0, warning_y), warning_text, HORIZONTAL_ALIGNMENT_LEFT, output_width, 12, -1, Color("d8c783"))
+		draw_multiline_string(output_font, Vector2(panel.position.x + 24.0, warning_y), warning_text, HORIZONTAL_ALIGNMENT_LEFT, output_width, 12, -1, col_warning)
 		warning_y += warning_size.y + 5.0
-	var error_y := panel.position.y + 116.0
-	for error in execution_errors:
-		draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, error_y), "! " + error, HORIZONTAL_ALIGNMENT_LEFT, panel.end.x - divider_x - 40.0, 13, Color("ff8791"))
-		error_y += 20.0
+	var error_y := panel.position.y + 118.0
+	var error_width := maxf(panel.end.x - divider_x - 40.0, 60.0)
+	for error_index in range(execution_errors.size()):
+		var error_text := "! " + execution_errors[error_index]
+		var error_size := output_font.get_multiline_string_size(error_text, HORIZONTAL_ALIGNMENT_LEFT, error_width, 13)
+		if error_y + error_size.y > panel.end.y - 10.0:
+			draw_string(output_font, Vector2(divider_x + 20.0, minf(error_y, panel.end.y - 12.0)), "+%d erro(s); aumente o Oráculo" % (execution_errors.size() - error_index), HORIZONTAL_ALIGNMENT_LEFT, error_width, 11, col_error)
+			break
+		draw_multiline_string(output_font, Vector2(divider_x + 20.0, error_y), error_text, HORIZONTAL_ALIGNMENT_LEFT, error_width, 13, -1, col_error)
+		error_y += error_size.y + 6.0
 	if execution_output.is_empty() and execution_errors.is_empty() and execution_warnings.is_empty():
-		_draw_rune("ORB", Vector2(panel.position.x + panel.size.x * 0.35, panel.position.y + 145.0), 1.6, LEATHER_LIGHT)
+		draw_string(ThemeDB.fallback_font, output_position, "cada linha traçada é um encadeamento de intenções.", HORIZONTAL_ALIGNMENT_LEFT, output_width, 13, col_text_faint)
+
+
+## O orbe do oraculo: uma lua dourada acesa no rodape.
+func _draw_oracle_orb(center: Vector2, diameter: float) -> void:
+	var radius := diameter * 0.5
+	var halo := col_gold_glow
+	halo.a = 0.45
+	draw_texture_rect(glow_texture, Rect2(center - Vector2.ONE * radius * 2.4, Vector2.ONE * radius * 4.8), false, halo)
+	_draw_filled_circle(center, radius, col_gold)
+	_draw_filled_circle(center - Vector2.ONE * radius * 0.28, radius * 0.66, col_gold_glow)
+	_draw_rune("MOON", center, radius / 17.0, col_sky)
 
 
 func _draw_right_panel() -> void:
@@ -1705,24 +2928,24 @@ func _draw_right_panel() -> void:
 	_draw_arcane_frame(panel)
 	_draw_toggle_button(_right_toggle_rect(), "right" if right_panel_open else "left")
 	if not right_panel_open:
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(5.0, 58.0), "PILHA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, TEXT_MUTED)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(5.0, 58.0), "PILHA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, col_text_faint)
 		return
 
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 64.0), "PILHA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 17, GOLD_BRIGHT)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 85.0), "Estado da máquina", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, TEXT_MUTED)
-	draw_line(panel.position + Vector2(20.0, 101.0), Vector2(panel.end.x - 20.0, panel.position.y + 101.0), PANEL_BORDER, 1.0, true)
+	_draw_panel_title(panel.position + Vector2(20.0, 64.0), "PILHA", 16)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 85.0), "Estado da máquina", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	draw_line(panel.position + Vector2(20.0, 101.0), Vector2(panel.end.x - 20.0, panel.position.y + 101.0), col_spellstrip, 1.0, true)
 	if execution_state.is_empty() or not execution_state.has("stack"):
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 136.0), "A pilha desperta", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 155.0), "quando o ritual começa.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 136.0), "A pilha desperta", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 155.0), "quando o ritual começa.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 		return
 
 	var stack: Array = execution_state["stack"]
 	var text_width := panel.size.x - 40.0
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), "TOPO", HORIZONTAL_ALIGNMENT_LEFT, text_width, 11, PANEL_ACCENT)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), "%d SELOS" % stack.size(), HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, TEXT_MUTED)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), "TOPO", HORIZONTAL_ALIGNMENT_LEFT, text_width, 11, col_gold)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), "%d SELOS" % stack.size(), HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, col_text_faint)
 	if stack.is_empty():
-		_draw_ring(panel.position + Vector2(panel.size.x * 0.5, 169.0), 24.0, LEATHER_LIGHT, 1.0)
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 215.0), "A pilha está vazia.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, TEXT_MUTED)
+		_draw_ring(panel.position + Vector2(panel.size.x * 0.5, 169.0), 24.0, col_leather_light, 1.0)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 215.0), "A pilha está vazia.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 		return
 
 	var row_height := 42.0
@@ -1732,17 +2955,16 @@ func _draw_right_panel() -> void:
 	var first_visible := maxi(stack.size() - visible_rows, 0)
 	var row_y := first_y
 	if first_visible > 0:
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, row_y + 11.0), "+%d abaixo" % first_visible, HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, TEXT_MUTED)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, row_y + 11.0), "+%d abaixo" % first_visible, HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, col_text_faint)
 		row_y += 16.0
 	for stack_index in range(stack.size() - 1, first_visible - 1, -1):
 		var row := Rect2(panel.position.x + 14.0, row_y, panel.size.x - 28.0, 34.0)
 		var is_top := stack_index == stack.size() - 1
-		draw_rect(row, PARCHMENT_DEEP if is_top else PARCHMENT, true)
-		draw_rect(row, GOLD_BRIGHT if is_top else PARCHMENT_BORDER, false, 1.0)
+		_draw_spell_card(row, is_top)
 		var stack_value := int(stack[stack_index])
-		draw_string(ThemeDB.fallback_font, row.position + Vector2(12.0, 22.0), "%03d" % stack_value, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, PARCHMENT_INK)
+		draw_string(ThemeDB.fallback_font, row.position + Vector2(14.0, 22.0), "%03d" % stack_value, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, col_parch_ink)
 		if is_top:
-			draw_string(ThemeDB.fallback_font, row.position + Vector2(12.0, 21.0), "TOPO", HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 24.0, 10, PARCHMENT_MUTED)
+			draw_string(ThemeDB.fallback_font, row.position + Vector2(14.0, 21.0), "TOPO", HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 28.0, 10, col_parch_muted)
 		row_y += row_height
 
 
@@ -1769,57 +2991,76 @@ func _draw_palette_tooltip() -> void:
 	if tooltip_y + tooltip_height > size.y - 12.0:
 		tooltip_y = maxf(12.0, tile.position.y - tooltip_height - 10.0)
 	var tooltip := Rect2(tooltip_x, tooltip_y, tooltip_width, tooltip_height)
-	draw_rect(tooltip, Color("171a22"), true)
-	draw_rect(tooltip, PANEL_BORDER, false, 1.0)
-	draw_rect(tooltip.grow(-4.0), Color(0.71, 0.54, 0.24, 0.24), false, 1.0)
-	draw_string(font, tooltip.position + Vector2(12.0, 21.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, GOLD_GLOW)
-	draw_multiline_string(font, tooltip.position + Vector2(12.0, 42.0), description, HORIZONTAL_ALIGNMENT_LEFT, tooltip_width - 24.0, 12, -1, TEXT_PRIMARY)
+	tooltip_stylebox.bg_color = col_ink_deep
+	tooltip_stylebox.border_color = col_brass
+	draw_style_box(tooltip_stylebox, tooltip)
+	draw_string(font, tooltip.position + Vector2(14.0, 22.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, col_gold_glow)
+	draw_multiline_string(font, tooltip.position + Vector2(14.0, 43.0), description, HORIZONTAL_ALIGNMENT_LEFT, tooltip_width - 28.0, 12, -1, TOOLTIP_TEXT)
 
 
 func _draw_arcane_frame(rect: Rect2) -> void:
-	draw_rect(rect, Color("1a140e"), true)
-	draw_rect(rect.grow(-2.0), PANEL_BACKGROUND, true)
-	draw_rect(rect, PANEL_BORDER, false, 2.0)
-	var inner := rect.grow(-6.0)
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	if TEXTURED_PANEL_SKINS:
+		# O centro do NinePatch e transparente para permitir redimensionamento.
+		# Portanto o fundo precisa ser opaco aqui, antes de desenhar o diagrama;
+		# col_inset e apenas uma sombra de 10%, e deixava os fios vazarem.
+		var panel_fill := frame_stylebox.bg_color
+		panel_fill.a = 1.0
+		draw_rect(rect, panel_fill)
+		return
+	draw_style_box(frame_stylebox, rect)
+	# Fio de luz na aresta de cima, como o inset do desenho original.
+	draw_line(rect.position + Vector2(FRAME_RADIUS, 1.5), Vector2(rect.end.x - FRAME_RADIUS, rect.position.y + 1.5), col_frame_sheen, 1.0, true)
+	_draw_frame_chrome(rect)
+
+
+## Traco da borda, filete interno e os quatro cantos em L de cada moldura.
+func _draw_frame_chrome(rect: Rect2) -> void:
+	draw_style_box(edge_stylebox, rect)
+	var inner := rect.grow(-5.0)
 	if inner.size.x > 0.0 and inner.size.y > 0.0:
-		var inner_border := PANEL_ACCENT
-		inner_border.a = 0.28
-		draw_rect(inner, inner_border, false, 1.0)
-	var corner := 13.0
-	var top_left := rect.position + Vector2(9.0, 9.0)
-	var top_right := Vector2(rect.end.x - 9.0, rect.position.y + 9.0)
-	var bottom_left := Vector2(rect.position.x + 9.0, rect.end.y - 9.0)
-	var bottom_right := rect.end - Vector2(9.0, 9.0)
-	draw_line(top_left, top_left + Vector2(corner, 0.0), GOLD_BRIGHT, 1.2, true)
-	draw_line(top_left, top_left + Vector2(0.0, corner), GOLD_BRIGHT, 1.2, true)
-	draw_line(top_right, top_right + Vector2(-corner, 0.0), GOLD_BRIGHT, 1.2, true)
-	draw_line(top_right, top_right + Vector2(0.0, corner), GOLD_BRIGHT, 1.2, true)
-	draw_line(bottom_left, bottom_left + Vector2(corner, 0.0), GOLD_BRIGHT, 1.2, true)
-	draw_line(bottom_left, bottom_left + Vector2(0.0, -corner), GOLD_BRIGHT, 1.2, true)
-	draw_line(bottom_right, bottom_right + Vector2(-corner, 0.0), GOLD_BRIGHT, 1.2, true)
-	draw_line(bottom_right, bottom_right + Vector2(0.0, -corner), GOLD_BRIGHT, 1.2, true)
-	_draw_filled_circle(top_left, 1.6, GOLD_GLOW)
-	_draw_filled_circle(top_right, 1.6, GOLD_GLOW)
-	_draw_filled_circle(bottom_left, 1.6, GOLD_GLOW)
-	_draw_filled_circle(bottom_right, 1.6, GOLD_GLOW)
+		draw_style_box(frame_inner_stylebox, inner)
+	_draw_frame_corners(rect)
+
+
+## Os quatro cantos em L que marcam cada moldura.
+func _draw_frame_corners(rect: Rect2) -> void:
+	var arm := 13.0
+	if rect.size.x < arm * 3.0 or rect.size.y < arm * 3.0:
+		return
+	var tint := col_gold
+	tint.a *= 0.70
+	for corner: Vector2 in [Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, 1.0), Vector2(1.0, 1.0)]:
+		var step := Vector2.ONE - corner * 2.0
+		var origin := rect.position + rect.size * corner + step * 9.0
+		draw_line(origin, origin + Vector2(arm * step.x, 0.0), tint, 1.4, true)
+		draw_line(origin, origin + Vector2(0.0, arm * step.y), tint, 1.4, true)
 
 
 func _draw_arcane_tile_mark(tile: Rect2, highlight_alpha: float = 0.0) -> void:
 	var center := tile.get_center()
-	var radius := tile.size.x * 0.40
-	var outer_glow := GOLD_GLOW
-	outer_glow.a = 0.08 + 0.16 * highlight_alpha
-	_draw_filled_circle(center, radius + 5.0, outer_glow)
-	_draw_filled_circle(center, radius, Color("211812").lerp(LEATHER_LIGHT, highlight_alpha))
-	_draw_ring(center, radius, PANEL_BORDER.lerp(GOLD_BRIGHT, highlight_alpha), 2.0)
-	_draw_ring(center, radius + 3.0, Color(0.71, 0.54, 0.24, 0.38 + 0.26 * highlight_alpha), 1.0)
+	if highlight_alpha > 0.0:
+		var halo := col_gold_glow
+		halo.a = 0.26 * highlight_alpha
+		draw_texture_rect(glow_texture, Rect2(center - Vector2.ONE * tile.size.x, Vector2.ONE * tile.size.x * 2.0), false, halo)
+	var medallion := _seal_medallion_texture(tile.size.x)
+	if medallion == null:
+		return
+	var bounds := Rect2(center - medallion.get_size() * 0.5, medallion.get_size())
+	draw_texture_rect(medallion, bounds, false, Color.WHITE.lerp(Color(1.35, 1.28, 1.10), highlight_alpha))
+
+
+## Casca comum dos controles: caixa arredondada, filete de latao e um halo.
+func _draw_control_shell(rect: Rect2, accent: Color) -> void:
+	control_stylebox.border_color = accent
+	draw_style_box(control_stylebox, rect)
+	_draw_ring(rect.get_center(), 11.0, accent.darkened(0.45), 1.0)
 
 
 func _draw_toggle_button(rect: Rect2, direction: String) -> void:
 	var center := rect.get_center()
-	draw_rect(rect, Color("1a140e"), true)
-	draw_rect(rect, PANEL_BORDER, false, 1.0)
-	_draw_ring(center, 11.0, PANEL_ACCENT, 1.0)
+	_draw_control_shell(rect, col_gold)
 	var a := center
 	var b := center
 	var c := center
@@ -1840,91 +3081,100 @@ func _draw_toggle_button(rect: Rect2, direction: String) -> void:
 			a += Vector2(-6.0, -3.0)
 			b += Vector2(0.0, 4.0)
 			c += Vector2(6.0, -3.0)
-	draw_line(a, b, GOLD_GLOW, 2.0, true)
-	draw_line(b, c, GOLD_GLOW, 2.0, true)
+	draw_line(a, b, col_gold_glow, 2.0, true)
+	draw_line(b, c, col_gold_glow, 2.0, true)
 
 
 func _draw_play_button(rect: Rect2) -> void:
 	var center := rect.get_center()
-	var accent := Color("6b5130") if ritual_running else GOLD_GLOW
-	draw_rect(rect, Color("1a140e"), true)
-	draw_rect(rect, accent, false, 1.0)
-	_draw_ring(center, 11.0, accent.darkened(0.45), 1.0)
-	var a := center + Vector2(-3.0, -6.0)
-	var b := center + Vector2(6.0, 0.0)
-	var c := center + Vector2(-3.0, 6.0)
-	draw_colored_polygon(PackedVector2Array([a, b, c]), accent)
+	var accent := col_disabled if ritual_running else col_gold_glow
+	_draw_control_shell(rect, accent)
+	draw_colored_polygon(PackedVector2Array([
+			center + Vector2(-3.0, -6.0), center + Vector2(6.0, 0.0), center + Vector2(-3.0, 6.0)]), accent)
 
 
 func _draw_pause_button(rect: Rect2) -> void:
 	var center := rect.get_center()
-	var accent := GOLD_GLOW if ritual_running else Color("6b5130")
-	draw_rect(rect, Color("1a140e"), true)
-	draw_rect(rect, accent, false, 1.0)
-	_draw_ring(center, 11.0, accent.darkened(0.45), 1.0)
+	var accent := col_gold_glow if ritual_running else col_disabled
+	_draw_control_shell(rect, accent)
 	draw_rect(Rect2(center + Vector2(-5.0, -6.0), Vector2(3.0, 12.0)), accent, true)
 	draw_rect(Rect2(center + Vector2(2.0, -6.0), Vector2(3.0, 12.0)), accent, true)
 
 
 func _draw_step_button(rect: Rect2) -> void:
 	var center := rect.get_center()
-	var accent := GOLD_GLOW if _ritual_can_step() else Color("6b5130")
-	draw_rect(rect, Color("1a140e"), true)
-	draw_rect(rect, accent, false, 1.0)
-	_draw_ring(center, 11.0, accent.darkened(0.45), 1.0)
-	var a := center + Vector2(-5.0, -6.0)
-	var b := center + Vector2(3.0, 0.0)
-	var c := center + Vector2(-5.0, 6.0)
-	draw_colored_polygon(PackedVector2Array([a, b, c]), accent)
+	var accent := col_gold_glow if _ritual_can_step() else col_disabled
+	_draw_control_shell(rect, accent)
+	draw_colored_polygon(PackedVector2Array([
+			center + Vector2(-5.0, -6.0), center + Vector2(3.0, 0.0), center + Vector2(-5.0, 6.0)]), accent)
 	draw_rect(Rect2(center + Vector2(5.0, -6.0), Vector2(2.0, 12.0)), accent, true)
 
 
 func _draw_stop_button(rect: Rect2) -> void:
 	var center := rect.get_center()
-	var accent := Color("d46c4d") if _ritual_is_active() else Color("6b5130")
-	draw_rect(rect, Color("1a140e"), true)
-	draw_rect(rect, accent, false, 1.0)
-	_draw_ring(center, 11.0, accent.darkened(0.45), 1.0)
+	var accent := col_halt if _ritual_is_active() else col_disabled
+	_draw_control_shell(rect, accent)
 	draw_rect(Rect2(center - Vector2(4.0, 4.0), Vector2(8.0, 8.0)), accent, true)
+
+
+## Lua para a noite do grimorio, sol para o pergaminho iluminado.
+func _draw_theme_button(rect: Rect2) -> void:
+	var center := rect.get_center()
+	_draw_control_shell(rect, col_gold_glow)
+	if active_theme == "light":
+		_draw_filled_circle(center, 4.4, col_gold_glow)
+		for step in range(8):
+			var direction := Vector2.RIGHT.rotated(TAU * float(step) / 8.0)
+			draw_line(center + direction * 7.0, center + direction * 10.0, col_gold_glow, 1.6, true)
+	else:
+		_draw_rune("MOON", center, 0.62, col_gold_glow)
 
 
 func _draw_execution_speed_control() -> void:
 	var slider := _execution_speed_slider_rect()
 	if slider.size.x <= 0.0:
 		return
-	draw_string(ThemeDB.fallback_font, slider.position + Vector2(0.0, -7.0), "%.1f RPS" % execution_speed_rps, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, TEXT_MUTED)
-	draw_line(slider.position, Vector2(slider.end.x, slider.position.y), Color("1a140e"), 3.0, true)
+	draw_string(ThemeDB.fallback_font, slider.position + Vector2(0.0, -7.0), "%.1f RPS" % execution_speed_rps, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, col_text_faint)
+	draw_line(slider.position, Vector2(slider.end.x, slider.position.y), col_inset_deep, 3.0, true)
 	var amount := (execution_speed_rps - EXECUTION_MIN_RPS) / (EXECUTION_MAX_RPS - EXECUTION_MIN_RPS)
 	var marker_position := Vector2(slider.position.x + slider.size.x * amount, slider.position.y)
-	draw_line(slider.position, marker_position, GOLD_BRIGHT, 3.0, true)
-	_draw_filled_circle(marker_position, 5.0, Color("1a140e"))
-	_draw_ring(marker_position, 5.0, GOLD_GLOW, 1.3)
+	draw_line(slider.position, marker_position, col_gold_bright, 3.0, true)
+	_draw_filled_circle(marker_position, 5.5, col_gold_glow)
+	_draw_ring(marker_position, 5.5, col_brass, 1.2)
 
 
 func _draw_resize_handles() -> void:
 	if left_panel_open:
-		var x := left_panel_size
-		draw_line(Vector2(x, 44.0), Vector2(x, size.y - 44.0), PANEL_BORDER, 2.0, true)
-		for offset in [-6.0, 0.0, 6.0]:
-			_draw_filled_circle(Vector2(x, size.y * 0.5 + offset), 1.5, GOLD_GLOW)
+		_draw_resize_grip(Vector2(_left_panel_rect().end.x + PANEL_GAP * 0.5, _left_panel_rect().get_center().y), true)
 	if right_panel_open:
-		var right_x := size.x - right_panel_size
-		draw_line(Vector2(right_x, 44.0), Vector2(right_x, size.y - 44.0), PANEL_BORDER, 2.0, true)
-		for offset in [-6.0, 0.0, 6.0]:
-			_draw_filled_circle(Vector2(right_x, size.y * 0.5 + offset), 1.5, GOLD_GLOW)
+		_draw_resize_grip(Vector2(_right_panel_rect().position.x - PANEL_GAP * 0.5, _right_panel_rect().get_center().y), true)
+	var middle := _top_panel_rect()
 	if top_panel_open:
-		var y := top_panel_size
-		draw_line(Vector2(_left_panel_width() + 44.0, y), Vector2(size.x - _right_panel_width() - 44.0, y), PANEL_BORDER, 2.0, true)
-		for offset in [-6.0, 0.0, 6.0]:
-			_draw_filled_circle(Vector2(size.x * 0.5 + offset, y), 1.5, GOLD_GLOW)
+		_draw_resize_grip(Vector2(middle.get_center().x, middle.end.y + PANEL_GAP * 0.5), false)
 	if bottom_panel_open:
-		var y := size.y - bottom_panel_size
-		draw_line(Vector2(_left_panel_width() + 44.0, y), Vector2(size.x - _right_panel_width() - 44.0, y), PANEL_BORDER, 2.0, true)
-		for offset in [-6.0, 0.0, 6.0]:
-			_draw_filled_circle(Vector2(size.x * 0.5 + offset, y), 1.5, GOLD_GLOW)
+		_draw_resize_grip(Vector2(middle.get_center().x, _bottom_panel_rect().position.y - PANEL_GAP * 0.5), false)
+
+
+func _draw_resize_grip(center: Vector2, vertical: bool) -> void:
+	var step := Vector2(0.0, 6.0) if vertical else Vector2(6.0, 0.0)
+	for offset: float in [-1.0, 0.0, 1.0]:
+		_draw_filled_circle(center + step * offset, 1.6, col_gold_glow)
+
+
+func _draw_rune_atlas() -> void:
+	for index in range(PALETTE_SYMBOLS.size()):
+		var symbol: Dictionary = PALETTE_SYMBOLS[index]
+		var column := index % RUNE_ATLAS_COLUMNS
+		var row := index / RUNE_ATLAS_COLUMNS
+		var center := Vector2(
+				(float(column) + 0.5) * RUNE_ATLAS_TILE_SIZE,
+				(float(row) + 0.5) * RUNE_ATLAS_TILE_SIZE)
+		_draw_rune(str(symbol["kind"]), center, 4.0, Color.WHITE)
 
 
 func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) -> void:
+	if not atlas_baking_mode and _draw_rune_from_atlas(kind, center, rune_scale, color):
+		return
 	var r := 11.0 * rune_scale
 	var main_stroke := 2.5 * rune_scale
 	var fine_stroke := 1.2 * rune_scale
@@ -2088,16 +3338,42 @@ func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) 
 			_draw_filled_circle(center + Vector2(r * 0.46, 0.0), r * 0.12, color)
 
 
+func _draw_rune_from_atlas(kind: String, center: Vector2, rune_scale: float, color: Color) -> bool:
+	if not RUNE_ATLAS_INDEX.has(kind):
+		return false
+	var index: int = RUNE_ATLAS_INDEX[kind]
+	var source := Rect2(
+			Vector2(float(index % RUNE_ATLAS_COLUMNS), float(index / RUNE_ATLAS_COLUMNS)) * RUNE_ATLAS_TILE_SIZE,
+			Vector2.ONE * RUNE_ATLAS_TILE_SIZE)
+	# A imagem foi assada com escala 4; o quadrado todo mede 32 px na escala 1.
+	# Isso preserva tanto o tamanho visual original quanto uma margem transparente
+	# para os traços não encostarem na borda do recorte.
+	var draw_size := Vector2.ONE * (RUNE_ATLAS_TILE_SIZE * rune_scale / RUNE_ATLAS_BAKE_SCALE)
+	draw_texture_rect_region(RUNE_ATLAS_TEXTURE, Rect2(center - draw_size * 0.5, draw_size), source, color, false, true)
+	return true
+
+
 func _is_canvas_position(screen_position: Vector2) -> bool:
 	return _canvas_rect().has_point(screen_position)
 
 
 func _canvas_rect() -> Rect2:
-	var left := _left_panel_width()
-	var right := _right_panel_width()
-	var top := _top_panel_height()
-	var bottom := _bottom_panel_height()
-	return Rect2(left, top, maxf(size.x - left - right, 0.0), maxf(size.y - top - bottom, 0.0))
+	var top := FILE_BAR_HEIGHT + PANEL_GAP * 2.0 + _top_panel_height()
+	var bottom := size.y - PANEL_GAP * 2.0 - _bottom_panel_height()
+	return Rect2(_middle_left(), top, _middle_width(), maxf(bottom - top, 0.0))
+
+
+## Coluna do meio: comeca depois da folga externa e do grimorio.
+func _middle_left() -> float:
+	return PANEL_GAP * 2.0 + _left_panel_width()
+
+
+func _middle_width() -> float:
+	return maxf(size.x - _middle_left() - _right_panel_width() - PANEL_GAP * 2.0, 0.0)
+
+
+func _left_panel_rect() -> Rect2:
+	return Rect2(PANEL_GAP, FILE_BAR_HEIGHT + PANEL_GAP, _left_panel_width(), maxf(size.y - FILE_BAR_HEIGHT - PANEL_GAP * 2.0, 0.0))
 
 
 func _left_panel_width() -> float:
@@ -2117,30 +3393,29 @@ func _bottom_panel_height() -> float:
 
 
 func _top_panel_rect() -> Rect2:
-	var left := _left_panel_width()
-	return Rect2(left, 0.0, maxf(size.x - left - _right_panel_width(), 0.0), _top_panel_height())
+	return Rect2(_middle_left(), FILE_BAR_HEIGHT + PANEL_GAP, _middle_width(), _top_panel_height())
 
 
 func _bottom_panel_rect() -> Rect2:
-	var left := _left_panel_width()
 	var panel_height := _bottom_panel_height()
-	return Rect2(left, size.y - panel_height, maxf(size.x - left - _right_panel_width(), 0.0), panel_height)
+	return Rect2(_middle_left(), size.y - PANEL_GAP - panel_height, _middle_width(), panel_height)
 
 
 func _right_panel_rect() -> Rect2:
 	var panel_width := _right_panel_width()
-	return Rect2(size.x - panel_width, 0.0, panel_width, size.y)
+	return Rect2(size.x - PANEL_GAP - panel_width, FILE_BAR_HEIGHT + PANEL_GAP, panel_width, maxf(size.y - FILE_BAR_HEIGHT - PANEL_GAP * 2.0, 0.0))
 
 
 func _left_toggle_rect() -> Rect2:
+	var panel := _left_panel_rect()
 	if left_panel_open:
-		return Rect2(left_panel_size - 38.0, 8.0, 30.0, 30.0)
-	return Rect2(6.0, size.y * 0.5 - 15.0, 30.0, 30.0)
+		return Rect2(panel.end.x - 38.0, panel.position.y + 8.0, 30.0, 30.0)
+	return Rect2(panel.position.x + 6.0, panel.get_center().y - 15.0, 30.0, 30.0)
 
 
 func _top_toggle_rect() -> Rect2:
 	var panel := _top_panel_rect()
-	return Rect2(panel.end.x - 38.0, 6.0, 30.0, 30.0)
+	return Rect2(panel.end.x - 38.0, panel.position.y + 6.0, 30.0, 30.0)
 
 
 func _bottom_toggle_rect() -> Rect2:
@@ -2151,8 +3426,8 @@ func _bottom_toggle_rect() -> Rect2:
 func _right_toggle_rect() -> Rect2:
 	var panel := _right_panel_rect()
 	if right_panel_open:
-		return Rect2(panel.position.x + 8.0, 8.0, 30.0, 30.0)
-	return Rect2(panel.position.x + 6.0, size.y * 0.5 - 15.0, 30.0, 30.0)
+		return Rect2(panel.position.x + 8.0, panel.position.y + 8.0, 30.0, 30.0)
+	return Rect2(panel.position.x + 6.0, panel.get_center().y - 15.0, 30.0, 30.0)
 
 
 func _panel_toggle_at(screen_position: Vector2) -> String:
@@ -2182,25 +3457,36 @@ func _toggle_panel(panel: String) -> void:
 
 
 func _play_button_rect() -> Rect2:
-	return Rect2(_top_panel_rect().end.x - 218.0, 6.0, 30.0, 30.0)
+	var panel := _top_panel_rect()
+	return Rect2(panel.end.x - 254.0, panel.position.y + 6.0, 30.0, 30.0)
 
 
 func _pause_button_rect() -> Rect2:
-	return Rect2(_top_panel_rect().end.x - 182.0, 6.0, 30.0, 30.0)
+	var panel := _top_panel_rect()
+	return Rect2(panel.end.x - 218.0, panel.position.y + 6.0, 30.0, 30.0)
 
 
 func _step_button_rect() -> Rect2:
-	return Rect2(_top_panel_rect().end.x - 146.0, 6.0, 30.0, 30.0)
+	var panel := _top_panel_rect()
+	return Rect2(panel.end.x - 182.0, panel.position.y + 6.0, 30.0, 30.0)
 
 
 func _stop_button_rect() -> Rect2:
-	return Rect2(_top_panel_rect().end.x - 110.0, 6.0, 30.0, 30.0)
+	var panel := _top_panel_rect()
+	return Rect2(panel.end.x - 146.0, panel.position.y + 6.0, 30.0, 30.0)
+
+
+## Alterna entre o grimorio a luz de vela e o pergaminho iluminado.
+func _theme_button_rect() -> Rect2:
+	var panel := _top_panel_rect()
+	return Rect2(panel.end.x - 110.0, panel.position.y + 6.0, 30.0, 30.0)
 
 
 func _execution_speed_slider_rect() -> Rect2:
+	var panel := _top_panel_rect()
 	var right_edge := _play_button_rect().position.x - 12.0
-	var left_edge := maxf(_top_panel_rect().position.x + 118.0, right_edge - 126.0)
-	return Rect2(left_edge, 28.0, maxf(right_edge - left_edge, 0.0), 6.0)
+	var left_edge := maxf(panel.position.x + 118.0, right_edge - 126.0)
+	return Rect2(left_edge, panel.position.y + 28.0, maxf(right_edge - left_edge, 0.0), 6.0)
 
 
 func _update_execution_speed(screen_position: Vector2) -> void:
@@ -2212,14 +3498,15 @@ func _update_execution_speed(screen_position: Vector2) -> void:
 
 
 func _resize_handle_at(screen_position: Vector2) -> String:
-	if left_panel_open and absf(screen_position.x - left_panel_size) <= 6.0:
+	if left_panel_open and absf(screen_position.x - _left_panel_rect().end.x) <= PANEL_GAP * 0.5:
 		return "left"
-	if right_panel_open and absf(screen_position.x - (size.x - right_panel_size)) <= 6.0:
+	if right_panel_open and absf(screen_position.x - _right_panel_rect().position.x) <= PANEL_GAP * 0.5:
 		return "right"
-	if top_panel_open and screen_position.x >= _top_panel_rect().position.x and screen_position.x <= _top_panel_rect().end.x and absf(screen_position.y - top_panel_size) <= 6.0:
+	var middle := _top_panel_rect()
+	if top_panel_open and screen_position.x >= middle.position.x and screen_position.x <= middle.end.x and absf(screen_position.y - middle.end.y) <= PANEL_GAP * 0.5:
 		return "top"
-	var bottom_edge := size.y - bottom_panel_size
-	if bottom_panel_open and screen_position.x >= _bottom_panel_rect().position.x and screen_position.x <= _bottom_panel_rect().end.x and absf(screen_position.y - bottom_edge) <= 6.0:
+	var bottom_edge := _bottom_panel_rect().position.y
+	if bottom_panel_open and screen_position.x >= middle.position.x and screen_position.x <= middle.end.x and absf(screen_position.y - bottom_edge) <= PANEL_GAP * 0.5:
 		return "bottom"
 	return ""
 
@@ -2241,16 +3528,16 @@ func _begin_resize(panel: String) -> void:
 func _resize_panel(screen_position: Vector2) -> void:
 	match drag_mode:
 		"resize_left":
-			var max_width := maxf(MIN_LEFT_PANEL_WIDTH, size.x - _right_panel_width() - 190.0)
+			var max_width := maxf(MIN_LEFT_PANEL_WIDTH, size.x - _right_panel_width() - PANEL_GAP * 4.0 - 190.0)
 			left_panel_size = clampf(resize_start_size + (screen_position.x - resize_start_mouse.x), MIN_LEFT_PANEL_WIDTH, max_width)
 		"resize_right":
-			var max_right_width := maxf(MIN_RIGHT_PANEL_WIDTH, size.x - _left_panel_width() - 190.0)
+			var max_right_width := maxf(MIN_RIGHT_PANEL_WIDTH, size.x - _left_panel_width() - PANEL_GAP * 4.0 - 190.0)
 			right_panel_size = clampf(resize_start_size - (screen_position.x - resize_start_mouse.x), MIN_RIGHT_PANEL_WIDTH, max_right_width)
 		"resize_top":
-			var max_top_height := maxf(MIN_TOP_PANEL_HEIGHT, size.y - _bottom_panel_height() - 120.0)
+			var max_top_height := maxf(MIN_TOP_PANEL_HEIGHT, size.y - FILE_BAR_HEIGHT - _bottom_panel_height() - PANEL_GAP * 4.0 - 120.0)
 			top_panel_size = clampf(resize_start_size + (screen_position.y - resize_start_mouse.y), MIN_TOP_PANEL_HEIGHT, max_top_height)
 		"resize_bottom":
-			var max_bottom_height := maxf(MIN_BOTTOM_PANEL_HEIGHT, size.y - _top_panel_height() - 120.0)
+			var max_bottom_height := maxf(MIN_BOTTOM_PANEL_HEIGHT, size.y - FILE_BAR_HEIGHT - _top_panel_height() - PANEL_GAP * 4.0 - 120.0)
 			bottom_panel_size = clampf(resize_start_size - (screen_position.y - resize_start_mouse.y), MIN_BOTTOM_PANEL_HEIGHT, max_bottom_height)
 	_clamp_palette_scroll()
 	_update_hover()
@@ -2296,7 +3583,7 @@ func _display_connection_intensity(connection_index: int, connection: Dictionary
 
 func _intensity_color(intensity: int) -> Color:
 	var amount := float(clampi(intensity, 0, 255)) / 255.0
-	return LEATHER_LIGHT.lerp(GOLD_GLOW, amount)
+	return col_leather_light.lerp(col_gold_glow, amount)
 
 
 func _begin_intensity_drag() -> void:
@@ -2410,7 +3697,7 @@ func _update_primary_selection() -> void:
 	selected_connection = selected_connections[0] if selected_connections.size() == 1 else -1
 	if selected_symbol_connection != selected_connection:
 		selected_symbol_connection = -1
-	_cancel_intensity_text_edit()
+		_cancel_intensity_text_edit()
 
 
 func _begin_rectangle_selection(additive: bool) -> void:
@@ -2668,13 +3955,13 @@ func _update_hover() -> bool:
 		hover_world = candidate["point"]
 	var is_rectangle_selecting := drag_mode == "selection" or drag_mode == "selection_pending"
 	var is_moving_anchor := drag_mode == "move_anchor" or anchor_move_settle_active
-	if _is_canvas_position(pointer_screen) and drag_mode != "connect" and not is_moving_anchor and not is_rectangle_selecting:
+	if _is_canvas_position(pointer_screen) and drag_mode != "connect" and drag_mode != "extend_terminal" and not is_moving_anchor and not is_rectangle_selecting:
 		hovered_symbol = _symbol_at(pointer_screen)
 	else:
 		hovered_symbol = -1
 	# Durante a criação, a linha embaixo do cursor não deve competir com o
 	# feedback magnético da âncora.
-	if drag_mode == "connect" or is_moving_anchor or is_rectangle_selecting or not _is_canvas_position(pointer_screen) or hovered_symbol >= 0:
+	if drag_mode == "connect" or drag_mode == "extend_terminal" or is_moving_anchor or is_rectangle_selecting or not _is_canvas_position(pointer_screen) or hovered_symbol >= 0:
 		hovered_connection = -1
 	else:
 		hovered_connection = _connection_near(pointer_screen)
@@ -2853,8 +4140,8 @@ func _draw_palette_scrollbar() -> void:
 	var thumb_width := maxf(28.0, track.size.x * track.size.x / content_width)
 	var travel := maxf(track.size.x - thumb_width, 0.0)
 	var thumb_x := track.position.x + travel * (clampf(palette_scroll, 0.0, max_scroll) / max_scroll)
-	draw_line(track.position, Vector2(track.end.x, track.position.y), Color("1a140e"), 2.0, true)
-	draw_line(Vector2(thumb_x, track.position.y), Vector2(thumb_x + thumb_width, track.position.y), PANEL_ACCENT, 2.0, true)
+	draw_line(track.position, Vector2(track.end.x, track.position.y), col_inset_deep, 3.0, true)
+	draw_line(Vector2(thumb_x, track.position.y), Vector2(thumb_x + thumb_width, track.position.y), col_gold, 2.0, true)
 
 
 func _draw_palette_scroll_masks(viewport: Rect2) -> void:
@@ -2864,9 +4151,9 @@ func _draw_palette_scroll_masks(viewport: Rect2) -> void:
 	var left_mask_width := maxf(viewport.position.x - panel.position.x - 2.0, 0.0)
 	var right_mask_width := maxf(panel.end.x - viewport.end.x - 2.0, 0.0)
 	if left_mask_width > 0.0:
-		draw_rect(Rect2(panel.position.x + 2.0, viewport.position.y, left_mask_width, viewport.size.y), PANEL_BACKGROUND, true)
+		draw_rect(Rect2(panel.position.x + 2.0, viewport.position.y, left_mask_width, viewport.size.y), col_frame_bottom, true)
 	if right_mask_width > 0.0:
-		draw_rect(Rect2(viewport.end.x, viewport.position.y, right_mask_width, viewport.size.y), PANEL_BACKGROUND, true)
+		draw_rect(Rect2(viewport.end.x, viewport.position.y, right_mask_width, viewport.size.y), col_frame_bottom, true)
 
 
 func _palette_tile_is_visible(tile: Rect2, viewport: Rect2) -> bool:
@@ -3017,13 +4304,17 @@ func _set_connection_symbol(index: int, symbol: String, record_history := true) 
 
 
 func _set_connection_intensity(index: int, intensity: int, record_history := true) -> void:
-	diagram.set_intensity(index, intensity, record_history)
+	if diagram.set_intensity(index, intensity, record_history):
+		_clear_rune_diagnostics()
+		_invalidate_panel_cache()
 
 
-func _add_connection(from: Vector2, to: Vector2) -> void:
-	if diagram.add_connection(from, to):
-		_invalidate_symbol_connection_indices()
-		_invalidate_sequence_side_multiplier_cache()
+func _add_connection(from: Vector2, to: Vector2) -> bool:
+	if not diagram.add_connection(from, to):
+		return false
+	_invalidate_symbol_connection_indices()
+	_invalidate_sequence_side_multiplier_cache()
+	return true
 
 
 func _begin_pan() -> void:
@@ -3060,7 +4351,6 @@ func _reset_drag() -> void:
 	anchor_move_target = Vector2.ZERO
 	anchor_move_snap_target = Vector2.ZERO
 	anchor_move_snap_target_valid = false
-	anchor_move_is_terminal = false
 	anchor_move_snap_started_at = 0.0
 	anchor_move_press_screen = Vector2.ZERO
 	anchor_move_settle_active = false
