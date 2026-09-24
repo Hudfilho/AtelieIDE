@@ -38,12 +38,12 @@ theme_override_constants/separation = 16
 layout_mode = 2
 theme_type_variation = &"HeaderLabel"
 theme_override_font_sizes/font_size = 56
-text = "Atelier"
+text = "TITLE_GAME_NAME"
 horizontal_alignment = 1
 
 [node name="Subtitle" type="Label" parent="Center/Rows"]
 layout_mode = 2
-text = "A scroll shop where every spell is drawn by hand.  -  Demo"
+text = "TITLE_TAGLINE"
 horizontal_alignment = 1
 
 [node name="Spacer" type="Control" parent="Center/Rows"]
@@ -56,18 +56,18 @@ custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 size_flags_horizontal = 4
 theme_type_variation = &"ApproveStamp"
-text = "Open the shop"
+text = "TITLE_PLAY"
 
 [node name="SandboxButton" type="Button" parent="Center/Rows"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 size_flags_horizontal = 4
-text = "Rune sandbox (Atelier IDE)"
+text = "TITLE_SANDBOX"
 
 [node name="QuitButton" type="Button" parent="Center/Rows"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 size_flags_horizontal = 4
-text = "Quit"
+text = "TITLE_QUIT"

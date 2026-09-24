@@ -114,7 +114,7 @@ O projeto agora abre numa tela inicial com duas opções: **Open the shop**, o d
 No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *Potion Craft* e *Witch Hat Atelier*:
 
 1. Toque o sino para chamar o próximo cliente.
-2. Inspecione: clique num campo do pedido e depois na regra do livro que ele viola, ou na ordem inversa. Ligações certas viram provas, marcadas em tinta vermelha; as erradas voltam como contradição.
+2. Inspecione: clique num campo do pedido e depois na regra do livro que ele viola, ou na ordem inversa. Ligações certas viram provas, marcadas em tinta vermelha; as erradas voltam como contradição. A primeira ligação errada com um cliente não custa nada. A partir da segunda ele se impacienta, e ao chegar ao limite (3, configurável em `inspection_mistake_threshold` no `Desk`) a loja perde 1 de reputação, uma única vez por cliente. Cada cliente novo começa do zero.
 3. Carimbe **REJECT** ou **APPROVE**. Uma recusa só é correta se citar ao menos uma prova válida. Recusar sem prova conta como recusa sem motivo, mesmo que o pedido seja ilegal.
 4. Se aprovar, escreva o pergaminho na bancada, que é o editor de runas em modo jogo, só com as runas liberadas no dia. **Deliver scroll** roda o ritual contra os casos de teste da encomenda.
 5. No fim do dia aparece o livro-caixa. As decisões têm consequências, algumas na hora e outras nas manhãs seguintes: jornal, multas, reputação e flags do mundo, como `guild_suspicion`. As flags mudam quem aparece nos dias seguintes. No dia 3, por exemplo, o inspetor da Guilda faz uma visita de rotina ou uma auditoria, conforme a suspeita acumulada.
@@ -131,6 +131,15 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 - A decisão só vale no impacto do carimbo. Os tempos ficam em constantes no topo de `desk_feedback.gd`.
 - Os sons atuais são provisórios, gerados em código. Para trocar um deles, arraste o arquivo para `Feedback > sounds` no Inspector.
 - Nos testes, `instant = true` faz tudo acontecer na hora, e `mute = true` só anuncia as deixas, sem tocar.
+
+**Idiomas:** os textos do jogo, da bancada e da IDE ficam em `localization/strings.csv`, com uma coluna `en` e outra `pt_BR`. O Godot importa esse arquivo como tradução, e o inglês é o idioma inicial, definido em `GameState._ready`.
+
+- No código, use `AtelierText.t("CHAVE")` ou `AtelierText.t("CHAVE", [args])`.
+- Nas cenas, escreva a chave no campo `text`; o Godot traduz sozinho.
+- O conteúdo dos `.tres` (clientes, regras, manchetes) continua em inglês. Ele passa pela tradução automática usando o próprio texto como chave, então pode ser traduzido depois sem mexer nos recursos.
+- O teste `tests/localization_smoke.gd` confere que toda chave usada existe e resolve em inglês, e que nenhum texto fixo sobrou no código.
+
+**Para rodar os testes:** rode `godot --headless --path . --import` uma vez e depois `godot --headless --path . -s tests/<teste>.gd`.
 
 **Para criar um cliente novo:**
 

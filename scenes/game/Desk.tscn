@@ -68,22 +68,22 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"HeaderLabel"
-text = "Day 1"
+text = ""
 
 [node name="MoneyLabel" type="Label" parent="HUD/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "0 coins"
+text = ""
 
 [node name="ReputationLabel" type="Label" parent="HUD/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Reputation 0"
+text = ""
 
 [node name="QueueLabel" type="Label" parent="HUD/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "0 waiting outside"
+text = ""
 
 [node name="ClientWindow" type="PanelContainer" parent="."]
 layout_mode = 1
@@ -116,7 +116,7 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.1, 0.07, 0.05, 0.75)
 theme_override_font_sizes/font_size = 96
-text = "A"
+text = ""
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -128,7 +128,7 @@ size_flags_horizontal = 3
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"HeaderLabel"
-text = "The window is empty."
+text = "DESK_WINDOW_EMPTY"
 autowrap_mode = 3
 
 [node name="Speech" type="Label" parent="ClientWindow/Row/Talk"]
@@ -149,7 +149,7 @@ offset_top = 180.0
 offset_right = 470.0
 offset_bottom = 226.0
 grow_horizontal = 2
-text = "Ring the bell"
+text = "DESK_BELL"
 
 [node name="Papers" type="Control" parent="."]
 layout_mode = 1
@@ -176,7 +176,7 @@ layout_mode = 2
 layout_mode = 2
 theme_type_variation = &"PaperTitle"
 theme_override_font_sizes/font_size = 22
-text = "Shop Rulebook"
+text = "DESK_RULEBOOK_TITLE"
 
 [node name="RulesList" type="VBoxContainer" parent="Papers/Rulebook/Rows"]
 unique_name_in_owner = true
@@ -190,7 +190,7 @@ layout_mode = 2
 theme_type_variation = &"PaperLabel"
 theme_override_colors/font_color = Color(0.42, 0.32, 0.22, 1)
 theme_override_font_sizes/font_size = 12
-text = "Inspect: click a request field, then the rule it breaks."
+text = "DESK_INSPECT_HINT"
 autowrap_mode = 3
 
 [node name="RequestForm" type="PanelContainer" parent="Papers"]
@@ -210,7 +210,7 @@ theme_override_constants/separation = 8
 [node name="Header" type="Label" parent="Papers/RequestForm/Rows"]
 layout_mode = 2
 theme_type_variation = &"PaperLabel"
-text = "Magic Scroll Request:"
+text = "DESK_FORM_HEADER"
 horizontal_alignment = 1
 
 [node name="ItemField" type="Button" parent="Papers/RequestForm/Rows"]
@@ -218,7 +218,7 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"PaperTitleField"
 toggle_mode = true
-text = "Fireball"
+text = ""
 
 [node name="Fields" type="VBoxContainer" parent="Papers/RequestForm/Rows"]
 layout_mode = 2
@@ -229,7 +229,7 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"PaperField"
 toggle_mode = true
-text = "NameField"
+text = ""
 alignment = 0
 
 [node name="AgeField" type="Button" parent="Papers/RequestForm/Rows/Fields"]
@@ -237,7 +237,7 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"PaperField"
 toggle_mode = true
-text = "AgeField"
+text = ""
 alignment = 0
 
 [node name="RaceField" type="Button" parent="Papers/RequestForm/Rows/Fields"]
@@ -245,7 +245,7 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"PaperField"
 toggle_mode = true
-text = "RaceField"
+text = ""
 alignment = 0
 
 [node name="SignatureField" type="Button" parent="Papers/RequestForm/Rows/Fields"]
@@ -253,7 +253,7 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"PaperField"
 toggle_mode = true
-text = "SignatureField"
+text = ""
 alignment = 0
 
 [node name="Line" type="HSeparator" parent="Papers/RequestForm/Rows"]
@@ -265,7 +265,7 @@ custom_minimum_size = Vector2(410, 0)
 layout_mode = 2
 theme_type_variation = &"PaperField"
 toggle_mode = true
-text = "DetailsField"
+text = ""
 alignment = 0
 autowrap_mode = 3
 
@@ -276,7 +276,7 @@ layout_mode = 2
 theme_type_variation = &"PaperLabel"
 theme_override_colors/font_color = Color(0.35, 0.22, 0.4, 1)
 theme_override_font_sizes/font_size = 14
-text = "Scroll must:"
+text = ""
 autowrap_mode = 3
 
 [node name="MarkLayer" type="Control" parent="Papers/RequestForm"]
@@ -288,7 +288,7 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 0
 theme_override_font_sizes/font_size = 34
-text = "APPROVED"
+text = ""
 
 [node name="Stamps" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -306,13 +306,13 @@ theme_override_constants/separation = 14
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"ApproveStamp"
-text = "APPROVE"
+text = "DESK_APPROVE"
 
 [node name="RejectButton" type="Button" parent="Stamps"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"RejectStamp"
-text = "REJECT"
+text = "DESK_REJECT"
 
 [node name="EvidenceLabel" type="Label" parent="Stamps"]
 unique_name_in_owner = true
@@ -360,7 +360,7 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.96, 0.9, 0.72, 1)
 theme_override_font_sizes/font_size = 22
-text = "APPROVE"
+text = ""
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -408,7 +408,7 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"HeaderLabel"
 theme_override_font_sizes/font_size = 28
-text = "Day 1"
+text = ""
 horizontal_alignment = 1
 
 [node name="OverlayBody" type="RichTextLabel" parent="Overlay/Center/Card/Rows"]
@@ -424,4 +424,4 @@ fit_content = true
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 4
-text = "Continue"
+text = ""

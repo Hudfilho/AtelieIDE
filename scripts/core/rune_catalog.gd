@@ -34,37 +34,38 @@ const OPCODE_PRINTLETTER := 0x1c
 const OPCODE_JUMP_IF_TRUE := 0x1d
 const OPCODE_READ := 0x1e
 
+## "description" e "extra" são chaves de tradução (localization/strings.csv).
 const SYMBOLS := [
-	{"kind": "ORB", "label": "PUSH", "description": "Coloca a intensidade na pilha.", "extra": "valor", "opcode": OPCODE_PUSH, "takes_operand": true, "result_type": "int"},
-	{"kind": "CUP", "label": "DROP", "description": "Descarta o valor no topo da pilha.", "extra": "pilha: −1", "opcode": OPCODE_DROP, "takes_operand": false},
-	{"kind": "TWIN", "label": "DUP", "description": "Duplica o valor no topo da pilha.", "extra": "pilha: +1", "opcode": OPCODE_DUP, "takes_operand": false, "result_type": "int"},
-	{"kind": "KNOT", "label": "SWAP", "description": "Troca os dois valores no topo da pilha.", "extra": "pilha: ↔", "opcode": OPCODE_SWAP, "takes_operand": false},
-	{"kind": "DIAMOND", "label": "ADD", "description": "Soma os dois valores do topo.", "extra": "operação: +", "opcode": OPCODE_ADD, "takes_operand": false, "result_type": "int"},
-	{"kind": "MOON", "label": "SUB", "description": "Subtrai o valor do topo do penúltimo valor.", "extra": "operação: −", "opcode": OPCODE_SUB, "takes_operand": false, "result_type": "int"},
-	{"kind": "PLUS", "label": "MUL", "description": "Multiplica os dois valores do topo.", "extra": "operação: ×", "opcode": OPCODE_MUL, "takes_operand": false, "result_type": "int"},
-	{"kind": "SLASH", "label": "DIV", "description": "Divide o penúltimo valor pelo valor no topo da pilha.", "extra": "operação: ÷", "opcode": OPCODE_DIV, "takes_operand": false, "result_type": "int"},
-	{"kind": "SPIRAL", "label": "MOD", "description": "Calcula o resto da divisão entre os dois valores do topo.", "extra": "operação: %", "opcode": OPCODE_MOD, "takes_operand": false, "result_type": "int"},
-	{"kind": "DASH", "label": "NEG", "description": "Inverte o sinal do valor no topo da pilha.", "extra": "operação: −x", "opcode": OPCODE_NEG, "takes_operand": false, "result_type": "int"},
-	{"kind": "EQ", "label": "EQ", "description": "Compara igualdade e coloca 1 ou 0 na pilha.", "extra": "operação: ==", "opcode": OPCODE_EQ, "takes_operand": false, "result_type": "int"},
-	{"kind": "NEQ", "label": "NEQ", "description": "Compara diferença e coloca 1 ou 0 na pilha.", "extra": "operação: !=", "opcode": OPCODE_NEQ, "takes_operand": false, "result_type": "int"},
-	{"kind": "LT", "label": "LT", "description": "Verifica se o penúltimo valor é menor que o topo.", "extra": "operação: <", "opcode": OPCODE_LT, "takes_operand": false, "result_type": "int"},
-	{"kind": "GT", "label": "GT", "description": "Verifica se o penúltimo valor é maior que o topo.", "extra": "operação: >", "opcode": OPCODE_GT, "takes_operand": false, "result_type": "int"},
-	{"kind": "LTE", "label": "LTE", "description": "Verifica se o penúltimo valor é menor ou igual ao topo.", "extra": "operação: <=", "opcode": OPCODE_LTE, "takes_operand": false, "result_type": "int"},
-	{"kind": "GTE", "label": "GTE", "description": "Verifica se o penúltimo valor é maior ou igual ao topo.", "extra": "operação: >=", "opcode": OPCODE_GTE, "takes_operand": false, "result_type": "int"},
-	{"kind": "NOT", "label": "NOT", "description": "Inverte um booleano: 1 vira 0 e 0 vira 1.", "extra": "lógica: não", "opcode": OPCODE_NOT, "takes_operand": false, "result_type": "int"},
-	{"kind": "AND", "label": "AND", "description": "Combina dois booleanos com E.", "extra": "lógica: e", "opcode": OPCODE_AND, "takes_operand": false, "result_type": "int"},
-	{"kind": "OR", "label": "OR", "description": "Combina dois booleanos com OU.", "extra": "lógica: ou", "opcode": OPCODE_OR, "takes_operand": false, "result_type": "int"},
-	{"kind": "WARP", "label": "WARP", "description": "Salta para outro WARP com a mesma intensidade.", "extra": "portal", "opcode": OPCODE_WARP, "takes_operand": true},
-	{"kind": "WARP_ENDPOINT", "label": "WARP END", "description": "Destino de todos os WARP com a mesma intensidade.", "extra": "portal destino", "opcode": OPCODE_WARP_ENDPOINT, "takes_operand": true},
-	{"kind": "JUMP_IF_TRUE", "label": "JUMP_IF_TRUE", "description": "Se o topo da pilha for 001, salta pelo WARP da mesma intensidade.", "extra": "salto condicional", "opcode": OPCODE_JUMP_IF_TRUE, "takes_operand": true},
-	{"kind": "INT_MOD", "label": "INT_MOD", "description": "Modifica a intensidade do selo seguinte com uma operação matemática.", "extra": "controle", "opcode": OPCODE_INT_MOD, "takes_operand": false},
-	{"kind": "INT_SET", "label": "INT_SET", "description": "Espera o próximo inteiro e aplica-o ao selo seguinte.", "extra": "controle", "opcode": OPCODE_INT_SET, "takes_operand": false},
-	{"kind": "TRIANGLE", "label": "PRINT", "description": "Mostra o valor do topo no oráculo.", "extra": "saída", "opcode": OPCODE_PRINT, "takes_operand": false},
-	{"kind": "PRINTLETTER", "label": "PRINTLETTER", "description": "Mostra o caractere Unicode da intensidade (032 = espaço).", "extra": "caractere", "opcode": OPCODE_PRINTLETTER, "takes_operand": true},
-	{"kind": "CROSS", "label": "HALT", "description": "Encerra a execução do ritual.", "extra": "fim", "opcode": OPCODE_HALT, "takes_operand": false},
-	{"kind": "SQUARE", "label": "STORE", "description": "Guarda o topo em uma posição de memória.", "extra": "memória", "opcode": OPCODE_STORE, "takes_operand": true},
-	{"kind": "FORK", "label": "LOAD", "description": "Lê uma posição de memória indicada pela intensidade para a pilha.", "extra": "memória", "opcode": OPCODE_LOAD, "takes_operand": true, "result_type": "int"},
-	{"kind": "READ", "label": "READ", "description": "Empilha a memória no endereço indicado pela intensidade.", "extra": "memória", "opcode": OPCODE_READ, "takes_operand": true, "result_type": "int"}
+	{"kind": "ORB", "label": "PUSH", "description": "RUNE_ORB_DESC", "extra": "RUNE_ORB_EXTRA", "opcode": OPCODE_PUSH, "takes_operand": true, "result_type": "int"},
+	{"kind": "CUP", "label": "DROP", "description": "RUNE_CUP_DESC", "extra": "RUNE_CUP_EXTRA", "opcode": OPCODE_DROP, "takes_operand": false},
+	{"kind": "TWIN", "label": "DUP", "description": "RUNE_TWIN_DESC", "extra": "RUNE_TWIN_EXTRA", "opcode": OPCODE_DUP, "takes_operand": false, "result_type": "int"},
+	{"kind": "KNOT", "label": "SWAP", "description": "RUNE_KNOT_DESC", "extra": "RUNE_KNOT_EXTRA", "opcode": OPCODE_SWAP, "takes_operand": false},
+	{"kind": "DIAMOND", "label": "ADD", "description": "RUNE_DIAMOND_DESC", "extra": "RUNE_DIAMOND_EXTRA", "opcode": OPCODE_ADD, "takes_operand": false, "result_type": "int"},
+	{"kind": "MOON", "label": "SUB", "description": "RUNE_MOON_DESC", "extra": "RUNE_MOON_EXTRA", "opcode": OPCODE_SUB, "takes_operand": false, "result_type": "int"},
+	{"kind": "PLUS", "label": "MUL", "description": "RUNE_PLUS_DESC", "extra": "RUNE_PLUS_EXTRA", "opcode": OPCODE_MUL, "takes_operand": false, "result_type": "int"},
+	{"kind": "SLASH", "label": "DIV", "description": "RUNE_SLASH_DESC", "extra": "RUNE_SLASH_EXTRA", "opcode": OPCODE_DIV, "takes_operand": false, "result_type": "int"},
+	{"kind": "SPIRAL", "label": "MOD", "description": "RUNE_SPIRAL_DESC", "extra": "RUNE_SPIRAL_EXTRA", "opcode": OPCODE_MOD, "takes_operand": false, "result_type": "int"},
+	{"kind": "DASH", "label": "NEG", "description": "RUNE_DASH_DESC", "extra": "RUNE_DASH_EXTRA", "opcode": OPCODE_NEG, "takes_operand": false, "result_type": "int"},
+	{"kind": "EQ", "label": "EQ", "description": "RUNE_EQ_DESC", "extra": "RUNE_EQ_EXTRA", "opcode": OPCODE_EQ, "takes_operand": false, "result_type": "int"},
+	{"kind": "NEQ", "label": "NEQ", "description": "RUNE_NEQ_DESC", "extra": "RUNE_NEQ_EXTRA", "opcode": OPCODE_NEQ, "takes_operand": false, "result_type": "int"},
+	{"kind": "LT", "label": "LT", "description": "RUNE_LT_DESC", "extra": "RUNE_LT_EXTRA", "opcode": OPCODE_LT, "takes_operand": false, "result_type": "int"},
+	{"kind": "GT", "label": "GT", "description": "RUNE_GT_DESC", "extra": "RUNE_GT_EXTRA", "opcode": OPCODE_GT, "takes_operand": false, "result_type": "int"},
+	{"kind": "LTE", "label": "LTE", "description": "RUNE_LTE_DESC", "extra": "RUNE_LTE_EXTRA", "opcode": OPCODE_LTE, "takes_operand": false, "result_type": "int"},
+	{"kind": "GTE", "label": "GTE", "description": "RUNE_GTE_DESC", "extra": "RUNE_GTE_EXTRA", "opcode": OPCODE_GTE, "takes_operand": false, "result_type": "int"},
+	{"kind": "NOT", "label": "NOT", "description": "RUNE_NOT_DESC", "extra": "RUNE_NOT_EXTRA", "opcode": OPCODE_NOT, "takes_operand": false, "result_type": "int"},
+	{"kind": "AND", "label": "AND", "description": "RUNE_AND_DESC", "extra": "RUNE_AND_EXTRA", "opcode": OPCODE_AND, "takes_operand": false, "result_type": "int"},
+	{"kind": "OR", "label": "OR", "description": "RUNE_OR_DESC", "extra": "RUNE_OR_EXTRA", "opcode": OPCODE_OR, "takes_operand": false, "result_type": "int"},
+	{"kind": "WARP", "label": "WARP", "description": "RUNE_WARP_DESC", "extra": "RUNE_WARP_EXTRA", "opcode": OPCODE_WARP, "takes_operand": true},
+	{"kind": "WARP_ENDPOINT", "label": "WARP END", "description": "RUNE_WARP_ENDPOINT_DESC", "extra": "RUNE_WARP_ENDPOINT_EXTRA", "opcode": OPCODE_WARP_ENDPOINT, "takes_operand": true},
+	{"kind": "JUMP_IF_TRUE", "label": "JUMP_IF_TRUE", "description": "RUNE_JUMP_IF_TRUE_DESC", "extra": "RUNE_JUMP_IF_TRUE_EXTRA", "opcode": OPCODE_JUMP_IF_TRUE, "takes_operand": true},
+	{"kind": "INT_MOD", "label": "INT_MOD", "description": "RUNE_INT_MOD_DESC", "extra": "RUNE_INT_MOD_EXTRA", "opcode": OPCODE_INT_MOD, "takes_operand": false},
+	{"kind": "INT_SET", "label": "INT_SET", "description": "RUNE_INT_SET_DESC", "extra": "RUNE_INT_SET_EXTRA", "opcode": OPCODE_INT_SET, "takes_operand": false},
+	{"kind": "TRIANGLE", "label": "PRINT", "description": "RUNE_TRIANGLE_DESC", "extra": "RUNE_TRIANGLE_EXTRA", "opcode": OPCODE_PRINT, "takes_operand": false},
+	{"kind": "PRINTLETTER", "label": "PRINTLETTER", "description": "RUNE_PRINTLETTER_DESC", "extra": "RUNE_PRINTLETTER_EXTRA", "opcode": OPCODE_PRINTLETTER, "takes_operand": true},
+	{"kind": "CROSS", "label": "HALT", "description": "RUNE_CROSS_DESC", "extra": "RUNE_CROSS_EXTRA", "opcode": OPCODE_HALT, "takes_operand": false},
+	{"kind": "SQUARE", "label": "STORE", "description": "RUNE_SQUARE_DESC", "extra": "RUNE_SQUARE_EXTRA", "opcode": OPCODE_STORE, "takes_operand": true},
+	{"kind": "FORK", "label": "LOAD", "description": "RUNE_FORK_DESC", "extra": "RUNE_FORK_EXTRA", "opcode": OPCODE_LOAD, "takes_operand": true, "result_type": "int"},
+	{"kind": "READ", "label": "READ", "description": "RUNE_READ_DESC", "extra": "RUNE_READ_EXTRA", "opcode": OPCODE_READ, "takes_operand": true, "result_type": "int"}
 ]
 
 
@@ -73,7 +74,7 @@ static func symbol_data(kind: String) -> Dictionary:
 		var symbol: Dictionary = raw_symbol
 		if str(symbol["kind"]) == kind:
 			return symbol.duplicate(true)
-	return {"kind": kind, "label": kind, "description": "Símbolo desconhecido.", "extra": "", "opcode": -1, "takes_operand": false, "result_type": ""}
+	return {"kind": kind, "label": kind, "description": "RUNE_UNKNOWN_DESC", "extra": "", "opcode": -1, "takes_operand": false, "result_type": ""}
 
 
 static func symbol_for_opcode(opcode: int) -> Dictionary:

@@ -54,34 +54,39 @@ static func count_runes(connections: Array) -> int:
 ## decorar as respostas continua sem compensar.
 static func describe_failure(result: Dictionary) -> String:
 	if not result["compiled"]:
-		var errors: Array = result["errors"]
-		return "The scroll won't hold: %s" % (str(errors[0]) if not errors.is_empty() else "invalid ritual.")
+		var compile_errors: Array = result["errors"]
+		return AtelierText.t("JUDGE_WONT_HOLD", [str(compile_errors[0]) if not compile_errors.is_empty() else AtelierText.t("JUDGE_INVALID_RITUAL")])
 	for test_case in result["cases"]:
 		if test_case["passed"]:
 			continue
-		var prefix := "A hidden test failed. " if test_case["hidden"] else ""
-		var inputs := describe_memory(test_case["memory"])
-		if test_case["timed_out"]:
-			return "%s%sthe spell never finished (%d steps). Does a loop ever exit?" % [prefix, inputs, int(test_case["steps"])]
 		var errors: Array = test_case["errors"]
-		if not errors.is_empty():
-			return "%s%sthe spell broke: %s" % [prefix, inputs, str(errors[0])]
-		return "%s%sexpected %s, got %s." % [prefix, inputs, describe_output(test_case["expected"]), describe_output(test_case["actual"])]
+		var clause: String
+		if test_case["timed_out"]:
+			clause = AtelierText.t("JUDGE_TIMEOUT", [int(test_case["steps"])])
+		elif not errors.is_empty():
+			clause = AtelierText.t("JUDGE_BROKE", [str(errors[0])])
+		else:
+			clause = AtelierText.t("JUDGE_MISMATCH", [describe_output(test_case["expected"]), describe_output(test_case["actual"])])
+		var inputs := describe_memory(test_case["memory"])
+		if not inputs.is_empty():
+			clause = AtelierText.t("JUDGE_WITH_INPUTS", [inputs, clause])
+		if test_case["hidden"]:
+			clause = AtelierText.t("JUDGE_HIDDEN_FAILED", [clause])
+		return clause
 	return ""
 
 
+## "slot 000 = 5, slot 001 = 7"; vazio quando não há entradas.
 static func describe_memory(memory: Dictionary) -> String:
-	if memory.is_empty():
-		return ""
 	var parts: PackedStringArray = []
 	for slot in memory:
-		parts.append("slot %03d = %s" % [int(slot), str(memory[slot])])
-	return "With %s, " % ", ".join(parts)
+		parts.append(AtelierText.t("JUDGE_SLOT", [int(slot), str(memory[slot])]))
+	return ", ".join(parts)
 
 
 static func describe_output(output: Array) -> String:
 	if output.is_empty():
-		return "nothing"
+		return AtelierText.t("JUDGE_NOTHING")
 	return " ".join(PackedStringArray(output))
 
 

@@ -174,7 +174,7 @@ func _dress_stamp_head(kind: StringName) -> void:
 	style.shadow_size = 10
 	style.shadow_offset = Vector2(4.0, 8.0)
 	stamp_head.add_theme_stylebox_override("panel", style)
-	stamp_text.text = "APPROVE" if kind == APPROVE else "REJECT"
+	stamp_text.text = AtelierText.t("DESK_APPROVE" if kind == APPROVE else "DESK_REJECT")
 	stamp_head.reset_size()
 	stamp_head.pivot_offset = stamp_head.size * 0.5
 
@@ -197,7 +197,7 @@ func show_ink(kind: StringName) -> void:
 	frame.content_margin_bottom = 2.0
 	ink_mark.add_theme_stylebox_override("normal", frame)
 	ink_mark.add_theme_color_override("font_color", ink)
-	ink_mark.text = "APPROVED" if kind == APPROVE else "REFUSED"
+	ink_mark.text = AtelierText.t("DESK_INK_APPROVED" if kind == APPROVE else "DESK_INK_REFUSED")
 	ink_mark.reset_size()
 	ink_mark.pivot_offset = ink_mark.size * 0.5
 	ink_mark.rotation = INK_ROTATION

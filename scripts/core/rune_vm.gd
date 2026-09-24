@@ -33,7 +33,7 @@ func run(bytecode: PackedByteArray, initial_memory: Dictionary = {}, max_steps :
 	var timed_out := steps >= max_steps and not bool(state["halted"])
 	if timed_out:
 		var errors: Array = state["errors"]
-		errors.append("Limite de passos excedido.")
+		errors.append(AtelierText.t("VM_STEP_LIMIT"))
 		state["halted"] = true
 	var result := result_from_state(state)
 	result["steps"] = steps
@@ -122,17 +122,17 @@ func step(instruction: Dictionary, state: Dictionary, instruction_index := -1) -
 			stack.append(int(instruction["operand"]))
 		RuneCatalog.OPCODE_DROP:
 			if stack.is_empty():
-				errors.append("DROP precisa de um valor na pilha.")
+				errors.append(AtelierText.t("VM_NEEDS_VALUE", ["DROP"]))
 			else:
 				stack.pop_back()
 		RuneCatalog.OPCODE_DUP:
 			if stack.is_empty():
-				errors.append("DUP precisa de um valor na pilha.")
+				errors.append(AtelierText.t("VM_NEEDS_VALUE", ["DUP"]))
 			else:
 				stack.append(int(stack.back()))
 		RuneCatalog.OPCODE_SWAP:
 			if stack.size() < 2:
-				errors.append("SWAP precisa de dois valores na pilha.")
+				errors.append(AtelierText.t("VM_NEEDS_TWO_VALUES", ["SWAP"]))
 			else:
 				var swap_right := int(stack.pop_back())
 				var swap_left := int(stack.pop_back())
@@ -140,17 +140,17 @@ func step(instruction: Dictionary, state: Dictionary, instruction_index := -1) -
 				stack.append(swap_left)
 		RuneCatalog.OPCODE_NEG:
 			if stack.is_empty():
-				errors.append("NEG precisa de um valor na pilha.")
+				errors.append(AtelierText.t("VM_NEEDS_VALUE", ["NEG"]))
 			else:
 				stack.append(-int(stack.pop_back()))
 		RuneCatalog.OPCODE_ADD, RuneCatalog.OPCODE_SUB, RuneCatalog.OPCODE_MUL, RuneCatalog.OPCODE_DIV, RuneCatalog.OPCODE_MOD:
 			if stack.size() < 2:
-				errors.append("%s precisa de dois valores na pilha." % RuneCatalog.name_for_opcode(opcode))
+				errors.append(AtelierText.t("VM_NEEDS_TWO_VALUES", [RuneCatalog.name_for_opcode(opcode)]))
 			else:
 				var right := int(stack.pop_back())
 				var left := int(stack.pop_back())
 				if (opcode == RuneCatalog.OPCODE_DIV or opcode == RuneCatalog.OPCODE_MOD) and right == 0:
-					errors.append("%s não aceita divisão por zero." % RuneCatalog.name_for_opcode(opcode))
+					errors.append(AtelierText.t("VM_DIVISION_BY_ZERO", [RuneCatalog.name_for_opcode(opcode)]))
 				elif opcode == RuneCatalog.OPCODE_ADD:
 					stack.append(left + right)
 				elif opcode == RuneCatalog.OPCODE_SUB:
@@ -163,7 +163,7 @@ func step(instruction: Dictionary, state: Dictionary, instruction_index := -1) -
 					stack.append(left % right)
 		RuneCatalog.OPCODE_EQ, RuneCatalog.OPCODE_NEQ, RuneCatalog.OPCODE_LT, RuneCatalog.OPCODE_GT, RuneCatalog.OPCODE_LTE, RuneCatalog.OPCODE_GTE:
 			if stack.size() < 2:
-				errors.append("%s precisa de dois valores na pilha." % RuneCatalog.name_for_opcode(opcode))
+				errors.append(AtelierText.t("VM_NEEDS_TWO_VALUES", [RuneCatalog.name_for_opcode(opcode)]))
 			else:
 				var comparison_right := int(stack.pop_back())
 				var comparison_left := int(stack.pop_back())
@@ -184,28 +184,28 @@ func step(instruction: Dictionary, state: Dictionary, instruction_index := -1) -
 				stack.append(1 if comparison_result else 0)
 		RuneCatalog.OPCODE_NOT:
 			if stack.is_empty():
-				errors.append("NOT precisa de um booleano na pilha.")
+				errors.append(AtelierText.t("VM_NEEDS_BOOLEAN", ["NOT"]))
 			else:
 				var boolean_value := int(stack.pop_back())
 				if not _is_boolean(boolean_value):
-					errors.append("NOT aceita apenas 0 ou 1, recebeu %d." % boolean_value)
+					errors.append(AtelierText.t("VM_NOT_BOOLEAN_GOT", [boolean_value]))
 				else:
 					stack.append(0 if boolean_value == 1 else 1)
 		RuneCatalog.OPCODE_AND, RuneCatalog.OPCODE_OR:
 			if stack.size() < 2:
-				errors.append("%s precisa de dois booleanos na pilha." % RuneCatalog.name_for_opcode(opcode))
+				errors.append(AtelierText.t("VM_NEEDS_TWO_BOOLEANS", [RuneCatalog.name_for_opcode(opcode)]))
 			else:
 				var boolean_right := int(stack.pop_back())
 				var boolean_left := int(stack.pop_back())
 				if not _is_boolean(boolean_left) or not _is_boolean(boolean_right):
-					errors.append("%s aceita apenas 0 ou 1." % RuneCatalog.name_for_opcode(opcode))
+					errors.append(AtelierText.t("VM_ONLY_BOOLEANS", [RuneCatalog.name_for_opcode(opcode)]))
 				elif opcode == RuneCatalog.OPCODE_AND:
 					stack.append(1 if boolean_left == 1 and boolean_right == 1 else 0)
 				else:
 					stack.append(1 if boolean_left == 1 or boolean_right == 1 else 0)
 		RuneCatalog.OPCODE_PRINT:
 			if stack.is_empty():
-				errors.append("PRINT precisa de um valor na pilha.")
+				errors.append(AtelierText.t("VM_NEEDS_VALUE", ["PRINT"]))
 			else:
 				output.append(str(stack.back()))
 		RuneCatalog.OPCODE_PRINTLETTER:
@@ -213,19 +213,19 @@ func step(instruction: Dictionary, state: Dictionary, instruction_index := -1) -
 			output.append(String.chr(unicode_codepoint))
 		RuneCatalog.OPCODE_STORE:
 			if stack.is_empty():
-				errors.append("STORE precisa de um valor na pilha.")
+				errors.append(AtelierText.t("VM_NEEDS_VALUE", ["STORE"]))
 			else:
 				memory[int(instruction["operand"])] = stack.pop_back()
 		RuneCatalog.OPCODE_LOAD:
 			var slot := int(instruction["operand"])
 			if not memory.has(slot):
-				errors.append("LOAD tentou ler a posição %d, que está vazia." % slot)
+				errors.append(AtelierText.t("VM_EMPTY_SLOT", ["LOAD", slot]))
 			else:
 				stack.append(int(memory[slot]))
 		RuneCatalog.OPCODE_READ:
 			var read_slot := int(instruction.get("operand", instruction.get("intensity", 0)))
 			if not memory.has(read_slot):
-				errors.append("READ tentou ler a posição %d, que está vazia." % read_slot)
+				errors.append(AtelierText.t("VM_EMPTY_SLOT", ["READ", read_slot]))
 			else:
 				stack.append(int(memory[read_slot]))
 		RuneCatalog.OPCODE_WARP:
@@ -233,9 +233,9 @@ func step(instruction: Dictionary, state: Dictionary, instruction_index := -1) -
 			var warp_intensity := int(instruction.get("intensity", instruction.get("operand", 0)))
 			var endpoint_counts: Dictionary = state["warp_endpoint_counts"]
 			if int(endpoint_counts.get(warp_intensity, 0)) > 1:
-				errors.append("WARP %03d encontrou mais de um WARP END com a mesma intensidade." % warp_intensity)
+				errors.append(AtelierText.t("VM_WARP_MANY_ENDS", [warp_intensity]))
 			elif instruction_index < 0 or not warp_targets.has(instruction_index):
-				errors.append("WARP %03d não encontrou outro portal ou WARP END compatível." % warp_intensity)
+				errors.append(AtelierText.t("VM_WARP_NO_TARGET", [warp_intensity]))
 			else:
 				state["jump_target"] = int(warp_targets[instruction_index])
 		RuneCatalog.OPCODE_WARP_ENDPOINT:
@@ -249,7 +249,7 @@ func step(instruction: Dictionary, state: Dictionary, instruction_index := -1) -
 		RuneCatalog.OPCODE_HALT:
 			should_halt = true
 		_:
-			errors.append("Opcode não implementado: %d." % opcode)
+			errors.append(AtelierText.t("VM_UNKNOWN_OPCODE", [opcode]))
 	if opcode != RuneCatalog.OPCODE_INT_SET:
 		_try_finish_intensity_set(state, instruction_index, opcode, stack)
 	state["halted"] = should_halt or not errors.is_empty()
@@ -259,7 +259,7 @@ func step(instruction: Dictionary, state: Dictionary, instruction_index := -1) -
 func _begin_intensity_set(state: Dictionary, instruction_index: int) -> void:
 	var errors: Array = state["errors"]
 	if int(state["pending_int_set"]) >= 0:
-		errors.append("INT_SET anterior ainda está esperando um valor.")
+		errors.append(AtelierText.t("VM_INT_SET_PENDING"))
 		return
 	state["pending_int_set"] = instruction_index
 
@@ -280,18 +280,18 @@ func _execute_jump_if_true(state: Dictionary, instruction: Dictionary, instructi
 	var errors: Array = state["errors"]
 	var stack: Array = state["stack"]
 	if stack.is_empty():
-		errors.append("JUMP_IF_TRUE precisa de um valor na pilha.")
+		errors.append(AtelierText.t("VM_NEEDS_VALUE", ["JUMP_IF_TRUE"]))
 		return
 	if int(stack.back()) != 1:
 		return
 	var jump_intensity := _instruction_intensity(instruction)
 	var endpoint_counts: Dictionary = state["warp_endpoint_counts"]
 	if int(endpoint_counts.get(jump_intensity, 0)) > 1:
-		errors.append("JUMP_IF_TRUE %03d encontrou mais de um WARP END compatível." % jump_intensity)
+		errors.append(AtelierText.t("VM_JUMP_MANY_ENDS", [jump_intensity]))
 		return
 	var jump_targets: Dictionary = state["jump_if_true_targets"]
 	if not jump_targets.has(instruction_index):
-		errors.append("JUMP_IF_TRUE %03d não encontrou WARP ou WARP END compatível." % jump_intensity)
+		errors.append(AtelierText.t("VM_JUMP_NO_TARGET", [jump_intensity]))
 		return
 	state["jump_target"] = int(jump_targets[instruction_index])
 
@@ -304,14 +304,14 @@ func _try_finish_intensity_set(state: Dictionary, instruction_index: int, opcode
 	if not errors.is_empty():
 		return
 	if opcode == RuneCatalog.OPCODE_HALT:
-		errors.append("INT_SET terminou sem encontrar um valor inteiro.")
+		errors.append(AtelierText.t("VM_INT_SET_NO_VALUE"))
 		return
 	if not RuneCatalog.produces_value_type(opcode, "int") or stack.is_empty():
 		return
 	var program: Array = state["program"]
 	var target_index := instruction_index + 1
 	if target_index >= program.size() or int(program[target_index]["opcode"]) == RuneCatalog.OPCODE_HALT:
-		errors.append("INT_SET encontrou um valor, mas não encontrou um selo-alvo.")
+		errors.append(AtelierText.t("VM_INT_SET_NO_TARGET"))
 		return
 	var new_intensity := clampi(int(stack.pop_back()), 0, 255)
 	_set_instruction_intensity(program, target_index, new_intensity)
@@ -325,13 +325,13 @@ func _resolve_intensity_modifier(state: Dictionary, instruction_index: int) -> v
 	var errors: Array = state["errors"]
 	var program: Array = state["program"]
 	if instruction_index < 0 or instruction_index + 2 >= program.size():
-		errors.append("INT_MOD espera dois selos depois dele.")
+		errors.append(AtelierText.t("VM_INT_MOD_NEEDS_TWO"))
 		return
 	var argument_instruction: Dictionary = program[instruction_index + 1]
 	var target_instruction: Dictionary = program[instruction_index + 2]
 	var operation_opcode := int(argument_instruction["opcode"])
 	if operation_opcode not in [RuneCatalog.OPCODE_ADD, RuneCatalog.OPCODE_SUB, RuneCatalog.OPCODE_MUL, RuneCatalog.OPCODE_DIV, RuneCatalog.OPCODE_MOD, RuneCatalog.OPCODE_NEG]:
-		errors.append("INT_MOD espera ADD, SUB, MUL, DIV, MOD ou NEG logo depois dele.")
+		errors.append(AtelierText.t("VM_INT_MOD_NEEDS_OP"))
 		return
 	var current_intensity := _instruction_intensity(target_instruction)
 	var operand := _instruction_intensity(argument_instruction)
@@ -345,12 +345,12 @@ func _resolve_intensity_modifier(state: Dictionary, instruction_index: int) -> v
 			modified_intensity = current_intensity * operand
 		RuneCatalog.OPCODE_DIV:
 			if operand == 0:
-				errors.append("INT_MOD DIV não aceita intensidade 000.")
+				errors.append(AtelierText.t("VM_INT_MOD_ZERO", ["DIV"]))
 				return
 			modified_intensity = int(current_intensity / operand)
 		RuneCatalog.OPCODE_MOD:
 			if operand == 0:
-				errors.append("INT_MOD MOD não aceita intensidade 000.")
+				errors.append(AtelierText.t("VM_INT_MOD_ZERO", ["MOD"]))
 				return
 			modified_intensity = current_intensity % operand
 		RuneCatalog.OPCODE_NEG:

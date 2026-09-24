@@ -65,7 +65,12 @@ extends Resource
 
 ## Campos que o jogador pode inspecionar no formulário, na ordem em que aparecem.
 const INSPECTABLE_FIELDS: Array[String] = ["item", "name", "age", "race", "signature", "details"]
-const FIELD_LABELS := {"item": "Item", "name": "Name", "age": "Age", "race": "Race", "signature": "Signature", "details": "Details"}
+## Chaves de tradução do rótulo de cada campo; use field_label().
+const FIELD_LABELS := {"item": "FIELD_ITEM", "name": "FIELD_NAME", "age": "FIELD_AGE", "race": "FIELD_RACE", "signature": "FIELD_SIGNATURE", "details": "FIELD_DETAILS"}
+
+
+static func field_label(field_name: String) -> String:
+	return AtelierText.t(FIELD_LABELS.get(field_name, field_name))
 
 
 func field_value(field_name: String) -> String:

@@ -4,6 +4,11 @@ extends RefCounted
 ## Inspeção de um pedido no balcão, sem UI: o jogador liga um campo do
 ## formulário a uma regra do livro. Ligações válidas viram provas; as inválidas
 ## voltam com uma explicação da contradição. As provas justificam a recusa.
+##
+## Contra tentativa e erro: cada ligação inválida é um erro, qualquer que seja
+## a regra ou o pedido. O cliente fica inquieto a partir do segundo erro, e ao
+## chegar em mistake_threshold há uma única penalidade (penalty_due), nunca
+## repetida com o mesmo cliente. Cada cliente começa com uma inspeção nova.
 
 enum Result {
 	## Campo e regra formam uma discrepância real; entrou nas provas.
@@ -19,18 +24,41 @@ enum Result {
 	NOT_IN_FORCE,
 }
 
+## Paciência do cliente, derivada só do número de erros.
+enum Patience {
+	## Nenhum ou um erro: a primeira ligação errada não custa nada.
+	CALM,
+	## Do segundo erro até antes do limite.
+	UNEASY,
+	## Chegou ao limite: é aqui que a penalidade acontece, uma vez.
+	UPSET,
+	## Passou do limite: só reclamação, sem nova penalidade.
+	EXASPERATED,
+}
+
+const DEFAULT_MISTAKE_THRESHOLD := 3
+## O limite nunca fica abaixo de 2, para o primeiro erro não ser penalizado.
+const MIN_MISTAKE_THRESHOLD := 2
+
 var order: AtelierScrollOrder
 var rules: Array[AtelierShopRule] = []
 ## Provas aceitas, na ordem em que foram citadas: {"field": String, "rule": AtelierShopRule}.
 var evidence: Array[Dictionary] = []
+var mistake_threshold := DEFAULT_MISTAKE_THRESHOLD
+## Ligações inválidas feitas com este cliente.
+var mistakes := 0
+var penalty_triggered := false
 
 
-func _init(inspected_order: AtelierScrollOrder, rules_in_force: Array[AtelierShopRule]) -> void:
+func _init(inspected_order: AtelierScrollOrder, rules_in_force: Array[AtelierShopRule], threshold := DEFAULT_MISTAKE_THRESHOLD) -> void:
 	order = inspected_order
 	rules = rules_in_force
+	mistake_threshold = maxi(threshold, MIN_MISTAKE_THRESHOLD)
 
 
-## Tenta ligar um campo a uma regra. Devolve {"result": Result, "message": String}.
+## Tenta ligar um campo a uma regra. Devolve {"result": Result, "message":
+## String, "mistake": bool, "mistakes": int, "patience": Patience,
+## "penalty_due": bool}. penalty_due é verdadeiro uma única vez por inspeção.
 func link(field_name: String, rule: AtelierShopRule) -> Dictionary:
 	var result := evaluate(order, rules, field_name, rule)
 	if result == Result.VALID:
@@ -38,7 +66,27 @@ func link(field_name: String, rule: AtelierShopRule) -> Dictionary:
 			result = Result.DUPLICATE
 		else:
 			evidence.append({"field": field_name, "rule": rule})
-	return {"result": result, "message": describe(result, order, field_name, rule)}
+	var mistake := result != Result.VALID and result != Result.DUPLICATE
+	var penalty_due := false
+	if mistake:
+		mistakes += 1
+		if mistakes >= mistake_threshold and not penalty_triggered:
+			penalty_triggered = true
+			penalty_due = true
+	return {
+		"result": result, "message": describe(result, order, field_name, rule),
+		"mistake": mistake, "mistakes": mistakes, "patience": patience(), "penalty_due": penalty_due,
+	}
+
+
+func patience() -> Patience:
+	if mistakes <= 1:
+		return Patience.CALM
+	if mistakes < mistake_threshold:
+		return Patience.UNEASY
+	if mistakes == mistake_threshold:
+		return Patience.UPSET
+	return Patience.EXASPERATED
 
 
 func has_evidence() -> bool:
@@ -83,19 +131,19 @@ static func discrepancies(inspected_order: AtelierScrollOrder, rules_in_force: A
 
 
 static func describe(result: Result, inspected_order: AtelierScrollOrder, field_name: String, rule: AtelierShopRule) -> String:
-	var label: String = AtelierScrollOrder.FIELD_LABELS.get(field_name, field_name)
+	var label := AtelierScrollOrder.field_label(field_name)
 	var value := _short(inspected_order.field_value(field_name))
 	match result:
 		Result.VALID:
-			return "Discrepancy confirmed: %s \"%s\" breaks the %s rule." % [label, value, rule.title]
+			return AtelierText.t("INSPECT_CONFIRMED", [label, value, rule.title])
 		Result.DUPLICATE:
-			return "You already cited %s against the %s rule." % [label, rule.title]
+			return AtelierText.t("INSPECT_DUPLICATE", [label, rule.title])
 		# Mesma frase para os dois casos de propósito: dizer "a regra é violada,
 		# mas não por este campo" revelaria a resposta sem dedução.
 		Result.WRONG_FIELD, Result.NOT_VIOLATED:
-			return "No contradiction: %s \"%s\" does not break the %s rule." % [label, value, rule.title]
+			return AtelierText.t("INSPECT_NO_CONTRADICTION", [label, value, rule.title])
 		_:
-			return "The %s rule is not in force today." % rule.title
+			return AtelierText.t("INSPECT_NOT_IN_FORCE", [rule.title])
 
 
 static func _short(text: String) -> String:

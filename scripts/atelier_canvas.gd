@@ -606,16 +606,16 @@ func _create_file_toolbar() -> void:
 
 	file_menu_button = MenuButton.new()
 	file_menu_button.name = "FileMenu"
-	file_menu_button.text = "File"
+	file_menu_button.text = AtelierText.t("IDE_MENU_FILE")
 	file_menu_button.flat = false
 	file_menu_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	file_menu_button.focus_mode = Control.FOCUS_ALL
 	file_toolbar.add_child(file_menu_button)
 	var menu := file_menu_button.get_popup()
-	menu.add_item("Salvar runa...", FILE_MENU_SAVE)
-	menu.add_item("Abrir runa...", FILE_MENU_OPEN)
+	menu.add_item(AtelierText.t("IDE_MENU_SAVE"), FILE_MENU_SAVE)
+	menu.add_item(AtelierText.t("IDE_MENU_OPEN"), FILE_MENU_OPEN)
 	menu.add_separator()
-	menu.add_item("Passar para Assembly (em breve)", FILE_MENU_ASSEMBLY)
+	menu.add_item(AtelierText.t("IDE_MENU_ASSEMBLY"), FILE_MENU_ASSEMBLY)
 	menu.set_item_disabled(menu.get_item_index(FILE_MENU_ASSEMBLY), true)
 	menu.id_pressed.connect(_on_file_menu_item_pressed)
 
@@ -677,7 +677,7 @@ func _refresh_file_toolbar_theme() -> void:
 func _refresh_file_title() -> void:
 	if file_title_label == null:
 		return
-	file_title_label.text = "ATELIER IDE   /   %s" % ("SEM TÍTULO" if current_ritual_path.is_empty() else current_ritual_path.get_file())
+	file_title_label.text = "ATELIER IDE   /   %s" % (AtelierText.t("IDE_UNTITLED") if current_ritual_path.is_empty() else current_ritual_path.get_file())
 
 
 func _create_file_dialogs() -> void:
@@ -688,10 +688,10 @@ func _create_file_dialogs() -> void:
 	save_file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 	save_file_dialog.use_native_dialog = true
 	save_file_dialog.mode_overrides_title = false
-	save_file_dialog.title = "Salvar runa"
+	save_file_dialog.title = AtelierText.t("IDE_DIALOG_SAVE")
 	if not documents_dir.is_empty():
 		save_file_dialog.current_dir = documents_dir
-	save_file_dialog.add_filter("*.atelier", "Runas do Ateliê")
+	save_file_dialog.add_filter("*.atelier", AtelierText.t("IDE_FILE_FILTER"))
 	save_file_dialog.file_selected.connect(_on_save_file_selected)
 	add_child(save_file_dialog)
 
@@ -701,19 +701,19 @@ func _create_file_dialogs() -> void:
 	open_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	open_file_dialog.use_native_dialog = true
 	open_file_dialog.mode_overrides_title = false
-	open_file_dialog.title = "Abrir runa"
+	open_file_dialog.title = AtelierText.t("IDE_DIALOG_OPEN")
 	if not documents_dir.is_empty():
 		open_file_dialog.current_dir = documents_dir
-	open_file_dialog.add_filter("*.atelier", "Runas do Ateliê")
+	open_file_dialog.add_filter("*.atelier", AtelierText.t("IDE_FILE_FILTER"))
 	open_file_dialog.file_selected.connect(_on_open_file_selected)
 	add_child(open_file_dialog)
 
 	file_error_dialog = AcceptDialog.new()
-	file_error_dialog.title = "Arquivo de runa"
+	file_error_dialog.title = AtelierText.t("IDE_DIALOG_FILE_ERROR")
 	add_child(file_error_dialog)
 	open_confirmation = ConfirmationDialog.new()
-	open_confirmation.title = "Abrir outra runa?"
-	open_confirmation.dialog_text = "O ritual atual tem alterações não salvas. Abrir outra runa vai descartá-las."
+	open_confirmation.title = AtelierText.t("IDE_DIALOG_OPEN_OTHER")
+	open_confirmation.dialog_text = AtelierText.t("IDE_DIALOG_UNSAVED")
 	open_confirmation.confirmed.connect(_show_open_file_dialog)
 	add_child(open_confirmation)
 
@@ -751,7 +751,7 @@ func _show_open_file_dialog() -> void:
 func _on_save_file_selected(path: String) -> void:
 	var result: Dictionary = RitualFile.save_file(path, connections, pan, zoom)
 	if not result.get("ok", false):
-		_show_file_error(str(result.get("error", "Falha ao salvar a runa.")))
+		_show_file_error(str(result.get("error", AtelierText.t("IDE_SAVE_FAILED"))))
 		return
 	current_ritual_path = str(result["path"])
 	saved_connections_signature = hash(connections)
@@ -761,7 +761,7 @@ func _on_save_file_selected(path: String) -> void:
 func _on_open_file_selected(path: String) -> void:
 	var result: Dictionary = RitualFile.load_file(path)
 	if not result.get("ok", false):
-		_show_file_error(str(result.get("error", "Falha ao abrir a runa.")))
+		_show_file_error(str(result.get("error", AtelierText.t("IDE_OPEN_FAILED"))))
 		return
 	_apply_opened_ritual(result)
 
@@ -1643,7 +1643,7 @@ func _stop_ritual() -> void:
 	execution_instructions.clear()
 	execution_connection = -1
 	execution_highlight_ends_at = animation_clock
-	execution_warnings.append("Execução interrompida.")
+	execution_warnings.append(AtelierText.t("BENCH_RUN_STOPPED"))
 
 
 func _execution_step_duration() -> float:
@@ -2238,11 +2238,11 @@ func _draw_performance_overlay() -> void:
 	draw_rect(overlay, Color(0.03, 0.05, 0.09, 0.90), true)
 	draw_rect(overlay, col_gold_glow, false, 1.0)
 	var fps := Engine.get_frames_per_second()
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 19.0), "DIAGNÓSTICO  •  F3", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, col_gold_glow)
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 39.0), "%.0f FPS  |  desenho %.2f ms" % [fps, performance_draw_ms], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text)
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 58.0), "grade %.2f  |  código %.2f  |  abas %.2f ms" % [performance_grid_ms, performance_connections_ms, performance_panels_ms], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 77.0), "%d células  |  %d visíveis" % [connections.size(), performance_visible_connections], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 96.0), "%d pontos da grade  |  %d draw calls" % [performance_grid_dots, int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 19.0), AtelierText.t("IDE_PERF_TITLE"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, col_gold_glow)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 39.0), AtelierText.t("IDE_PERF_FRAME", [fps, performance_draw_ms]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 58.0), AtelierText.t("IDE_PERF_PARTS", [performance_grid_ms, performance_connections_ms, performance_panels_ms]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 77.0), AtelierText.t("IDE_PERF_CELLS", [connections.size(), performance_visible_connections]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 96.0), AtelierText.t("IDE_PERF_DOTS", [performance_grid_dots, int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
 
 
 func _is_connection_hidden_during_move(connection: Dictionary, connection_index := -1) -> bool:
@@ -2698,7 +2698,7 @@ func _draw_intensity_inspector() -> void:
 	var intensity := _connection_intensity(connection)
 	_draw_arcane_frame(inspector)
 	_draw_rune(kind, inspector.position + Vector2(25.0, 27.0), 0.72, _intensity_color(intensity))
-	draw_string(ThemeDB.fallback_font, inspector.position + Vector2(44.0, 22.0), "INTENSIDADE", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, col_text_faint)
+	draw_string(ThemeDB.fallback_font, inspector.position + Vector2(44.0, 22.0), AtelierText.t("BENCH_INTENSITY"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, col_text_faint)
 	draw_string(ThemeDB.fallback_font, inspector.position + Vector2(44.0, 41.0), str(data["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, col_text)
 	var value_rect := _intensity_value_rect()
 	control_stylebox.border_color = col_gold_glow if editing_intensity_text else col_brass
@@ -2754,7 +2754,7 @@ func _draw_left_panel() -> void:
 				draw_texture_rect(sigil, Rect2(sigil_center - sigil.get_size() * 0.5, sigil.get_size()), false, Color.WHITE)
 			_draw_rune(kind, sigil_center, 0.76, col_parch_ink.lerp(col_brass, float(intensity) / 255.0))
 			draw_string(ThemeDB.fallback_font, row.position + Vector2(58.0, 26.0), str(data["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, col_parch_ink)
-			var extra := str(data["extra"])
+			var extra := AtelierText.t(str(data["extra"]))
 			# So mostramos o numero quando a intensidade participa da instrucao
 			# como operando; nos outros selos ela e apenas visual.
 			if RuneCatalog.takes_operand(int(data.get("opcode", -1))):
@@ -2773,7 +2773,7 @@ func _draw_left_panel() -> void:
 		var empty_center := Vector2(panel.get_center().x, panel.position.y + 132.0)
 		_draw_ring(empty_center, 30.0, col_brass, 1.0)
 		draw_line(empty_center - Vector2(48.0, 0.0), empty_center + Vector2(48.0, 0.0), col_brass, 1.0, true)
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(29.0, 192.0), "Ainda não há símbolos no ritual.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(29.0, 192.0), AtelierText.t("BENCH_GRIMOIRE_EMPTY"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 
 
 ## Uma carta de pergaminho do grimorio, com sombra e o selo de escolha.
@@ -2824,8 +2824,8 @@ func _draw_left_scroll_masks(panel: Rect2, list_rect: Rect2) -> void:
 
 
 func _draw_left_panel_header(panel: Rect2) -> void:
-	_draw_panel_title(panel.position + Vector2(20.0, 32.0), "GRIMÓRIO ATIVO", 16)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 54.0), "Símbolos ligados ao ritual", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	_draw_panel_title(panel.position + Vector2(20.0, 32.0), AtelierText.t("BENCH_GRIMOIRE_TITLE"), 16)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 54.0), AtelierText.t("BENCH_GRIMOIRE_SUBTITLE"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
 	draw_line(panel.position + Vector2(20.0, 70.0), Vector2(panel.end.x - 20.0, panel.position.y + 70.0), col_spellstrip, 1.0, true)
 
 
@@ -2920,11 +2920,11 @@ func _draw_top_panel() -> void:
 	_draw_stop_button(_stop_button_rect())
 	_draw_theme_button(_theme_button_rect())
 	if not top_panel_open:
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(16.0, 27.0), "SELOS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(16.0, 27.0), AtelierText.t("BENCH_PALETTE_TAB"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 		return
 
-	_draw_panel_title(panel.position + Vector2(20.0, 28.0), "SELOS DO ATELIÊ", 16)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 47.0), "Arraste um símbolo até a linha de um feitiço.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	_draw_panel_title(panel.position + Vector2(20.0, 28.0), AtelierText.t("BENCH_PALETTE_TITLE"), 16)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 47.0), AtelierText.t("BENCH_PALETTE_HINT"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
 
 	var palette_viewport := _palette_viewport_rect()
 	for index in range(palette_symbols.size()):
@@ -2945,16 +2945,16 @@ func _draw_bottom_panel() -> void:
 	_draw_arcane_frame(panel)
 	_draw_toggle_button(_bottom_toggle_rect(), "down" if bottom_panel_open else "up")
 	if not bottom_panel_open:
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(16.0, 27.0), "ORÁCULO", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(16.0, 27.0), AtelierText.t("BENCH_ORACLE_TITLE"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 		return
 
 	_draw_oracle_orb(panel.position + Vector2(38.0, 36.0), 30.0)
-	_draw_panel_title(panel.position + Vector2(62.0, 32.0), "ORÁCULO", 16)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(62.0, 53.0), "A saída e os erros do ritual aparecerão aqui.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	_draw_panel_title(panel.position + Vector2(62.0, 32.0), AtelierText.t("BENCH_ORACLE_TITLE"), 16)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(62.0, 53.0), AtelierText.t("BENCH_ORACLE_HINT"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
 	var divider_x := panel.position.x + panel.size.x * 0.58
 	draw_line(Vector2(divider_x, panel.position.y + 72.0), Vector2(divider_x, panel.end.y - 16.0), col_spellstrip, 1.0, true)
-	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 24.0, panel.position.y + 93.0), "SAÍDA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_gold)
-	draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, panel.position.y + 93.0), "ERROS (%d)" % execution_errors.size(), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_gold)
+	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 24.0, panel.position.y + 93.0), AtelierText.t("BENCH_ORACLE_OUTPUT"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_gold)
+	draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, panel.position.y + 93.0), AtelierText.t("BENCH_ORACLE_ERRORS", [execution_errors.size()]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_gold)
 	var output_position := Vector2(panel.position.x + 24.0, panel.position.y + 118.0)
 	var output_width := divider_x - panel.position.x - 42.0
 	var output_font: Font = ThemeDB.fallback_font
@@ -2975,12 +2975,12 @@ func _draw_bottom_panel() -> void:
 		var error_text := "! " + execution_errors[error_index]
 		var error_size := output_font.get_multiline_string_size(error_text, HORIZONTAL_ALIGNMENT_LEFT, error_width, 13)
 		if error_y + error_size.y > panel.end.y - 10.0:
-			draw_string(output_font, Vector2(divider_x + 20.0, minf(error_y, panel.end.y - 12.0)), "+%d erro(s); aumente o Oráculo" % (execution_errors.size() - error_index), HORIZONTAL_ALIGNMENT_LEFT, error_width, 11, col_error)
+			draw_string(output_font, Vector2(divider_x + 20.0, minf(error_y, panel.end.y - 12.0)), AtelierText.t("BENCH_ORACLE_MORE_ERRORS", [execution_errors.size() - error_index]), HORIZONTAL_ALIGNMENT_LEFT, error_width, 11, col_error)
 			break
 		draw_multiline_string(output_font, Vector2(divider_x + 20.0, error_y), error_text, HORIZONTAL_ALIGNMENT_LEFT, error_width, 13, -1, col_error)
 		error_y += error_size.y + 6.0
 	if execution_output.is_empty() and execution_errors.is_empty() and execution_warnings.is_empty():
-		draw_string(ThemeDB.fallback_font, output_position, "cada linha traçada é um encadeamento de intenções.", HORIZONTAL_ALIGNMENT_LEFT, output_width, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, output_position, AtelierText.t("BENCH_ORACLE_IDLE"), HORIZONTAL_ALIGNMENT_LEFT, output_width, 13, col_text_faint)
 
 
 ## O orbe do oraculo: uma lua dourada acesa no rodape.
@@ -2999,24 +2999,24 @@ func _draw_right_panel() -> void:
 	_draw_arcane_frame(panel)
 	_draw_toggle_button(_right_toggle_rect(), "right" if right_panel_open else "left")
 	if not right_panel_open:
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(5.0, 58.0), "PILHA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(5.0, 58.0), AtelierText.t("BENCH_STACK_TITLE"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, col_text_faint)
 		return
 
-	_draw_panel_title(panel.position + Vector2(20.0, 64.0), "PILHA", 16)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 85.0), "Estado da máquina", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	_draw_panel_title(panel.position + Vector2(20.0, 64.0), AtelierText.t("BENCH_STACK_TITLE"), 16)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 85.0), AtelierText.t("BENCH_STACK_SUBTITLE"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
 	draw_line(panel.position + Vector2(20.0, 101.0), Vector2(panel.end.x - 20.0, panel.position.y + 101.0), col_spellstrip, 1.0, true)
 	if execution_state.is_empty() or not execution_state.has("stack"):
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 136.0), "A pilha desperta", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 155.0), "quando o ritual começa.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 136.0), AtelierText.t("BENCH_STACK_IDLE_1"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 155.0), AtelierText.t("BENCH_STACK_IDLE_2"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 		return
 
 	var stack: Array = execution_state["stack"]
 	var text_width := panel.size.x - 40.0
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), "TOPO", HORIZONTAL_ALIGNMENT_LEFT, text_width, 11, col_gold)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), "%d SELOS" % stack.size(), HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, col_text_faint)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), AtelierText.t("BENCH_STACK_TOP"), HORIZONTAL_ALIGNMENT_LEFT, text_width, 11, col_gold)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), AtelierText.t("BENCH_STACK_COUNT", [stack.size()]), HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, col_text_faint)
 	if stack.is_empty():
 		_draw_ring(panel.position + Vector2(panel.size.x * 0.5, 169.0), 24.0, col_leather_light, 1.0)
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 215.0), "A pilha está vazia.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 215.0), AtelierText.t("BENCH_STACK_EMPTY"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 		return
 
 	var row_height := 42.0
@@ -3026,7 +3026,7 @@ func _draw_right_panel() -> void:
 	var first_visible := maxi(stack.size() - visible_rows, 0)
 	var row_y := first_y
 	if first_visible > 0:
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, row_y + 11.0), "+%d abaixo" % first_visible, HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, row_y + 11.0), AtelierText.t("BENCH_STACK_BELOW", [first_visible]), HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, col_text_faint)
 		row_y += 16.0
 	for stack_index in range(stack.size() - 1, first_visible - 1, -1):
 		var row := Rect2(panel.position.x + 14.0, row_y, panel.size.x - 28.0, 34.0)
@@ -3035,7 +3035,7 @@ func _draw_right_panel() -> void:
 		var stack_value := int(stack[stack_index])
 		draw_string(ThemeDB.fallback_font, row.position + Vector2(14.0, 22.0), "%03d" % stack_value, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, col_parch_ink)
 		if is_top:
-			draw_string(ThemeDB.fallback_font, row.position + Vector2(14.0, 21.0), "TOPO", HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 28.0, 10, col_parch_muted)
+			draw_string(ThemeDB.fallback_font, row.position + Vector2(14.0, 21.0), AtelierText.t("BENCH_STACK_TOP"), HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 28.0, 10, col_parch_muted)
 		row_y += row_height
 
 
@@ -3047,7 +3047,7 @@ func _draw_palette_tooltip() -> void:
 	var panel := _top_panel_rect()
 	var font: Font = ThemeDB.fallback_font
 	var title := str(item["label"])
-	var description := str(item["description"])
+	var description := AtelierText.t(str(item["description"]))
 	var max_width := minf(330.0, maxf(panel.size.x - 24.0, 1.0))
 	if max_width < 80.0:
 		return

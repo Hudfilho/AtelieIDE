@@ -8,3 +8,6 @@
 *.tmp
 /results/
 /export_presets.cfg
+
+# Traduções geradas pelo import do Godot a partir de localization/strings.csv
+*.translation
