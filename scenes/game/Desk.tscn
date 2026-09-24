@@ -18,6 +18,7 @@
 [ext_resource type="Texture2D" path="res://art/pixel/stamp_approve.png" id="16_stamp_approve"]
 [ext_resource type="Texture2D" path="res://art/pixel/stamp_reject.png" id="17_stamp_reject"]
 [ext_resource type="FontFile" path="res://art/pixel/pixel_font_big.fnt" id="18_font_big"]
+[ext_resource type="Script" path="res://scripts/game/pixel_frame.gd" id="19_frame"]
 
 [node name="Desk" type="Control"]
 layout_mode = 3
@@ -26,22 +27,35 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 theme = ExtResource("2_theme")
 script = ExtResource("1_desk")
 generic_portrait = ExtResource("12_hooded")
 
-[node name="PixelView" type="SubViewportContainer" parent="."]
-texture_filter = 1
-layout_mode = 1
+[node name="LetterboxLayer" type="CanvasLayer" parent="."]
+layer = -2
+
+[node name="Letterbox" type="ColorRect" parent="LetterboxLayer"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-stretch = true
-stretch_shrink = 2
+mouse_filter = 2
+color = Color(0.05, 0.035, 0.03, 1)
 
-[node name="PixelViewport" type="SubViewport" parent="PixelView"]
+[node name="PixelLayer" type="CanvasLayer" parent="." node_paths=PackedStringArray("view")]
+unique_name_in_owner = true
+layer = -1
+script = ExtResource("19_frame")
+view = NodePath("PixelView")
+
+[node name="PixelView" type="SubViewportContainer" parent="PixelLayer"]
+texture_filter = 1
+offset_right = 640.0
+offset_bottom = 360.0
+
+[node name="PixelViewport" type="SubViewport" parent="PixelLayer/PixelView"]
 unique_name_in_owner = true
 handle_input_locally = false
 snap_2d_transforms_to_pixel = true
@@ -50,7 +64,7 @@ canvas_item_default_texture_filter = 0
 size = Vector2i(640, 360)
 render_target_update_mode = 4
 
-[node name="World" type="Control" parent="PixelView/PixelViewport"]
+[node name="World" type="Control" parent="PixelLayer/PixelView/PixelViewport"]
 unique_name_in_owner = true
 layout_mode = 3
 anchors_preset = 15
@@ -60,7 +74,7 @@ grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("6_pixel_theme")
 
-[node name="WallFill" type="TextureRect" parent="PixelView/PixelViewport/World"]
+[node name="WallFill" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -72,7 +86,7 @@ texture = ExtResource("7_wall")
 expand_mode = 1
 stretch_mode = 1
 
-[node name="DeskFill" type="TextureRect" parent="PixelView/PixelViewport/World"]
+[node name="DeskFill" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World"]
 layout_mode = 1
 anchors_preset = -1
 anchor_top = 0.366667
@@ -85,7 +99,7 @@ texture = ExtResource("8_desk")
 expand_mode = 1
 stretch_mode = 1
 
-[node name="CounterEdge" type="TextureRect" parent="PixelView/PixelViewport/World"]
+[node name="CounterEdge" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World"]
 layout_mode = 1
 anchors_preset = -1
 anchor_top = 0.355556
@@ -98,7 +112,7 @@ texture = ExtResource("9_counter")
 expand_mode = 1
 stretch_mode = 1
 
-[node name="Stage" type="Control" parent="PixelView/PixelViewport/World"]
+[node name="Stage" type="Control" parent="PixelLayer/PixelView/PixelViewport/World"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 8
@@ -114,7 +128,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="HUD" type="PanelContainer" parent="PixelView/PixelViewport/World/Stage"]
+[node name="HUD" type="PanelContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 layout_mode = 0
 offset_left = 8.0
 offset_top = 8.0
@@ -123,32 +137,32 @@ offset_bottom = 62.0
 mouse_filter = 2
 theme_type_variation = &"Sign"
 
-[node name="Rows" type="VBoxContainer" parent="PixelView/PixelViewport/World/Stage/HUD"]
+[node name="Rows" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/HUD"]
 layout_mode = 2
 theme_override_constants/separation = 0
 
-[node name="DayLabel" type="Label" parent="PixelView/PixelViewport/World/Stage/HUD/Rows"]
+[node name="DayLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/HUD/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"HeaderLabel"
 text = ""
 
-[node name="MoneyLabel" type="Label" parent="PixelView/PixelViewport/World/Stage/HUD/Rows"]
+[node name="MoneyLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/HUD/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
 text = ""
 
-[node name="ReputationLabel" type="Label" parent="PixelView/PixelViewport/World/Stage/HUD/Rows"]
+[node name="ReputationLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/HUD/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
 text = ""
 
-[node name="QueueLabel" type="Label" parent="PixelView/PixelViewport/World/Stage/HUD/Rows"]
+[node name="QueueLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/HUD/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
 text = ""
 
-[node name="Candle" type="TextureRect" parent="PixelView/PixelViewport/World/Stage"]
+[node name="Candle" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 layout_mode = 0
 offset_left = 158.0
 offset_top = 82.0
@@ -157,7 +171,7 @@ offset_bottom = 126.0
 mouse_filter = 2
 texture = ExtResource("13_candle")
 
-[node name="Window" type="Control" parent="PixelView/PixelViewport/World/Stage"]
+[node name="Window" type="Control" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 clip_contents = true
 layout_mode = 0
 offset_left = 176.0
@@ -166,7 +180,7 @@ offset_right = 400.0
 offset_bottom = 126.0
 mouse_filter = 2
 
-[node name="Night" type="TextureRect" parent="PixelView/PixelViewport/World/Stage/Window"]
+[node name="Night" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Window"]
 layout_mode = 0
 offset_left = 6.0
 offset_top = 6.0
@@ -175,7 +189,7 @@ offset_bottom = 112.0
 mouse_filter = 2
 texture = ExtResource("10_window_back")
 
-[node name="Portrait" type="TextureRect" parent="PixelView/PixelViewport/World/Stage/Window"]
+[node name="Portrait" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Window"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 76.0
@@ -184,14 +198,14 @@ offset_right = 148.0
 offset_bottom = 112.0
 mouse_filter = 2
 
-[node name="Frame" type="TextureRect" parent="PixelView/PixelViewport/World/Stage/Window"]
+[node name="Frame" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Window"]
 layout_mode = 0
 offset_right = 224.0
 offset_bottom = 118.0
 mouse_filter = 2
 texture = ExtResource("11_window_front")
 
-[node name="BubbleTail" type="TextureRect" parent="PixelView/PixelViewport/World/Stage"]
+[node name="BubbleTail" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 layout_mode = 0
 offset_left = 405.0
 offset_top = 38.0
@@ -200,7 +214,7 @@ offset_bottom = 48.0
 mouse_filter = 2
 texture = ExtResource("15_tail")
 
-[node name="Bubble" type="PanelContainer" parent="PixelView/PixelViewport/World/Stage"]
+[node name="Bubble" type="PanelContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 layout_mode = 0
 offset_left = 412.0
 offset_top = 14.0
@@ -209,11 +223,11 @@ offset_bottom = 92.0
 mouse_filter = 2
 theme_type_variation = &"Bubble"
 
-[node name="Rows" type="VBoxContainer" parent="PixelView/PixelViewport/World/Stage/Bubble"]
+[node name="Rows" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Bubble"]
 layout_mode = 2
 theme_override_constants/separation = 1
 
-[node name="ClientName" type="Label" parent="PixelView/PixelViewport/World/Stage/Bubble/Rows"]
+[node name="ClientName" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Bubble/Rows"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(206, 0)
 layout_mode = 2
@@ -221,7 +235,7 @@ theme_type_variation = &"PaperHeader"
 text = "DESK_WINDOW_EMPTY"
 autowrap_mode = 3
 
-[node name="Speech" type="Label" parent="PixelView/PixelViewport/World/Stage/Bubble/Rows"]
+[node name="Speech" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Bubble/Rows"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(206, 0)
 layout_mode = 2
@@ -229,9 +243,10 @@ theme_type_variation = &"NoteLabel"
 text = ""
 autowrap_mode = 3
 
-[node name="BellButton" type="Button" parent="PixelView/PixelViewport/World/Stage"]
+[node name="BellButton" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 unique_name_in_owner = true
 layout_mode = 0
+theme_type_variation = &"PixelPrompt"
 offset_left = 412.0
 offset_top = 98.0
 offset_right = 540.0
@@ -240,7 +255,7 @@ text = "DESK_BELL"
 icon = ExtResource("14_bell")
 alignment = 0
 
-[node name="Papers" type="Control" parent="PixelView/PixelViewport/World/Stage"]
+[node name="Papers" type="Control" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -249,7 +264,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Rulebook" type="PanelContainer" parent="PixelView/PixelViewport/World/Stage/Papers"]
+[node name="Rulebook" type="PanelContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 8.0
@@ -259,23 +274,23 @@ offset_bottom = 352.0
 theme_type_variation = &"Book"
 script = ExtResource("3_paper")
 
-[node name="Rows" type="VBoxContainer" parent="PixelView/PixelViewport/World/Stage/Papers/Rulebook"]
+[node name="Rows" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/Rulebook"]
 layout_mode = 2
 theme_override_constants/separation = 3
 
-[node name="Title" type="Label" parent="PixelView/PixelViewport/World/Stage/Papers/Rulebook/Rows"]
+[node name="Title" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/Rulebook/Rows"]
 layout_mode = 2
 theme_type_variation = &"PaperHeader"
 text = "DESK_RULEBOOK_TITLE"
 horizontal_alignment = 1
 
-[node name="RulesList" type="VBoxContainer" parent="PixelView/PixelViewport/World/Stage/Papers/Rulebook/Rows"]
+[node name="RulesList" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/Rulebook/Rows"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(122, 0)
 layout_mode = 2
-theme_override_constants/separation = 3
+theme_override_constants/separation = 6
 
-[node name="RequestForm" type="PanelContainer" parent="PixelView/PixelViewport/World/Stage/Papers"]
+[node name="RequestForm" type="PanelContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 154.0
@@ -285,28 +300,28 @@ offset_bottom = 358.0
 theme_type_variation = &"Paper"
 script = ExtResource("3_paper")
 
-[node name="Rows" type="VBoxContainer" parent="PixelView/PixelViewport/World/Stage/Papers/RequestForm"]
+[node name="Rows" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm"]
 layout_mode = 2
 theme_override_constants/separation = 0
 
-[node name="Header" type="Label" parent="PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+[node name="Header" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
 layout_mode = 2
 theme_type_variation = &"PaperLabel"
 text = "DESK_FORM_HEADER"
 horizontal_alignment = 1
 
-[node name="ItemField" type="Button" parent="PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+[node name="ItemField" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"PaperTitleField"
 toggle_mode = true
 text = ""
 
-[node name="Fields" type="VBoxContainer" parent="PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+[node name="Fields" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
 layout_mode = 2
 theme_override_constants/separation = 0
 
-[node name="NameField" type="Button" parent="PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/Fields"]
+[node name="NameField" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/Fields"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"PaperField"
@@ -314,7 +329,7 @@ toggle_mode = true
 text = ""
 alignment = 0
 
-[node name="AgeField" type="Button" parent="PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/Fields"]
+[node name="AgeField" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/Fields"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"PaperField"
@@ -322,7 +337,7 @@ toggle_mode = true
 text = ""
 alignment = 0
 
-[node name="RaceField" type="Button" parent="PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/Fields"]
+[node name="RaceField" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/Fields"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"PaperField"
@@ -330,7 +345,7 @@ toggle_mode = true
 text = ""
 alignment = 0
 
-[node name="SignatureField" type="Button" parent="PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/Fields"]
+[node name="SignatureField" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/Fields"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"PaperField"
@@ -338,10 +353,10 @@ toggle_mode = true
 text = ""
 alignment = 0
 
-[node name="Line" type="HSeparator" parent="PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+[node name="Line" type="HSeparator" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
 layout_mode = 2
 
-[node name="DetailsField" type="Button" parent="PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+[node name="DetailsField" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(212, 0)
 layout_mode = 2
@@ -351,7 +366,7 @@ text = ""
 alignment = 0
 autowrap_mode = 3
 
-[node name="SpecLabel" type="Label" parent="PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+[node name="SpecLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(212, 0)
 layout_mode = 2
@@ -359,7 +374,7 @@ theme_type_variation = &"PaperSpec"
 text = ""
 autowrap_mode = 3
 
-[node name="StampBox" type="Panel" parent="PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+[node name="StampBox" type="Panel" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(116, 24)
 layout_mode = 2
@@ -368,7 +383,7 @@ size_flags_vertical = 10
 mouse_filter = 2
 theme_type_variation = &"StampBox"
 
-[node name="InkMark" type="Label" parent="PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/StampBox"]
+[node name="InkMark" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/StampBox"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -383,7 +398,7 @@ theme_override_fonts/font = ExtResource("18_font_big")
 theme_override_font_sizes/font_size = 22
 text = ""
 
-[node name="ApproveButton" type="Button" parent="PixelView/PixelViewport/World/Stage"]
+[node name="ApproveButton" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 398.0
@@ -396,7 +411,7 @@ icon = ExtResource("16_stamp_approve")
 icon_alignment = 1
 vertical_icon_alignment = 0
 
-[node name="RejectButton" type="Button" parent="PixelView/PixelViewport/World/Stage"]
+[node name="RejectButton" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 522.0
@@ -409,7 +424,7 @@ icon = ExtResource("17_stamp_reject")
 icon_alignment = 1
 vertical_icon_alignment = 0
 
-[node name="Notes" type="VBoxContainer" parent="PixelView/PixelViewport/World/Stage"]
+[node name="Notes" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 layout_mode = 0
 offset_left = 394.0
 offset_top = 206.0
@@ -418,14 +433,14 @@ offset_bottom = 356.0
 mouse_filter = 2
 theme_override_constants/separation = 4
 
-[node name="EvidenceCard" type="PanelContainer" parent="PixelView/PixelViewport/World/Stage/Notes"]
+[node name="EvidenceCard" type="PanelContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Notes"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 mouse_filter = 2
 theme_type_variation = &"Note"
 
-[node name="EvidenceLabel" type="Label" parent="PixelView/PixelViewport/World/Stage/Notes/EvidenceCard"]
+[node name="EvidenceLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Notes/EvidenceCard"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(224, 0)
 layout_mode = 2
@@ -433,14 +448,14 @@ theme_type_variation = &"EvidenceNote"
 text = ""
 autowrap_mode = 3
 
-[node name="FeedbackCard" type="PanelContainer" parent="PixelView/PixelViewport/World/Stage/Notes"]
+[node name="FeedbackCard" type="PanelContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Notes"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
 theme_type_variation = &"Note"
 
-[node name="FeedbackLabel" type="Label" parent="PixelView/PixelViewport/World/Stage/Notes/FeedbackCard"]
+[node name="FeedbackLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Notes/FeedbackCard"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(224, 0)
 layout_mode = 2
@@ -449,7 +464,7 @@ theme_type_variation = &"NoteLabel"
 text = ""
 autowrap_mode = 3
 
-[node name="StampLayer" type="Control" parent="PixelView/PixelViewport/World/Stage"]
+[node name="StampLayer" type="Control" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -458,7 +473,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="StampHead" type="TextureRect" parent="PixelView/PixelViewport/World/Stage/StampLayer"]
+[node name="StampHead" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage/StampLayer"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 0
@@ -469,10 +484,10 @@ mouse_filter = 2
 [node name="Feedback" type="Node" parent="." node_paths=PackedStringArray("shake_target", "stamp_head", "stamp_target", "ink_mark")]
 unique_name_in_owner = true
 script = ExtResource("5_feedback")
-shake_target = NodePath("../PixelView/PixelViewport/World")
-stamp_head = NodePath("../PixelView/PixelViewport/World/Stage/StampLayer/StampHead")
-stamp_target = NodePath("../PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/StampBox")
-ink_mark = NodePath("../PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/StampBox/InkMark")
+shake_target = NodePath("../PixelLayer/PixelView/PixelViewport/World")
+stamp_head = NodePath("../PixelLayer/PixelView/PixelViewport/World/Stage/StampLayer/StampHead")
+stamp_target = NodePath("../PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/StampBox")
+ink_mark = NodePath("../PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/StampBox/InkMark")
 stamp_sprites = Dictionary[StringName, Texture2D]({
 &"approve": ExtResource("16_stamp_approve"),
 &"reject": ExtResource("17_stamp_reject")

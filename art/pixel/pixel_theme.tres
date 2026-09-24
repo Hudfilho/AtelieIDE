@@ -119,6 +119,45 @@ content_margin_bottom = 2.0
 bg_color = Color(1, 0.95, 0.8, 0.12)
 anti_aliasing = false
 
+[sub_resource type="StyleBoxFlat" id="plate"]
+content_margin_left = 3.0
+content_margin_top = 2.0
+content_margin_right = 3.0
+content_margin_bottom = 2.0
+bg_color = Color(0.11, 0.07, 0.06, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.72, 0.53, 0.18, 1)
+anti_aliasing = false
+
+[sub_resource type="StyleBoxFlat" id="plate_hover"]
+content_margin_left = 3.0
+content_margin_top = 2.0
+content_margin_right = 3.0
+content_margin_bottom = 2.0
+bg_color = Color(0.17, 0.11, 0.08, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.95, 0.78, 0.4, 1)
+anti_aliasing = false
+
+[sub_resource type="StyleBoxFlat" id="plate_disabled"]
+content_margin_left = 3.0
+content_margin_top = 2.0
+content_margin_right = 3.0
+content_margin_bottom = 2.0
+bg_color = Color(0.09, 0.06, 0.05, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.3, 0.17, 1)
+anti_aliasing = false
+
 [sub_resource type="StyleBoxLine" id="rule_line"]
 color = Color(0.61, 0.48, 0.29, 1)
 
@@ -195,3 +234,23 @@ PaperTitleFieldCompact/fonts/font = ExtResource("1_font")
 PaperTitleFieldCompact/font_sizes/font_size = 11
 PixelStamp/base_type = &"Button"
 PixelStamp/colors/font_color = Color(0.96, 0.86, 0.54, 1)
+PixelStamp/colors/font_hover_color = Color(1, 0.93, 0.66, 1)
+PixelStamp/colors/font_pressed_color = Color(1, 0.93, 0.66, 1)
+PixelStamp/colors/font_disabled_color = Color(0.66, 0.58, 0.45, 1)
+PixelStamp/colors/icon_disabled_color = Color(0.62, 0.57, 0.52, 0.85)
+PixelStamp/styles/normal = SubResource("plate")
+PixelStamp/styles/hover = SubResource("plate_hover")
+PixelStamp/styles/pressed = SubResource("plate_hover")
+PixelStamp/styles/disabled = SubResource("plate_disabled")
+PixelStamp/styles/focus = SubResource("flat")
+PixelPrompt/base_type = &"Button"
+PixelPrompt/colors/font_color = Color(0.96, 0.86, 0.54, 1)
+PixelPrompt/colors/font_hover_color = Color(1, 0.93, 0.66, 1)
+PixelPrompt/colors/font_pressed_color = Color(1, 0.93, 0.66, 1)
+PixelPrompt/colors/font_disabled_color = Color(0.66, 0.58, 0.45, 1)
+PixelPrompt/colors/icon_disabled_color = Color(0.62, 0.57, 0.52, 0.85)
+PixelPrompt/styles/normal = SubResource("plate")
+PixelPrompt/styles/hover = SubResource("plate_hover")
+PixelPrompt/styles/pressed = SubResource("plate_hover")
+PixelPrompt/styles/disabled = SubResource("plate_disabled")
+PixelPrompt/styles/focus = SubResource("flat")

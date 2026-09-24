@@ -38,11 +38,12 @@ func _run() -> void:
 	root.add_child(desk)
 	await _frames()
 
-	# Apresentação: viewport baixo, escala inteira, filtro nearest; a bancada e
-	# os cartões do dia ficam fora dele, em resolução cheia.
-	var container := desk.get_node("PixelView") as SubViewportContainer
+	# Apresentação: viewport baixo, escala inteira (AtelierPixelFrame, ver
+	# pixel_frame_smoke), filtro nearest; a bancada e os cartões do dia ficam
+	# fora dele, em resolução cheia.
+	var container := (desk.get_node("%PixelLayer") as AtelierPixelFrame).view
 	var viewport := desk.get_node("%PixelViewport") as SubViewport
-	assert(container.stretch and container.stretch_shrink == 2)
+	assert(container != null and not container.stretch)
 	assert(viewport.size == Vector2i(640, 360), str(viewport.size))
 	assert(container.texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST)
 	assert(viewport.canvas_item_default_texture_filter == Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST)
@@ -51,6 +52,19 @@ func _run() -> void:
 		assert(viewport.is_ancestor_of(desk.get_node(name)), "%s should live in the pixel viewport" % name)
 	for name in ["%Workbench", "%Overlay"]:
 		assert(not viewport.is_ancestor_of(desk.get_node(name)), "%s should stay at full resolution" % name)
+
+	# Contraste dos rótulos dos carimbos e do sino (achado do M6): legíveis
+	# ligados e desligados, e o desligado ainda visivelmente mais apagado.
+	var theme := load("res://art/pixel/pixel_theme.tres") as Theme
+	var desk_wood := Color8(107, 69, 48)
+	var wall := Color8(61, 38, 32)
+	for variation in ["PixelStamp", "PixelPrompt"]:
+		var under := desk_wood if variation == "PixelStamp" else wall
+		var enabled := _contrast(theme.get_color("font_color", variation), under.blend((theme.get_stylebox("normal", variation) as StyleBoxFlat).bg_color))
+		var disabled := _contrast(theme.get_color("font_disabled_color", variation), under.blend((theme.get_stylebox("disabled", variation) as StyleBoxFlat).bg_color))
+		_check(enabled >= 4.5, "%s enabled label contrast %.2f < 4.5" % [variation, enabled])
+		_check(disabled >= 4.5, "%s disabled label contrast %.2f < 4.5" % [variation, disabled])
+		_check(enabled >= disabled * 1.5, "%s disabled label is not distinguishable from enabled (%.2f vs %.2f)" % [variation, disabled, enabled])
 
 	# Fonte: todo caractere que o balcão pode mostrar existe na fonte bitmap.
 	var small_font := load("res://art/pixel/pixel_font.fnt") as FontFile
@@ -157,6 +171,13 @@ func _run() -> void:
 	assert(problems.is_empty(), "%d layout problems, see above" % problems.size())
 	print("PIXEL_DESK_SMOKE_OK (%d customer versions, locale %s)" % [checked, TranslationServer.get_locale()])
 	quit(0)
+
+
+## Razão de contraste WCAG 2.x entre duas cores opacas.
+static func _contrast(a: Color, b: Color) -> float:
+	var la := a.srgb_to_linear().get_luminance()
+	var lb := b.srgb_to_linear().get_luminance()
+	return (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
 
 
 func _check_font(font: FontFile, texts: PackedStringArray, font_name: String) -> void:

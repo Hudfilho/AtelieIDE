@@ -109,6 +109,11 @@ func _start_day(headlines: PackedStringArray) -> void:
 	order_index = -1
 	_clear_counter()
 	var day := _day()
+	# Conteúdo fora do orçamento de texto do balcão é inválido: avisa em vez de
+	# encolher fonte ou mudar o layout (veja AtelierContentBudget).
+	if OS.is_debug_build():
+		for problem in AtelierContentBudget.check_day(day):
+			push_warning("Invalid content: %s" % problem)
 	_build_rulebook(day)
 	var body := day.intro
 	if not headlines.is_empty():
