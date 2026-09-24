@@ -7,6 +7,7 @@
 [ext_resource type="Resource" path="res://data/orders/faelar_quiet_growth.tres" id="o1"]
 [ext_resource type="Resource" path="res://data/orders/brom_doubled_ore.tres" id="o2"]
 [ext_resource type="Resource" path="res://data/orders/oona_vesper_bell.tres" id="o3"]
+[ext_resource type="Resource" path="res://data/orders/sleego_gentle_rain.tres" id="o4"]
 [ext_resource type="Resource" path="res://data/rules/offensive_license.tres" id="rule_offensive_license"]
 [ext_resource type="Resource" path="res://data/rules/signature.tres" id="rule_signature"]
 [ext_resource type="Resource" path="res://data/rules/elf_embargo.tres" id="rule_elf_embargo"]
@@ -17,4 +18,4 @@ title = "Day 2 - The Embargo"
 intro = "A royal messenger nailed a decree to your door at dawn. New runes arrived from the Guild as well: loops are now within your reach."
 rules = Array[ExtResource("2_rule")]([ExtResource("rule_offensive_license"), ExtResource("rule_signature"), ExtResource("rule_elf_embargo")])
 runes = PackedStringArray("ORB", "TRIANGLE", "READ", "DIAMOND", "CROSS", "TWIN", "CUP", "MOON", "PLUS", "GT", "WARP_ENDPOINT", "JUMP_IF_TRUE")
-orders = Array[ExtResource("3_order")]([ExtResource("o0"), ExtResource("o1"), ExtResource("o2"), ExtResource("o3")])
+orders = Array[ExtResource("3_order")]([ExtResource("o0"), ExtResource("o1"), ExtResource("o2"), ExtResource("o3"), ExtResource("o4")])

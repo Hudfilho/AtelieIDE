@@ -133,6 +133,15 @@ func _run() -> void:
 	approve.pressed.emit()
 	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["oona_vesper_bell"])
 	assert(not workbench.visible, "The countdown loop should pass on the real bench")
+	# Sleego: a armadura assusta, mas o pedido é honesto; atender paga.
+	bell.pressed.emit()
+	assert(_item(desk) == "Scroll of Gentle Rain")
+	assert(AtelierInspection.discrepancies(desk.current_order, desk._day().rules).is_empty(), "Sleego's form is clean")
+	var money_before_sleego: int = game_state.money
+	approve.pressed.emit()
+	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["sleego_gentle_rain"])
+	assert(not workbench.visible and game_state.outcomes["sleego_gentle_rain"] == "delivered")
+	assert(game_state.money > money_before_sleego, "Sleego pays for the rain")
 
 	# Fim do dia 2 → manhã do dia 3 traz o jornal, a multa e a suspeita.
 	bell.pressed.emit()

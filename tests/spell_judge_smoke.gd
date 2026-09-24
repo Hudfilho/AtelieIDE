@@ -21,6 +21,8 @@ const SOLUTIONS := {
 		["READ", 0], ["ORB", 1], ["WARP_ENDPOINT", 7], ["CUP", 128], ["TRIANGLE", 128],
 		["ORB", 1], ["MOON", 128], ["TWIN", 128], ["ORB", 0], ["GT", 128], ["JUMP_IF_TRUE", 7],
 	],
+	# Sede do solo menos a chuva que já caiu (SUB estreia no dia 2).
+	"sleego_gentle_rain": [["READ", 0], ["READ", 1], ["MOON", 128], ["TRIANGLE", 128]],
 	"anderdingus_hush": [["READ", 0], ["ORB", 3], ["SLASH", 128], ["TRIANGLE", 128]],
 	"anderdingus_bigger_fireball": [["READ", 0], ["TWIN", 128], ["PLUS", 128], ["TRIANGLE", 128]],
 	"ketterly_fair_shares": [
