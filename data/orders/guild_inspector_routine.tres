@@ -1,0 +1,54 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
+[ext_resource type="Resource" path="res://data/orders/guild_inspector_audit.tres" id="variant_0"]
+
+[sub_resource type="Resource" id="on_delivered_0"]
+script = ExtResource("2_consequence")
+delay_days = 1
+headline = "GUILD INSPECTOR PRAISES A STEADY-HANDED ATELIER."
+ledger_text = "Guild commendation"
+reputation = 2
+flag_changes = Dictionary[String, int]({"guild_standing": 1})
+
+[sub_resource type="Resource" id="on_rejected_0"]
+script = ExtResource("2_consequence")
+delay_days = 0
+ledger_text = "Turned the Guild inspector away"
+reputation = -2
+flag_changes = Dictionary[String, int]({"guild_suspicion": 1})
+
+[sub_resource type="Resource" id="on_rejected_1"]
+script = ExtResource("2_consequence")
+delay_days = 1
+headline = "INSPECTOR REFUSED AT LOCAL ATELIER: the Guild takes note."
+
+[sub_resource type="Resource" id="on_abandoned_0"]
+script = ExtResource("2_consequence")
+delay_days = 0
+ledger_text = "The inspector notes your shaky hand"
+reputation = -1
+flag_changes = Dictionary[String, int]({"guild_suspicion": 1})
+
+[resource]
+script = ExtResource("1_order")
+id = "guild_inspector_routine"
+client_name = "Maelis Thorn"
+age = "50"
+race = "Human"
+signature = "Maelis Thorn"
+portrait_color = Color(0.3, 0.34, 0.5, 1)
+greeting = "Routine inspection, artisan. Show me your hand is steady and your seal is honest."
+item = "Seal of Good Standing"
+details = "Guild procedure: a scroll that multiplies two witnessed numbers, held in slots 000 and 001."
+violations = PackedStringArray()
+spec = "READ slots 000 and 001 and print their product."
+examples = Array[Dictionary]([{"memory": {0: 6, 1: 7}, "output": ["42"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 12, 1: 3}, "output": ["36"]}, {"memory": {0: 0, 1: 9}, "output": ["0"]}])
+par_runes = 4
+reward = 15
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])
+on_rejected = Array[ExtResource("2_consequence")]([SubResource("on_rejected_0"), SubResource("on_rejected_1")])
+on_abandoned = Array[ExtResource("2_consequence")]([SubResource("on_abandoned_0")])
+variants = Array[Resource]([ExtResource("variant_0")])

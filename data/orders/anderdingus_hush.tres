@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
+[ext_resource type="Script" path="res://scripts/game/data/flag_condition.gd" id="3_condition"]
+[ext_resource type="Resource" path="res://data/orders/anderdingus_bigger_fireball.tres" id="variant_0"]
+
+[sub_resource type="Resource" id="on_delivered_0"]
+script = ExtResource("2_consequence")
+delay_days = 1
+headline = "MILLBROOK SLEEPS: the village enjoyed its first quiet night in years. A local goblin credits 'the scroll shop'."
+ledger_text = "Word spreads: the goblin's hush charm"
+reputation = 1
+flag_changes = Dictionary[String, int]({"goblin_friend": 1})
+
+[sub_resource type="Resource" id="condition_0"]
+script = ExtResource("3_condition")
+flag = "goblin_refused"
+comparison = 0
+value = 1
+
+[resource]
+script = ExtResource("1_order")
+id = "anderdingus_hush"
+client_name = "Anderdingus"
+age = "1 year"
+race = "Goblin"
+signature = "Anderdingus"
+portrait_color = Color(0.42, 0.62, 0.28, 1)
+greeting = "You said no fireball. Fine. FINE. Hehe... can I have a quiet spell instead?"
+item = "Hush Charm"
+details = "The village is SO LOUD. A charm that makes their noise three times smaller.\nNo fire. I pinky promise. (I learned to sign my name!)"
+violations = PackedStringArray()
+spec = "READ the noise level from slot 000 and print a third of it (rounded down)."
+examples = Array[Dictionary]([{"memory": {0: 90}, "output": ["30"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 10}, "output": ["3"]}, {"memory": {0: 2}, "output": ["0"]}])
+par_runes = 4
+reward = 12
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])
+conditions = Array[ExtResource("3_condition")]([SubResource("condition_0")])
+variants = Array[Resource]([ExtResource("variant_0")])

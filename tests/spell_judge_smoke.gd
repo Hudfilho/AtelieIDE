@@ -5,22 +5,43 @@ extends SceneTree
 ## a solução de referência aqui.
 
 const SpellJudge = preload("res://scripts/game/spell_judge.gd")
-const DAYS: Array[String] = ["res://data/days/day_01.tres", "res://data/days/day_02.tres"]
+const DAYS: Array[String] = ["res://data/days/day_01.tres", "res://data/days/day_02.tres", "res://data/days/day_03.tres"]
 
+## Soluções de referência por id da encomenda (inclusive variantes).
 const SOLUTIONS := {
-	"Scroll of Warm Light": [["ORB", 3], ["TRIANGLE", 128]],
-	"Fireball": [["ORB", 9], ["TRIANGLE", 128]],
-	"Warming Charm": [["READ", 0], ["ORB", 10], ["DIAMOND", 128], ["TRIANGLE", 128]],
-	"Party Sparks": [["READ", 0], ["TWIN", 128], ["PLUS", 128], ["TRIANGLE", 128]],
-	"Scroll of Quiet Growth": [["READ", 0], ["TWIN", 128], ["DIAMOND", 128], ["TRIANGLE", 128]],
-	"Scroll of Doubled Ore": [["READ", 0], ["TWIN", 128], ["DIAMOND", 128], ["TRIANGLE", 128]],
+	"mira_warm_light": [["ORB", 3], ["TRIANGLE", 128]],
+	"anderdingus_fireball": [["ORB", 9], ["TRIANGLE", 128]],
+	"tomas_warming_charm": [["READ", 0], ["ORB", 10], ["DIAMOND", 128], ["TRIANGLE", 128]],
+	"pip_party_sparks": [["READ", 0], ["TWIN", 128], ["PLUS", 128], ["TRIANGLE", 128]],
+	"faelar_quiet_growth": [["READ", 0], ["TWIN", 128], ["DIAMOND", 128], ["TRIANGLE", 128]],
+	"brom_doubled_ore": [["READ", 0], ["TWIN", 128], ["DIAMOND", 128], ["TRIANGLE", 128]],
 	# Contagem regressiva: o PUSH 1 inicial é descartado pelo DROP logo após o
 	# WARP END, assim como o booleano que JUMP_IF_TRUE deixa na pilha.
-	"Bell of Vespers": [
+	"oona_vesper_bell": [
 		["READ", 0], ["ORB", 1], ["WARP_ENDPOINT", 7], ["CUP", 128], ["TRIANGLE", 128],
 		["ORB", 1], ["MOON", 128], ["TWIN", 128], ["ORB", 0], ["GT", 128], ["JUMP_IF_TRUE", 7],
 	],
+	"anderdingus_hush": [["READ", 0], ["ORB", 3], ["SLASH", 128], ["TRIANGLE", 128]],
+	"anderdingus_bigger_fireball": [["READ", 0], ["TWIN", 128], ["PLUS", 128], ["TRIANGLE", 128]],
+	"ketterly_fair_shares": [
+		["READ", 0], ["READ", 1], ["SLASH", 128], ["TRIANGLE", 128],
+		["READ", 0], ["READ", 1], ["SPIRAL", 128], ["TRIANGLE", 128],
+	],
+	"osric_gentle_forgetting": [["READ", 0], ["ORB", 10], ["SLASH", 128], ["TRIANGLE", 128]],
+	"guild_inspector_routine": [["READ", 0], ["READ", 1], ["PLUS", 128], ["TRIANGLE", 128]],
+	# n * (n + 1) / 2: a fórmula que alcança o bônus de elegância.
+	"guild_inspector_audit": [
+		["READ", 0], ["TWIN", 128], ["ORB", 1], ["DIAMOND", 128],
+		["PLUS", 128], ["ORB", 2], ["SLASH", 128], ["TRIANGLE", 128],
+	],
 }
+
+## A auditoria também aceita o laço (soma com STORE), só não ganha o bônus.
+const AUDIT_LOOP := [
+	["ORB", 0], ["ORB", 1], ["WARP_ENDPOINT", 5], ["CUP", 128], ["READ", 0], ["DIAMOND", 128],
+	["READ", 0], ["ORB", 1], ["MOON", 128], ["TWIN", 128], ["SQUARE", 0], ["ORB", 0], ["GT", 128],
+	["JUMP_IF_TRUE", 5], ["CUP", 128], ["TRIANGLE", 128],
+]
 
 
 func _initialize() -> void:
@@ -46,33 +67,57 @@ static func _program(runes: Array) -> Array[Dictionary]:
 	return result
 
 
+func _check_order(judge: AtelierSpellJudge, day: AtelierShopDay, order: AtelierScrollOrder) -> void:
+	assert(not order.id.is_empty(), "%s has no id" % order.item)
+	assert(SOLUTIONS.has(order.id), "Missing reference solution for %s" % order.id)
+	assert(not order.examples.is_empty(), "%s has no visible example" % order.id)
+	if _uses_inputs(order):
+		assert(not order.hidden_tests.is_empty(), "%s reads inputs but has no hidden test; the examples could be hardcoded" % order.id)
+	if not order.starting_ritual.is_empty():
+		for cell in order.starting_ritual:
+			assert(str(cell["symbol"]).is_empty() or day.runes.has(cell["symbol"]), "%s draft uses a locked rune" % order.id)
+		assert(not judge.judge(order.starting_ritual, order)["passed"], "%s draft already solves the order" % order.id)
+	for rule_id in order.violations:
+		assert(day.rule_text(rule_id) != rule_id, "%s cites rule %s, which is not in force on %s" % [order.id, rule_id, day.title])
+	if not order.is_legal():
+		assert(not order.on_delivered.is_empty(), "%s is illegal but delivering it has no consequence" % order.id)
+	var runes: Array = SOLUTIONS[order.id]
+	for rune in runes:
+		assert(day.runes.has(rune[0]), "%s needs %s, which is locked on %s" % [order.id, rune[0], day.title])
+	var result := judge.judge(_program(runes), order)
+	assert(result["passed"], "%s failed: %s" % [order.id, SpellJudge.describe_failure(result)])
+	assert(result["elegant"], "%s solution uses %d runes, par is %d" % [order.id, result["rune_count"], order.par_runes])
+
+
 func _run() -> void:
 	var judge := SpellJudge.new()
 	var checked := 0
+	var ids := {}
+	var produced_flags := {}
+	var required_flags := {}
 	for day_path in DAYS:
 		var day := load(day_path) as AtelierShopDay
 		assert(day != null, "Could not load %s" % day_path)
 		assert(not day.orders.is_empty())
-		for order in day.orders:
-			assert(SOLUTIONS.has(order.item), "Missing reference solution for %s" % order.item)
-			assert(not order.examples.is_empty(), "%s has no visible example" % order.item)
-			if _uses_inputs(order):
-				assert(not order.hidden_tests.is_empty(), "%s reads inputs but has no hidden test; the examples could be hardcoded" % order.item)
-			if not order.starting_ritual.is_empty():
-				for cell in order.starting_ritual:
-					assert(str(cell["symbol"]).is_empty() or day.runes.has(cell["symbol"]), "%s draft uses a locked rune" % order.item)
-				assert(not judge.judge(order.starting_ritual, order)["passed"], "%s draft already solves the order" % order.item)
-			for rule_id in order.violations:
-				assert(day.rule_text(rule_id) != rule_id, "%s cites unknown rule %s" % [order.item, rule_id])
-			if not order.is_legal():
-				assert(not order.consequence_news.is_empty(), "%s is illegal but has no consequence" % order.item)
-			var runes: Array = SOLUTIONS[order.item]
-			for rune in runes:
-				assert(day.runes.has(rune[0]), "%s needs %s, which is locked on %s" % [order.item, rune[0], day.title])
-			var result := judge.judge(_program(runes), order)
-			assert(result["passed"], "%s failed: %s" % [order.item, SpellJudge.describe_failure(result)])
-			assert(result["elegant"], "%s solution uses %d runes, par is %d" % [order.item, result["rune_count"], order.par_runes])
-			checked += 1
+		for slot in day.orders:
+			for order in AtelierShopDay.versions_of(slot):
+				_check_order(judge, day, order)
+				assert(not ids.has(order.id), "Duplicate order id %s" % order.id)
+				ids[order.id] = true
+				for consequence in order.on_delivered + order.on_rejected + order.on_abandoned:
+					for flag_name in consequence.flag_changes:
+						produced_flags[flag_name] = true
+				for condition in order.conditions:
+					required_flags[condition.flag] = order.id
+				checked += 1
+	# Uma condição sobre uma flag que nada produz é quase sempre erro de digitação.
+	for flag_name in required_flags:
+		assert(produced_flags.has(flag_name), "%s depends on flag '%s', which no consequence sets" % [required_flags[flag_name], flag_name])
+
+	var audit := load("res://data/orders/guild_inspector_audit.tres") as AtelierScrollOrder
+	var audit_loop := judge.judge(_program(AUDIT_LOOP), audit)
+	assert(audit_loop["passed"], SpellJudge.describe_failure(audit_loop))
+	assert(not audit_loop["elegant"], "The loop should pass the audit but miss the elegance bonus")
 
 	# Decorar a resposta do exemplo passa na bancada, mas não nos testes ocultos.
 	var warming := load("res://data/orders/tomas_warming_charm.tres") as AtelierScrollOrder
@@ -97,7 +142,7 @@ func _run() -> void:
 	assert(not looping["passed"])
 	assert(looping["cases"][0]["timed_out"] and int(looping["cases"][0]["steps"]) == 50)
 	assert("never finished (50 steps)" in SpellJudge.describe_failure(looping), SpellJudge.describe_failure(looping))
-	assert(int(judge.judge(_program(SOLUTIONS["Warming Charm"]), warming)["max_steps_used"]) > 0)
+	assert(int(judge.judge(_program(SOLUTIONS["tomas_warming_charm"]), warming)["max_steps_used"]) > 0)
 
 	# A memória inicial semeia a VM sem ser alterada pelo STORE.
 	var vm := AtelierRuneVM.new()

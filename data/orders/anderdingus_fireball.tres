@@ -1,9 +1,25 @@
 [gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
 
 [ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
+
+[sub_resource type="Resource" id="on_delivered_0"]
+script = ExtResource("2_consequence")
+delay_days = 1
+headline = "NORTHERN CAVES: several structures near Millbrook were damaged by fire overnight. Witnesses report a giggling goblin and a scroll bearing YOUR shop's seal."
+ledger_text = "Guild fine: the Millbrook fire"
+money = -15
+reputation = -4
+flag_changes = Dictionary[String, int]({"guild_suspicion": 2, "goblin_armed": 1})
+
+[sub_resource type="Resource" id="on_rejected_0"]
+script = ExtResource("2_consequence")
+delay_days = 0
+flag_changes = Dictionary[String, int]({"goblin_refused": 1})
 
 [resource]
 script = ExtResource("1_order")
+id = "anderdingus_fireball"
 client_name = "Anderdingus"
 age = "1 year"
 race = "Goblin"
@@ -17,6 +33,9 @@ spec = "Print a flame of strength 9."
 examples = Array[Dictionary]([{"memory": {}, "output": ["9"]}])
 par_runes = 2
 reward = 25
-consequence_news = "MILLBROOK ABLAZE: half the village's roofs burned last night. Witnesses report a giggling goblin and a scroll bearing YOUR shop's seal."
-consequence_reputation = -4
-consequence_money = -15
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])
+on_rejected = Array[ExtResource("2_consequence")]([SubResource("on_rejected_0")])
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])
+on_rejected = Array[ExtResource("2_consequence")]([SubResource("on_rejected_0")])
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])
+on_rejected = Array[ExtResource("2_consequence")]([SubResource("on_rejected_0")])

@@ -1,0 +1,71 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
+[ext_resource type="Script" path="res://scripts/game/data/flag_condition.gd" id="3_condition"]
+
+[sub_resource type="Resource" id="on_delivered_0"]
+script = ExtResource("2_consequence")
+delay_days = 0
+ledger_text = "Passed the Guild audit"
+reputation = 1
+flag_changes = Dictionary[String, int]({"guild_suspicion": -2})
+
+[sub_resource type="Resource" id="on_delivered_1"]
+script = ExtResource("2_consequence")
+delay_days = 1
+headline = "ATELIER CLEARED BY GUILD AUDIT, for now."
+
+[sub_resource type="Resource" id="on_rejected_0"]
+script = ExtResource("2_consequence")
+delay_days = 0
+ledger_text = "Audit refused: license under review"
+money = -40
+reputation = -4
+flag_changes = Dictionary[String, int]({"license_suspended": 1})
+
+[sub_resource type="Resource" id="on_rejected_1"]
+script = ExtResource("2_consequence")
+delay_days = 1
+headline = "GUILD SUSPENDS ATELIER LICENSE after an artisan refused a lawful audit."
+
+[sub_resource type="Resource" id="on_abandoned_0"]
+script = ExtResource("2_consequence")
+delay_days = 0
+ledger_text = "Audit failed"
+money = -30
+reputation = -2
+flag_changes = Dictionary[String, int]({"guild_suspicion": 1})
+
+[sub_resource type="Resource" id="on_abandoned_1"]
+script = ExtResource("2_consequence")
+delay_days = 1
+headline = "ATELIER FAILS GUILD AUDIT: its seal is placed under watch."
+
+[sub_resource type="Resource" id="condition_0"]
+script = ExtResource("3_condition")
+flag = "guild_suspicion"
+comparison = 0
+value = 2
+
+[resource]
+script = ExtResource("1_order")
+id = "guild_inspector_audit"
+client_name = "Maelis Thorn"
+age = "50"
+race = "Human"
+signature = "Maelis Thorn"
+portrait_color = Color(0.3, 0.34, 0.5, 1)
+greeting = "Your seal has been seen where it should not be. This is an audit, artisan. You will write under my eyes."
+item = "Audit Tally"
+details = "The Guild demands a tally: for the number in slot 000, the sum of every number from 1 up to it.\nHonest hands can manage."
+violations = PackedStringArray()
+spec = "READ slot 000 and print 1 + 2 + ... + slot 000 (for 4: 10).\nHint: a loop works, but the Guild admires a formula."
+examples = Array[Dictionary]([{"memory": {0: 4}, "output": ["10"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 10}, "output": ["55"]}, {"memory": {0: 1}, "output": ["1"]}])
+par_runes = 8
+reward = 0
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0"), SubResource("on_delivered_1")])
+on_rejected = Array[ExtResource("2_consequence")]([SubResource("on_rejected_0"), SubResource("on_rejected_1")])
+on_abandoned = Array[ExtResource("2_consequence")]([SubResource("on_abandoned_0"), SubResource("on_abandoned_1")])
+conditions = Array[ExtResource("3_condition")]([SubResource("condition_0")])

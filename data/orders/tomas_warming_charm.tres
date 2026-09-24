@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1_order")
+id = "tomas_warming_charm"
 client_name = "Tomas Reed"
 age = "71"
 race = "Human"

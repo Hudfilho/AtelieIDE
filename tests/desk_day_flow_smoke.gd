@@ -61,7 +61,7 @@ func _run() -> void:
 	assert(canvas.connections.size() == 2)
 	canvas.call("_undo")
 	assert(canvas.connections.size() == 3, "Reset should be undoable")
-	canvas.load_connections(SpellJudgeSmoke._program(SpellJudgeSmoke.SOLUTIONS["Scroll of Warm Light"]))
+	canvas.load_connections(SpellJudgeSmoke._program(SpellJudgeSmoke.SOLUTIONS["mira_warm_light"]))
 	workbench.get_node("%DeliverButton").pressed.emit()
 	assert(not workbench.visible)
 	assert(game_state.money == 20 + 8 + 5, "Reward plus elegant bonus")
@@ -93,26 +93,74 @@ func _run() -> void:
 	assert("Embargo" in (desk.get_node("%OverlayTitle") as Label).text)
 	desk.get_node("%OverlayButton").pressed.emit()
 
-	# Dia 2: entregar o pedido élfico ilegal gera a notícia de amanhã.
+	# Dia 2: entregar o pedido élfico ilegal agenda a notícia de amanhã.
 	bell.pressed.emit() # Pip
 	reject.pressed.emit()
 	bell.pressed.emit() # Faelar (embargo)
 	approve.pressed.emit()
 	assert(canvas.palette_symbols.size() == 12)
-	canvas.load_connections(SpellJudgeSmoke._program(SpellJudgeSmoke.SOLUTIONS["Scroll of Quiet Growth"]))
-	workbench.get_node("%DeliverButton").pressed.emit()
-	assert(game_state.pending_consequences.size() == 1)
+	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["faelar_quiet_growth"])
+	assert(game_state.scheduled.size() == 1)
 	bell.pressed.emit() # Brom
 	reject.pressed.emit()
 	bell.pressed.emit() # Oona
 	approve.pressed.emit()
-	canvas.load_connections(SpellJudgeSmoke._program(SpellJudgeSmoke.SOLUTIONS["Bell of Vespers"]))
-	workbench.get_node("%DeliverButton").pressed.emit()
+	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["oona_vesper_bell"])
 	assert(not workbench.visible, "The countdown loop should pass on the real bench")
+
+	# Fim do dia 2 → manhã do dia 3 traz o jornal, a multa e a suspeita.
+	bell.pressed.emit()
+	assert("Ledger" in (desk.get_node("%OverlayTitle") as Label).text)
+	var money_before_morning: int = game_state.money
+	desk.get_node("%OverlayButton").pressed.emit()
+	assert("Inspection" in (desk.get_node("%OverlayTitle") as Label).text)
+	assert("CROWN FINES" in (desk.get_node("%OverlayBody") as RichTextLabel).text)
+	assert(game_state.money == money_before_morning - 25)
+	assert(game_state.flag("guild_suspicion") == 1)
+	desk.get_node("%OverlayButton").pressed.emit()
+	assert("4 waiting" in (desk.get_node("%QueueLabel") as Label).text)
+
+	# Dia 3: o goblin recusado volta com um pedido honesto.
+	bell.pressed.emit()
+	assert((desk.get_node("%ItemLabel") as Label).text == "Hush Charm")
+	approve.pressed.emit()
+	assert(canvas.palette_symbols.size() == 15)
+	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["anderdingus_hush"])
+	bell.pressed.emit() # Mother Ketterly
+	reject.pressed.emit()
+	# Magia proibida entregue: a suspeita sobe na hora e o inspetor vira auditoria.
+	bell.pressed.emit()
+	assert((desk.get_node("%ItemLabel") as Label).text == "Scroll of Gentle Forgetting")
+	approve.pressed.emit()
+	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["osric_gentle_forgetting"])
+	assert(game_state.flag("guild_suspicion") == 3)
+	bell.pressed.emit()
+	assert((desk.get_node("%ItemLabel") as Label).text == "Audit Tally")
+	approve.pressed.emit()
+	_write(canvas, workbench, SpellJudgeSmoke.AUDIT_LOOP)
+	assert(not workbench.visible, "The loop solution should pass the audit on the real bench")
+	assert(game_state.flag("guild_suspicion") == 1)
+
+	# Fim do demo: o jornal de amanhã mostra o que ainda está agendado.
 	bell.pressed.emit()
 	assert(overlay.visible)
 	assert((desk.get_node("%OverlayTitle") as Label).text == "End of the demo")
-	assert("CROWN FINES" in (desk.get_node("%OverlayBody") as RichTextLabel).text)
+	var ending := (desk.get_node("%OverlayBody") as RichTextLabel).text
+	assert("MERCHANT'S MEMORY STOLEN" in ending and "ATELIER CLEARED" in ending, ending)
+
+	# Um jornal enorme rola dentro do cartão: o botão continua na tela.
+	var long_news := "\n\n".join(PackedStringArray(range(14).map(func(index: int) -> String: return "HEADLINE %d: a very long story about the shop." % index)))
+	desk.call("_show_overlay", "Stress test", long_news, "Continue", func() -> void: pass)
+	for frame in 3:
+		await process_frame
+	var button_rect := (desk.get_node("%OverlayButton") as Button).get_global_rect()
+	assert(Rect2(Vector2.ZERO, Vector2(root.size)).encloses(button_rect), "Overlay button off-screen: %s" % button_rect)
 
 	print("desk_day_flow_smoke: demo played through, %d coins, reputation %d" % [game_state.money, game_state.reputation])
 	quit(0)
+
+
+func _write(canvas, workbench: Control, runes: Array) -> void:
+	canvas.load_connections(SpellJudgeSmoke._program(runes))
+	workbench.get_node("%DeliverButton").pressed.emit()
+	assert(not workbench.visible, "Delivery should pass: %s" % (workbench.get_node("%ResultLabel") as Label).text)

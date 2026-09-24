@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
+
+[sub_resource type="Resource" id="on_delivered_0"]
+script = ExtResource("2_consequence")
+delay_days = 0
+flag_changes = Dictionary[String, int]({"guild_suspicion": 2})
+
+[sub_resource type="Resource" id="on_delivered_1"]
+script = ExtResource("2_consequence")
+delay_days = 1
+headline = "MERCHANT'S MEMORY STOLEN: Ansel Brandt cannot recall a debt of many years. The Guild hunts the scribe of forbidden magic."
+ledger_text = "Guild fine: forbidden magic"
+money = -40
+reputation = -5
+flag_changes = Dictionary[String, int]({"forbidden_sold": 1})
+
+[resource]
+script = ExtResource("1_order")
+id = "osric_gentle_forgetting"
+client_name = "Osric Vell"
+age = "45"
+race = "Human"
+signature = "Osric Vell"
+portrait_color = Color(0.5, 0.42, 0.32, 1)
+greeting = "A discreet matter. Very discreet. I pay well for discretion."
+item = "Scroll of Gentle Forgetting"
+details = "My partner Brandt believes I owe him a great sum (slot 000).\nI would like him to remember only a tenth of it. Painless, of course."
+violations = PackedStringArray("forbidden_mind")
+spec = "READ the debt from slot 000 and print a tenth of it (rounded down)."
+examples = Array[Dictionary]([{"memory": {0: 120}, "output": ["12"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 95}, "output": ["9"]}, {"memory": {0: 7}, "output": ["0"]}])
+par_runes = 4
+reward = 45
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0"), SubResource("on_delivered_1")])

@@ -4,6 +4,9 @@ extends Resource
 ## Uma encomenda de pergaminho: quem pede, o que pede e o que o feitiço precisa
 ## fazer para ser aceito. Edite pelo Inspector do Godot.
 
+## Identificador estável (não muda com o texto); usado em outcomes e nos testes.
+@export var id := ""
+
 @export_group("Cliente")
 @export var client_name := ""
 @export var age := ""
@@ -38,14 +41,32 @@ extends Resource
 @export var reward := 10
 
 @export_group("Consequências")
-## Manchete do jornal do dia seguinte se o pedido ilegal for entregue.
-@export_multiline var consequence_news := ""
-@export var consequence_reputation := 0
-@export var consequence_money := 0
+## Além da regra geral (pagamento, reputação), o que acontece em cada decisão.
+@export var on_delivered: Array[AtelierConsequence] = []
+@export var on_rejected: Array[AtelierConsequence] = []
+## Aprovado, mas o jogador desistiu de escrever o pergaminho.
+@export var on_abandoned: Array[AtelierConsequence] = []
+
+@export_group("Variantes")
+## Todas precisam valer para este cliente aparecer. Vazio = sempre aparece.
+@export var conditions: Array[AtelierFlagCondition] = []
+## Versões alternativas deste cliente (outros AtelierScrollOrder), testadas em
+## ordem antes dele; a primeira cujas condições valem toma o seu lugar. As
+## variantes das variantes são ignoradas. Veja AtelierShopDay.resolve_customer.
+## Tipado como Resource de propósito: se este script citar a própria classe, o
+## GDScript cria um ciclo de referência e o script vaza ao fechar o jogo.
+@export var variants: Array[Resource] = []
 
 
 func is_legal() -> bool:
 	return violations.is_empty()
+
+
+func conditions_met(flags: Dictionary) -> bool:
+	for condition in conditions:
+		if not condition.is_met(flags):
+			return false
+	return true
 
 
 ## Exemplos primeiro, depois os ocultos; cada caso marcado com "hidden".

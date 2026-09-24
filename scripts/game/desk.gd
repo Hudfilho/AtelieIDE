@@ -3,8 +3,13 @@ extends Control
 ## Balcão da loja: o ciclo do dia. Toca o sino, o cliente entrega o pedido,
 ## o jogador confere com o livro de regras e carimba APROVAR ou RECUSAR.
 ## Aprovar leva à bancada, onde o pergaminho precisa ser escrito.
+## Só apresentação: pagamento, reputação e consequências ficam no GameState, e
+## qual versão de cada cliente aparece vem das flags (AtelierScrollOrder.resolve).
 
 enum Phase { DAY_INTRO, WAITING, SERVING, CRAFTING, DAY_END, DEMO_END }
+
+## Altura máxima do texto do jornal/livro-caixa antes de passar a rolar.
+const OVERLAY_BODY_MAX_HEIGHT := 440.0
 
 @onready var day_label: Label = %DayLabel
 @onready var money_label: Label = %MoneyLabel
@@ -45,7 +50,7 @@ func _ready() -> void:
 	workbench.delivered.connect(_on_scroll_delivered)
 	workbench.abandoned.connect(_on_scroll_abandoned)
 	workbench.hide()
-	_start_day()
+	_start_day(PackedStringArray())
 
 
 func _day() -> AtelierShopDay:
@@ -54,14 +59,13 @@ func _day() -> AtelierShopDay:
 
 ## ======================== DIA ========================
 
-func _start_day() -> void:
+func _start_day(headlines: PackedStringArray) -> void:
 	phase = Phase.DAY_INTRO
 	order_index = -1
 	_clear_counter()
 	var day := _day()
 	rules_label.text = "\n\n".join(PackedStringArray(day.rules.map(func(rule: AtelierShopRule) -> String: return "- " + rule.text)))
 	var body := day.intro
-	var headlines := GameState.publish_news()
 	if not headlines.is_empty():
 		body = "[b]THE MORNING HERALD[/b]\n" + "\n\n".join(headlines) + "\n\n" + body
 	body += "\n\n[b]Rulebook[/b]\n" + rules_label.text
@@ -80,11 +84,14 @@ func _begin_service() -> void:
 func _call_next_client() -> void:
 	if phase != Phase.WAITING:
 		return
-	order_index += 1
-	if order_index >= _day().orders.size():
-		_end_day()
-		return
-	current_order = _day().orders[order_index]
+	# Clientes cujas condições não valem hoje simplesmente não vêm.
+	current_order = null
+	while current_order == null:
+		order_index += 1
+		if order_index >= _day().orders.size():
+			_end_day()
+			return
+		current_order = GameState.resolve_customer(_day().orders[order_index])
 	phase = Phase.SERVING
 	_show_client(current_order)
 	_say_feedback("Check the request against the rulebook, then stamp it.")
@@ -108,15 +115,15 @@ func _end_day() -> void:
 
 
 func _go_to_next_day() -> void:
-	GameState.begin_next_day()
-	_start_day()
+	_start_day(GameState.begin_next_day())
 
 
 func _show_demo_end(ledger_body: String) -> void:
 	phase = Phase.DEMO_END
 	var body := ledger_body
-	if not GameState.pending_consequences.is_empty():
-		body += "\n\n[b]Tomorrow's Herald will read:[/b]\n" + "\n\n".join(PackedStringArray(GameState.pending_consequences.map(func(order: AtelierScrollOrder) -> String: return order.consequence_news)))
+	var upcoming := GameState.upcoming_headlines()
+	if not upcoming.is_empty():
+		body += "\n\n[b]Tomorrow's Herald will read:[/b]\n" + "\n\n".join(upcoming)
 	body += "\n\n[i]Thanks for playing the Atelier demo![/i]"
 	_show_overlay("End of the demo", body, "Back to the title", func() -> void: get_tree().change_scene_to_file("res://scenes/game/Title.tscn"))
 
@@ -134,38 +141,36 @@ func _on_approve() -> void:
 func _on_reject() -> void:
 	if phase != Phase.SERVING:
 		return
-	if current_order.is_legal():
-		GameState.record("Turned away %s (honest request)" % current_order.client_name, 0, -1)
+	var order := current_order
+	GameState.reject(order)
+	if order.is_legal():
 		_client_leaves("An honest customer leaves disappointed. Your reputation suffers.")
 	else:
-		GameState.record("Refused %s's %s" % [current_order.client_name, current_order.item], 0, 1)
-		_client_leaves("Good call. %s" % _violation_summary(current_order))
+		_client_leaves("Good call. %s" % _violation_summary(order))
 
 
 func _on_scroll_delivered(result: Dictionary) -> void:
 	workbench.hide()
-	var bonus := 5 if result["elegant"] else 0
-	var note := " (elegant work!)" if bonus > 0 else ""
-	GameState.record("Sold %s to %s%s" % [current_order.item, current_order.client_name, note], current_order.reward + bonus, 1 if current_order.is_legal() else 0)
-	if not current_order.is_legal():
-		GameState.pending_consequences.append(current_order)
-		_client_leaves("%s pays and hurries off with the scroll. You have an uneasy feeling..." % current_order.client_name)
+	var order := current_order
+	var paid := GameState.deliver(order, result["elegant"])
+	if not order.is_legal():
+		_client_leaves("%s pays and hurries off with the scroll. You have an uneasy feeling..." % order.client_name)
 	else:
-		_client_leaves("%s thanks you and pays %d coins." % [current_order.client_name, current_order.reward + bonus])
+		_client_leaves("%s thanks you and pays %d coins." % [order.client_name, paid])
 
 
 func _on_scroll_abandoned() -> void:
 	workbench.hide()
-	GameState.record("Failed to write %s for %s" % [current_order.item, current_order.client_name], 0, -1)
-	_client_leaves("You couldn't write the scroll. %s leaves empty-handed." % current_order.client_name)
+	var order := current_order
+	GameState.abandon(order)
+	_client_leaves("You couldn't write the scroll. %s leaves empty-handed." % order.client_name)
 
 
 func _client_leaves(message: String) -> void:
 	phase = Phase.WAITING
 	current_order = null
 	_clear_counter()
-	var remaining := _day().orders.size() - order_index - 1
-	_say_feedback(message + ("\nRing the bell for the next client." if remaining > 0 else "\nNo one else is waiting. Ring the bell to close the shop."))
+	_say_feedback(message + ("\nRing the bell for the next client." if _customers_waiting() > 0 else "\nNo one else is waiting. Ring the bell to close the shop."))
 	_refresh_controls()
 
 
@@ -195,8 +200,16 @@ func _refresh_hud() -> void:
 	day_label.text = _day().title
 	money_label.text = "%d coins" % GameState.money
 	reputation_label.text = "Reputation %d" % GameState.reputation
-	var waiting := maxi(_day().orders.size() - order_index - 1, 0)
-	queue_label.text = "%d waiting outside" % waiting
+	queue_label.text = "%d waiting outside" % _customers_waiting()
+
+
+## Clientes ainda na fila que de fato viriam com as flags atuais.
+func _customers_waiting() -> int:
+	var waiting := 0
+	for index in range(order_index + 1, _day().orders.size()):
+		if GameState.resolve_customer(_day().orders[index]) != null:
+			waiting += 1
+	return waiting
 
 
 func _refresh_controls() -> void:
@@ -216,7 +229,20 @@ func _show_overlay(title: String, body: String, button_text: String, action: Cal
 	overlay_button.text = button_text
 	_overlay_action = action
 	_refresh_controls()
+	overlay_body.fit_content = true
+	overlay_body.custom_minimum_size.y = 0.0
 	overlay.show()
+	_cap_overlay_body()
+
+
+## Manhãs com muitas manchetes cresceriam além da janela e esconderiam o botão;
+## acima do limite, o texto passa a rolar dentro do cartão.
+func _cap_overlay_body() -> void:
+	await get_tree().process_frame
+	if overlay_body.get_content_height() > OVERLAY_BODY_MAX_HEIGHT:
+		overlay_body.fit_content = false
+		overlay_body.custom_minimum_size.y = OVERLAY_BODY_MAX_HEIGHT
+		overlay_body.scroll_to_line(0)
 
 
 func _violation_summary(order: AtelierScrollOrder) -> String:

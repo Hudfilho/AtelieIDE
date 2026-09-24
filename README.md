@@ -117,25 +117,32 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 2. Confira o pedido contra o livro de regras do dia.
 3. Carimbe **REJECT** ou **APPROVE**.
 4. Se aprovar, escreva o pergaminho na bancada, que é o editor de runas em modo jogo, só com as runas liberadas no dia. **Deliver scroll** roda o ritual contra os casos de teste da encomenda.
-5. No fim do dia aparece o livro-caixa. Pedidos ilegais entregues viram notícia, multa e perda de reputação no dia seguinte.
+5. No fim do dia aparece o livro-caixa. As decisões têm consequências, algumas na hora e outras nas manhãs seguintes: jornal, multas, reputação e flags do mundo, como `guild_suspicion`. As flags mudam quem aparece nos dias seguintes. No dia 3, por exemplo, o inspetor da Guilda faz uma visita de rotina ou uma auditoria, conforme a suspeita acumulada.
 
 | Pasta | Conteúdo |
 | --- | --- |
 | `scenes/game/` | `Title`, `Desk` (balcão) e `Workbench` (bancada) |
 | `scripts/game/` | Lógica do balcão, da bancada, do `GameState` (autoload) e do `AtelierSpellJudge` |
-| `scripts/game/data/` | Tipos de dados: `AtelierShopDay`, `AtelierScrollOrder`, `AtelierShopRule` |
+| `scripts/game/data/` | Tipos de dados: `AtelierShopDay`, `AtelierScrollOrder`, `AtelierShopRule`, `AtelierConsequence`, `AtelierFlagCondition` |
 | `data/days/`, `data/orders/` | Conteúdo do demo em `.tres`, editável pelo Inspector |
 
 **Para criar um cliente novo:**
 
-1. Duplique um `.tres` em `data/orders/` e edite os campos no Inspector.
+1. Duplique um `.tres` em `data/orders/`, dê um `id` único e edite os campos no Inspector.
 2. Preencha `examples`, os casos mostrados na bancada, e `hidden_tests`, os casos conferidos só na entrega. Ambos seguem o formato `{"memory": {0: 5}, "output": ["15"]}`, e a memória é lida com `READ`.
    - Pedidos que leem entradas precisam de pelo menos um teste oculto, para que decorar a resposta do exemplo não baste.
    - Se um teste oculto falha, a bancada mostra as entradas dele como pista.
    - `max_steps` é o limite de passos por caso; acima dele, o feitiço é considerado um laço infinito.
    - `starting_ritual` é opcional: um rascunho já desenhado ao abrir a encomenda. **Reset** volta a ele, e `Ctrl+Z` desfaz o reinício.
-3. Adicione a encomenda ao `orders` de um dia.
-4. Coloque a solução de referência em `tests/spell_judge_smoke.gd`. O teste garante que toda encomenda tem solução com as runas do dia.
+3. Declare as consequências em `on_delivered`, `on_rejected` e `on_abandoned`. Cada `AtelierConsequence` tem:
+   - `delay_days`: `0` aplica na hora, `1` na manhã seguinte.
+   - `headline`, que sai no jornal, e `ledger_text`, que entra no livro-caixa.
+   - `money`, `reputation` e `flag_changes`, cujos valores são somados às flags.
+
+   Pedidos ilegais precisam de pelo menos uma consequência ao serem entregues. A regra geral da loja (pagamento, bônus de elegância e reputação por recusar) fica no `GameState`.
+4. Para um cliente condicional, use `conditions`: todas precisam valer para ele aparecer. Para versões alternativas, use `variants`: a primeira variante cujas condições valem toma o lugar do cliente. O inspetor do dia 3 e o retorno do goblin usam esse recurso.
+5. Adicione a encomenda ao `orders` de um dia. As variantes não entram na lista, só o cliente base.
+6. Coloque a solução de referência em `tests/spell_judge_smoke.gd`, pelo `id`. O teste garante que toda encomenda e toda variante tem solução com as runas do dia, que os ids são únicos e que toda flag usada numa condição é produzida por alguma consequência.
 
 ## Estrutura
 
