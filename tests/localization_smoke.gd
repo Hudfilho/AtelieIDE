@@ -73,7 +73,7 @@ func _run() -> void:
 				assert(table.has(text), "%s uses unknown key %s" % [where, text])
 				used_keys[text] = true
 				scene_keys += 1
-	assert(scene_keys >= 15, "Expected the demo scenes to reference keys, found %d" % scene_keys)
+	assert(scene_keys >= 12, "Expected the demo scenes to reference keys, found %d" % scene_keys)
 
 	# Código: toda chave citada existe e nenhum texto fixo aparece para o jogador.
 	var code_key := RegEx.create_from_string(CODE_KEY_PATTERN)

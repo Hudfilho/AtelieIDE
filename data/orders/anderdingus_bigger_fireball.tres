@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
 
 [ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Texture2D" path="res://art/pixel/portrait_goblin.png" id="portrait"]
 [ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
 [ext_resource type="Script" path="res://scripts/game/data/flag_condition.gd" id="3_condition"]
 
@@ -26,6 +27,7 @@ client_name = "Anderdingus"
 age = "1 year"
 race = "Goblin"
 signature = "GoOBLiN"
+portrait = ExtResource("portrait")
 portrait_color = Color(0.42, 0.62, 0.28, 1)
 reaction_approved = "HEHEHEHE! BIGGER!"
 reaction_refused = "No fun. NO FUN AT ALL."

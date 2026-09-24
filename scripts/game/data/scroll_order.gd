@@ -13,6 +13,9 @@ extends Resource
 @export var race := ""
 ## Como o cliente assinou o pedido. Compare com o nome.
 @export var signature := ""
+## Retrato na janela. Sem retrato, o balcão usa uma silhueta genérica
+## tingida com portrait_color.
+@export var portrait: Texture2D
 @export var portrait_color := Color(0.45, 0.55, 0.35)
 @export_multiline var greeting := ""
 ## Reação ao carimbo; vazio usa uma fala genérica do balcão.

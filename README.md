@@ -126,6 +126,13 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 | `scripts/game/data/` | Tipos de dados: `AtelierShopDay`, `AtelierScrollOrder`, `AtelierShopRule`, `AtelierConsequence`, `AtelierFlagCondition` |
 | `data/days/`, `data/orders/`, `data/rules/` | Conteúdo do demo em `.tres`, editável pelo Inspector |
 
+**Balcão em pixel art (protótipo):** o balcão é desenhado num `SubViewport` de 640x360, com filtro nearest e pixels alinhados, e aparece com escala 2x na janela de 1280x720. A bancada de runas e os cartões do dia continuam em resolução cheia.
+
+- A arte é provisória e original. É gerada por `tools/pixel_art/generate_pixel_art.py`, que produz os sprites, as molduras 9-slice e uma fonte bitmap própria com acentos, em dois tamanhos. Rode o script de novo para ajustar a arte.
+- O goblin tem retrato próprio (`portrait` na encomenda). Os demais clientes usam uma silhueta tingida com `portrait_color`.
+- A marca APPROVED/REFUSED cai numa área reservada do pergaminho (`StampBox`), sem cobrir texto.
+- `tests/pixel_desk_smoke.gd` monta o balcão para todo cliente de todos os dias e confere que nada sai da tela ou se sobrepõe, que a marca fica dentro da área e que a fonte tem todos os caracteres. Rode também com `locale/test="pt_BR"`. Ao criar conteúdo, respeite estes limites: detalhes com até cerca de 4 linhas (~150 caracteres), pedido com até 2 linhas e falas com até 3 linhas.
+
 **Retorno tátil do balcão:** o nó `Feedback` do `Desk` (`AtelierDeskFeedback`) cuida só de animação e som. Ele faz o carimbo voar até o papel, deixa a marca APPROVED/REFUSED, faz a mesa tremer e toca as deixas de som `bell`, `stamp_approve`, `stamp_reject`, `paper` e `coins`.
 
 - A decisão só vale no impacto do carimbo. Os tempos ficam em constantes no topo de `desk_feedback.gd`.

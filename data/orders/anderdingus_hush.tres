@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
 
 [ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Texture2D" path="res://art/pixel/portrait_goblin.png" id="portrait"]
 [ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
 [ext_resource type="Script" path="res://scripts/game/data/flag_condition.gd" id="3_condition"]
 [ext_resource type="Resource" path="res://data/orders/anderdingus_bigger_fireball.tres" id="variant_0"]
@@ -26,6 +27,7 @@ client_name = "Anderdingus"
 age = "1 year"
 race = "Goblin"
 signature = "Anderdingus"
+portrait = ExtResource("portrait")
 portrait_color = Color(0.42, 0.62, 0.28, 1)
 reaction_approved = "A quiet spell! Hehe... thank you, scroll lady."
 reaction_refused = "...but I signed my name right this time."

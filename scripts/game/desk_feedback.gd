@@ -26,18 +26,15 @@ const STAMP_RETURN := 0.16
 ## Escala do carimbo erguido sobre o papel e no instante da pressão.
 const STAMP_LIFTED_SCALE := 1.12
 const STAMP_PRESSED_SCALE := 0.96
-## Altura (px) em que o carimbo paira antes de descer.
-const STAMP_HOVER_HEIGHT := 22.0
-## Onde a marca cai no papel, em fração do tamanho do formulário.
-const STAMP_SPOT := Vector2(0.66, 0.74)
-## ---- Marca de tinta ----
+## Altura (px do balcão em pixel art) em que o carimbo paira antes de descer.
+const STAMP_HOVER_HEIGHT := 10.0
+## ---- Marca de tinta (sem rotação: texto girado perde a nitidez do pixel) ----
 const INK_POP := 0.08
 const INK_POP_SCALE := 1.25
-const INK_ROTATION := -0.14
-const INK_ALPHA := 0.88
-## ---- Tremida da mesa ----
+const INK_ALPHA := 0.9
+## ---- Tremida da mesa, em pixels inteiros do balcão ----
 const SHAKE_DURATION := 0.18
-const SHAKE_STRENGTH := 5.0
+const SHAKE_STRENGTH := 2.0
 const SHAKE_STEPS := 6
 
 @export var instant := false
@@ -46,8 +43,11 @@ const SHAKE_STEPS := 6
 @export var mute := false
 ## Nó que treme no impacto (o balcão inteiro).
 @export var shake_target: Control
-@export var stamp_head: PanelContainer
-@export var stamp_text: Label
+## Carimbo que voa até o papel; recebe o sprite do tipo em stamp_sprites.
+@export var stamp_head: TextureRect
+@export var stamp_sprites: Dictionary[StringName, Texture2D] = {}
+## Área reservada no pedido onde a marca cai, longe dos campos de texto.
+@export var stamp_target: Control
 @export var ink_mark: Label
 ## Substitui o som provisório de uma deixa (bell, stamp_approve, stamp_reject, paper, coins).
 @export var sounds: Dictionary[StringName, AudioStream] = {}
@@ -159,50 +159,42 @@ func _finish() -> void:
 	stamp_finished.emit(kind)
 
 
+## Centro da área do carimbo (ou do papel, se não houver área reservada),
+## arredondado para cair em pixel inteiro.
 func _spot() -> Vector2:
-	return _paper.global_position + _paper.size * STAMP_SPOT
+	if stamp_target != null:
+		return (stamp_target.global_position + stamp_target.size * 0.5).round()
+	return (_paper.global_position + _paper.size * 0.5).round()
 
 
 func _dress_stamp_head(kind: StringName) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.17, 0.4, 0.2) if kind == APPROVE else Color(0.55, 0.14, 0.12)
-	style.border_color = Color(0.08, 0.2, 0.1) if kind == APPROVE else Color(0.25, 0.05, 0.04)
-	style.set_border_width_all(3)
-	style.border_width_bottom = 7
-	style.set_corner_radius_all(10)
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.45)
-	style.shadow_size = 10
-	style.shadow_offset = Vector2(4.0, 8.0)
-	stamp_head.add_theme_stylebox_override("panel", style)
-	stamp_text.text = tr("DESK_APPROVE" if kind == APPROVE else "DESK_REJECT")
-	stamp_head.reset_size()
-	stamp_head.pivot_offset = stamp_head.size * 0.5
+	stamp_head.texture = stamp_sprites.get(kind)
+	stamp_head.size = stamp_head.texture.get_size() if stamp_head.texture != null else Vector2(40.0, 46.0)
+	stamp_head.pivot_offset = (stamp_head.size * 0.5).round()
 
 
 ## ======================== MARCA DE TINTA ========================
 
 ## Marca permanente no pedido ("APPROVED"/"REFUSED"), até o próximo cliente.
+## A marca é filha centralizada da área do carimbo: acompanha o papel e o
+## layout sozinha, sem depender de coordenadas calculadas no impacto.
 func show_ink(kind: StringName) -> void:
 	if ink_mark == null:
 		return
 	var ink := Color(0.12, 0.42, 0.2) if kind == APPROVE else Color(0.72, 0.08, 0.06)
 	var frame := StyleBoxFlat.new()
 	frame.draw_center = false
+	frame.anti_aliasing = false
 	frame.border_color = ink
-	frame.set_border_width_all(4)
-	frame.set_corner_radius_all(6)
-	frame.content_margin_left = 12.0
-	frame.content_margin_right = 12.0
-	frame.content_margin_top = 2.0
-	frame.content_margin_bottom = 2.0
+	frame.set_border_width_all(2)
+	frame.content_margin_left = 5.0
+	frame.content_margin_right = 4.0
+	frame.content_margin_top = 0.0
+	frame.content_margin_bottom = 0.0
 	ink_mark.add_theme_stylebox_override("normal", frame)
 	ink_mark.add_theme_color_override("font_color", ink)
 	ink_mark.text = tr("DESK_INK_APPROVED" if kind == APPROVE else "DESK_INK_REFUSED")
-	ink_mark.reset_size()
-	ink_mark.pivot_offset = ink_mark.size * 0.5
-	ink_mark.rotation = INK_ROTATION
-	if _paper != null:
-		ink_mark.global_position = _spot() - ink_mark.size * 0.5
+	ink_mark.pivot_offset = (ink_mark.get_combined_minimum_size() * 0.5).round()
 	ink_mark.show()
 	if instant:
 		ink_mark.scale = Vector2.ONE
@@ -232,7 +224,7 @@ func shake(strength := SHAKE_STRENGTH) -> void:
 	var step := SHAKE_DURATION / float(SHAKE_STEPS)
 	for index in range(SHAKE_STEPS):
 		var decay := 1.0 - float(index) / float(SHAKE_STEPS)
-		var offset := Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)).normalized() * strength * decay
+		var offset := (Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)).normalized() * strength * decay).round()
 		_shake_tween.tween_property(shake_target, "position", _shake_base + offset, step)
 	_shake_tween.tween_property(shake_target, "position", _shake_base, step)
 

@@ -34,6 +34,8 @@ const CONTRADICTION_FLASH := Color(1.0, 0.45, 0.4)
 const APPROVED_HOLD := 0.35
 const REFUSED_LINGER := 0.9
 
+## Silhueta usada por clientes sem retrato próprio (tingida com portrait_color).
+@export var generic_portrait: Texture2D
 ## Ligações erradas com um cliente até ele perder a paciência (mínimo 2).
 @export var inspection_mistake_threshold := AtelierInspection.DEFAULT_MISTAKE_THRESHOLD
 ## Reputação perdida, uma única vez por cliente, ao atingir o limite.
@@ -43,8 +45,7 @@ const REFUSED_LINGER := 0.9
 @onready var money_label: Label = %MoneyLabel
 @onready var reputation_label: Label = %ReputationLabel
 @onready var queue_label: Label = %QueueLabel
-@onready var portrait: ColorRect = %Portrait
-@onready var portrait_initial: Label = %PortraitInitial
+@onready var portrait: TextureRect = %Portrait
 @onready var client_name_label: Label = %ClientName
 @onready var speech_label: Label = %Speech
 @onready var bell_button: Button = %BellButton
@@ -91,7 +92,7 @@ func _ready() -> void:
 	workbench.abandoned.connect(_on_scroll_abandoned)
 	feedback.stamp_impact.connect(_on_stamp_impact)
 	feedback.stamp_finished.connect(_on_stamp_finished)
-	for paper: Control in [request_form, $Papers/Rulebook]:
+	for paper: Control in [request_form, %Rulebook]:
 		paper.picked_up.connect(feedback.play_sfx.bind(&"paper"))
 	workbench.hide()
 	_start_day(PackedStringArray())
@@ -279,8 +280,8 @@ func _client_leaves(message: String) -> void:
 ## ======================== APRESENTAÇÃO ========================
 
 func _show_client(order: AtelierScrollOrder) -> void:
-	portrait.color = order.portrait_color
-	portrait_initial.text = order.client_name.left(1)
+	portrait.texture = order.portrait if order.portrait != null else generic_portrait
+	portrait.self_modulate = Color.WHITE if order.portrait != null else order.portrait_color
 	client_name_label.text = "%s, %s" % [order.client_name, order.race]
 	speech_label.text = "\"%s\"" % order.greeting
 	spec_label.text = tr("DESK_SCROLL_MUST") % [order.spec.get_slice("\n", 0)]
@@ -289,6 +290,7 @@ func _show_client(order: AtelierScrollOrder) -> void:
 	_selected_rule = null
 	_refresh_inspection_marks()
 	feedback.clear_ink()
+	_fit_item_title()
 	portrait.show()
 	request_form.show()
 	feedback.play_sfx(&"paper")
@@ -306,6 +308,17 @@ func _clear_counter() -> void:
 	_refresh_inspection_marks()
 
 
+## Títulos longos não cabem na fonte grande do pergaminho: usa a pequena.
+func _fit_item_title() -> void:
+	var item_button := field_buttons["item"]
+	item_button.theme_type_variation = &"PaperTitleField"
+	var font := item_button.get_theme_font(&"font")
+	var width := font.get_string_size(item_button.text, HORIZONTAL_ALIGNMENT_LEFT, -1, item_button.get_theme_font_size(&"font_size")).x
+	var room := request_form.size.x - 24.0
+	if width > room:
+		item_button.theme_type_variation = &"PaperTitleFieldCompact"
+
+
 ## ======================== INSPEÇÃO ========================
 
 func _build_rulebook(day: AtelierShopDay) -> void:
@@ -320,8 +333,8 @@ func _build_rulebook(day: AtelierShopDay) -> void:
 		button.toggle_mode = true
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		button.custom_minimum_size.x = 290.0
-		button.add_theme_font_size_override("font_size", 15)
+		# Largura e fonte vêm da cena e do tema (RulesList), não do código.
+		button.custom_minimum_size.x = rules_list.custom_minimum_size.x
 		button.pressed.connect(_on_rule_pressed.bind(rule))
 		rules_list.add_child(button)
 		_rule_buttons[rule] = button
@@ -398,13 +411,20 @@ func _refresh_inspection_marks() -> void:
 	elif not inspection.has_evidence():
 		evidence_label.text = tr("DESK_NO_EVIDENCE")
 	else:
+		# Uma linha por regra citada (com os campos que a provam): cabe na nota
+		# do balcão mesmo com todas as provas de um pedido.
 		var lines: PackedStringArray = [tr("DESK_EVIDENCE_HEADER")]
-		for entry in inspection.evidence:
-			var rule: AtelierShopRule = entry["rule"]
-			lines.append("- %s -> %s" % [tr(AtelierScrollOrder.FIELD_LABELS[entry["field"]]), rule.title])
+		for rule in inspection.cited_rules():
+			var fields: PackedStringArray = []
+			for entry in inspection.evidence:
+				if entry["rule"] == rule:
+					fields.append(tr(AtelierScrollOrder.FIELD_LABELS[entry["field"]]))
+			lines.append("- %s: %s" % [rule.title, ", ".join(fields)])
 		evidence_label.text = "\n".join(lines)
 	if inspection != null and inspection.mistakes > 0:
 		evidence_label.text += "\n" + tr("DESK_WRONG_LINKS") % [inspection.mistakes, inspection.mistake_threshold]
+	# A nota de provas só ocupa espaço quando há algo a mostrar.
+	%EvidenceCard.visible = not evidence_label.text.is_empty()
 
 
 func _field_text(order: AtelierScrollOrder, field_name: String) -> String:

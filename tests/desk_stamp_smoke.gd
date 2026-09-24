@@ -99,7 +99,7 @@ func _run() -> void:
 	assert(desk.request_form.visible, "The refused request stays on the desk while the client reacts")
 	assert(bell.disabled and reject.disabled and approve.disabled)
 	assert(feedback_label.text == tr("DESK_REFUSED_EVIDENCE") % ["Matching signature"], feedback_label.text)
-	assert(desk.position == Vector2.ZERO, "The shake is undone when the stamp finishes early")
+	assert(feedback.shake_target.position == Vector2.ZERO, "The shake is undone when the stamp finishes early")
 	for click in 3:
 		reject.pressed.emit()
 	feedback.finish_now(false)

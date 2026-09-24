@@ -87,7 +87,7 @@ func _run() -> void:
 	assert((desk.get_node("%SignatureField") as Button).text.begins_with("»"))
 	assert(_rule_button(desk, "signature").text.begins_with("»"))
 	assert(not (desk.get_node("%SignatureField") as Button).button_pressed, "Selection clears after a link")
-	assert("- %s -> %s" % [tr("FIELD_SIGNATURE"), "Matching signature"] in evidence_label.text, evidence_label.text)
+	assert("- %s: %s" % ["Matching signature", tr("FIELD_SIGNATURE")] in evidence_label.text, evidence_label.text)
 	reject.pressed.emit()
 	assert(game_state.reputation == 5 + 1 + 1, "A cited rejection is a correct rejection")
 	assert(game_state.outcomes["anderdingus_fireball"] == "rejected")
