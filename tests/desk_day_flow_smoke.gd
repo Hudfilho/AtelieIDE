@@ -23,6 +23,7 @@ func _run() -> void:
 	var approve := desk.get_node("%ApproveButton") as Button
 	var reject := desk.get_node("%RejectButton") as Button
 	var workbench = desk.get_node("%Workbench")
+	var feedback := desk.get_node("%FeedbackLabel") as Label
 	assert(overlay.visible, "Day intro should open the day")
 	assert(bell.disabled)
 	desk.get_node("%OverlayButton").pressed.emit()
@@ -32,7 +33,7 @@ func _run() -> void:
 	# Dia 1, cliente 1 (Mira): aprovar abre a bancada só com as runas do dia.
 	bell.pressed.emit()
 	assert(not approve.disabled)
-	assert((desk.get_node("%ItemLabel") as Label).text == "Scroll of Warm Light")
+	assert(_item(desk) == "Scroll of Warm Light")
 	approve.pressed.emit()
 	await process_frame
 	assert(workbench.visible)
@@ -66,11 +67,29 @@ func _run() -> void:
 	assert(not workbench.visible)
 	assert(game_state.money == 20 + 8 + 5, "Reward plus elegant bonus")
 
-	# Cliente 2 (goblin do Fireball): recusar é o certo.
+	# Cliente 2 (goblin do Fireball): inspeção antes de recusar.
 	bell.pressed.emit()
-	assert((desk.get_node("%ItemLabel") as Label).text == "Fireball")
+	assert(_item(desk) == "Fireball")
+	var evidence_label := desk.get_node("%EvidenceLabel") as Label
+	assert("No evidence" in evidence_label.text)
+	# Ligação errada: contradição, sem prova.
+	desk.get_node("%RaceField").pressed.emit()
+	_rule_button(desk, "signature").pressed.emit()
+	assert(feedback.text.begins_with("No contradiction"), feedback.text)
+	assert("No evidence" in evidence_label.text)
+	# Regra primeiro, campo depois: também vale; vira prova marcada em tinta.
+	_rule_button(desk, "signature").pressed.emit()
+	assert(_rule_button(desk, "signature").button_pressed, "The chosen rule stays selected")
+	desk.get_node("%SignatureField").pressed.emit()
+	assert(feedback.text.begins_with("Discrepancy confirmed"), feedback.text)
+	assert((desk.get_node("%SignatureField") as Button).text.begins_with("»"))
+	assert(_rule_button(desk, "signature").text.begins_with("»"))
+	assert(not (desk.get_node("%SignatureField") as Button).button_pressed, "Selection clears after a link")
+	assert("Signature -> Matching signature" in evidence_label.text, evidence_label.text)
 	reject.pressed.emit()
-	assert(game_state.reputation == 5 + 1 + 1)
+	assert(game_state.reputation == 5 + 1 + 1, "A cited rejection is a correct rejection")
+	assert("Refused on evidence: Matching signature" in feedback.text, feedback.text)
+	assert(evidence_label.text.is_empty())
 
 	# Cliente 3 (Tomas): a bancada mostra só o exemplo; desistir custa reputação.
 	bell.pressed.emit()
@@ -101,8 +120,11 @@ func _run() -> void:
 	assert(canvas.palette_symbols.size() == 12)
 	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["faelar_quiet_growth"])
 	assert(game_state.scheduled.size() == 1)
-	bell.pressed.emit() # Brom
+	bell.pressed.emit() # Brom: assinatura "Bronn" não bate, mas recusado sem prova.
+	var reputation_before_brom: int = game_state.reputation
 	reject.pressed.emit()
+	assert(game_state.reputation == reputation_before_brom - 1)
+	assert("without cause" in feedback.text, feedback.text)
 	bell.pressed.emit() # Oona
 	approve.pressed.emit()
 	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["oona_vesper_bell"])
@@ -122,7 +144,7 @@ func _run() -> void:
 
 	# Dia 3: o goblin recusado volta com um pedido honesto.
 	bell.pressed.emit()
-	assert((desk.get_node("%ItemLabel") as Label).text == "Hush Charm")
+	assert(_item(desk) == "Hush Charm")
 	approve.pressed.emit()
 	assert(canvas.palette_symbols.size() == 15)
 	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["anderdingus_hush"])
@@ -130,12 +152,12 @@ func _run() -> void:
 	reject.pressed.emit()
 	# Magia proibida entregue: a suspeita sobe na hora e o inspetor vira auditoria.
 	bell.pressed.emit()
-	assert((desk.get_node("%ItemLabel") as Label).text == "Scroll of Gentle Forgetting")
+	assert(_item(desk) == "Scroll of Gentle Forgetting")
 	approve.pressed.emit()
 	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["osric_gentle_forgetting"])
 	assert(game_state.flag("guild_suspicion") == 3)
 	bell.pressed.emit()
-	assert((desk.get_node("%ItemLabel") as Label).text == "Audit Tally")
+	assert(_item(desk) == "Audit Tally")
 	approve.pressed.emit()
 	_write(canvas, workbench, SpellJudgeSmoke.AUDIT_LOOP)
 	assert(not workbench.visible, "The loop solution should pass the audit on the real bench")
@@ -158,6 +180,14 @@ func _run() -> void:
 
 	print("desk_day_flow_smoke: demo played through, %d coins, reputation %d" % [game_state.money, game_state.reputation])
 	quit(0)
+
+
+func _item(desk: Control) -> String:
+	return (desk.get_node("%ItemField") as Button).text.trim_prefix("» ")
+
+
+func _rule_button(desk: Control, rule_id: String) -> Button:
+	return desk.get_node("%RulesList").get_node("Rule_" + rule_id) as Button
 
 
 func _write(canvas, workbench: Control, runes: Array) -> void:

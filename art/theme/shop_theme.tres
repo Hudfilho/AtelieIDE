@@ -115,6 +115,39 @@ corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 
+[sub_resource type="StyleBoxEmpty" id="paper_field"]
+content_margin_left = 6.0
+content_margin_top = 2.0
+content_margin_right = 6.0
+content_margin_bottom = 2.0
+
+[sub_resource type="StyleBoxFlat" id="paper_field_hover"]
+content_margin_left = 6.0
+content_margin_top = 2.0
+content_margin_right = 6.0
+content_margin_bottom = 2.0
+bg_color = Color(0.45, 0.3, 0.15, 0.12)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="paper_field_selected"]
+content_margin_left = 6.0
+content_margin_top = 2.0
+content_margin_right = 6.0
+content_margin_bottom = 2.0
+bg_color = Color(0.85, 0.62, 0.2, 0.35)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.55, 0.35, 0.12, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
 [resource]
 default_font_size = 16
 Button/colors/font_color = Color(0.95, 0.85, 0.62, 1)
@@ -145,6 +178,29 @@ RejectStamp/styles/normal = SubResource("reject")
 RejectStamp/styles/hover = SubResource("reject")
 RejectStamp/styles/pressed = SubResource("reject")
 RejectStamp/styles/disabled = SubResource("button_disabled")
+PaperField/base_type = &"Button"
+PaperField/colors/font_color = Color(0.2, 0.13, 0.08, 1)
+PaperField/colors/font_hover_color = Color(0.2, 0.13, 0.08, 1)
+PaperField/colors/font_pressed_color = Color(0.2, 0.13, 0.08, 1)
+PaperField/colors/font_focus_color = Color(0.2, 0.13, 0.08, 1)
+PaperField/colors/font_hover_pressed_color = Color(0.2, 0.13, 0.08, 1)
+PaperField/styles/normal = SubResource("paper_field")
+PaperField/styles/hover = SubResource("paper_field_hover")
+PaperField/styles/pressed = SubResource("paper_field_selected")
+PaperField/styles/hover_pressed = SubResource("paper_field_selected")
+PaperField/styles/focus = SubResource("paper_field")
+PaperTitleField/base_type = &"Button"
+PaperTitleField/colors/font_color = Color(0.5, 0.1, 0.08, 1)
+PaperTitleField/colors/font_hover_color = Color(0.5, 0.1, 0.08, 1)
+PaperTitleField/colors/font_pressed_color = Color(0.5, 0.1, 0.08, 1)
+PaperTitleField/colors/font_focus_color = Color(0.5, 0.1, 0.08, 1)
+PaperTitleField/colors/font_hover_pressed_color = Color(0.5, 0.1, 0.08, 1)
+PaperTitleField/font_sizes/font_size = 28
+PaperTitleField/styles/normal = SubResource("paper_field")
+PaperTitleField/styles/hover = SubResource("paper_field_hover")
+PaperTitleField/styles/pressed = SubResource("paper_field_selected")
+PaperTitleField/styles/hover_pressed = SubResource("paper_field_selected")
+PaperTitleField/styles/focus = SubResource("paper_field")
 HeaderLabel/base_type = &"Label"
 HeaderLabel/colors/font_color = Color(0.98, 0.8, 0.45, 1)
 HeaderLabel/font_sizes/font_size = 22

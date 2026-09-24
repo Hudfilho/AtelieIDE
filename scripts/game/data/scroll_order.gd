@@ -19,8 +19,10 @@ extends Resource
 @export_group("Pedido")
 @export var item := ""
 @export_multiline var details := ""
-## Ids das regras do dia que este pedido viola. Vazio = pedido legítimo.
-@export var violations: PackedStringArray = []
+## Natureza do pedido (ex.: "offensive", "mind") para regras HAS_TAG. O jogador
+## não vê as etiquetas: deduz pelo item e pelos detalhes. Se o pedido é legal
+## ou não depende das regras do dia (AtelierShopDay.violated_rules).
+@export var tags: PackedStringArray = []
 
 @export_group("Feitiço")
 ## O que o pergaminho precisa fazer, em linguagem de jogador.
@@ -58,8 +60,27 @@ extends Resource
 @export var variants: Array[Resource] = []
 
 
-func is_legal() -> bool:
-	return violations.is_empty()
+## Campos que o jogador pode inspecionar no formulário, na ordem em que aparecem.
+const INSPECTABLE_FIELDS: Array[String] = ["item", "name", "age", "race", "signature", "details"]
+const FIELD_LABELS := {"item": "Item", "name": "Name", "age": "Age", "race": "Race", "signature": "Signature", "details": "Details"}
+
+
+func field_value(field_name: String) -> String:
+	match field_name:
+		"item":
+			return item
+		"name":
+			return client_name
+		"age":
+			return age
+		"race":
+			return race
+		"signature":
+			return signature
+		"details":
+			return details
+		_:
+			return ""
 
 
 func conditions_met(flags: Dictionary) -> bool:

@@ -31,8 +31,14 @@ static func versions_of(slot: AtelierScrollOrder) -> Array[AtelierScrollOrder]:
 	return versions
 
 
-func rule_text(rule_id: String) -> String:
+## Regras em vigor hoje que a encomenda viola; vazio = pedido legal hoje.
+func violated_rules(order: AtelierScrollOrder) -> Array[AtelierShopRule]:
+	var violated: Array[AtelierShopRule] = []
 	for rule in rules:
-		if rule.id == rule_id:
-			return rule.text
-	return rule_id
+		if rule.violated_by(order):
+			violated.append(rule)
+	return violated
+
+
+func is_legal(order: AtelierScrollOrder) -> bool:
+	return violated_rules(order).is_empty()

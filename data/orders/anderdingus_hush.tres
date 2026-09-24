@@ -30,7 +30,6 @@ portrait_color = Color(0.42, 0.62, 0.28, 1)
 greeting = "You said no fireball. Fine. FINE. Hehe... can I have a quiet spell instead?"
 item = "Hush Charm"
 details = "The village is SO LOUD. A charm that makes their noise three times smaller.\nNo fire. I pinky promise. (I learned to sign my name!)"
-violations = PackedStringArray()
 spec = "READ the noise level from slot 000 and print a third of it (rounded down)."
 examples = Array[Dictionary]([{"memory": {0: 90}, "output": ["30"]}])
 hidden_tests = Array[Dictionary]([{"memory": {0: 10}, "output": ["3"]}, {"memory": {0: 2}, "output": ["0"]}])

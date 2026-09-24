@@ -22,7 +22,6 @@ portrait_color = Color(0.7, 0.45, 0.35, 1)
 greeting = "Quick now, the mine cart won't fill itself."
 item = "Scroll of Doubled Ore"
 details = "Doubles the ore in a cart. The cart count is in slot 000."
-violations = PackedStringArray("signature")
 spec = "READ slot 000 and print it doubled."
 examples = Array[Dictionary]([{"memory": {0: 6}, "output": ["12"]}])
 hidden_tests = Array[Dictionary]([{"memory": {0: 40}, "output": ["80"]}])

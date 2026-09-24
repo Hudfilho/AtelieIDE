@@ -13,7 +13,6 @@ portrait_color = Color(0.62, 0.58, 0.52, 1)
 greeting = "These old bones feel every draft, young one."
 item = "Warming Charm"
 details = "The charm should keep me 10 degrees warmer than whatever it is outside.\nThe weather changes, so it must read the air each time."
-violations = PackedStringArray()
 spec = "READ the outside temperature from slot 000, then print it plus 10."
 examples = Array[Dictionary]([{"memory": {0: 5}, "output": ["15"]}])
 hidden_tests = Array[Dictionary]([{"memory": {0: 20}, "output": ["30"]}, {"memory": {0: 0}, "output": ["10"]}])

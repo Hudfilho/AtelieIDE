@@ -13,7 +13,6 @@ portrait_color = Color(0.9, 0.72, 0.3, 1)
 greeting = "It's my birthday tomorrow! Well, one of them."
 item = "Party Sparks"
 details = "Sparks that multiply! The number of guests goes in slot 000, and I want guests x guests sparks."
-violations = PackedStringArray()
 spec = "READ slot 000 and print it squared (for 4: 16)."
 examples = Array[Dictionary]([{"memory": {0: 4}, "output": ["16"]}])
 hidden_tests = Array[Dictionary]([{"memory": {0: 7}, "output": ["49"]}, {"memory": {0: 1}, "output": ["1"]}])

@@ -42,7 +42,6 @@ portrait_color = Color(0.3, 0.34, 0.5, 1)
 greeting = "Routine inspection, artisan. Show me your hand is steady and your seal is honest."
 item = "Seal of Good Standing"
 details = "Guild procedure: a scroll that multiplies two witnessed numbers, held in slots 000 and 001."
-violations = PackedStringArray()
 spec = "READ slots 000 and 001 and print their product."
 examples = Array[Dictionary]([{"memory": {0: 6, 1: 7}, "output": ["42"]}])
 hidden_tests = Array[Dictionary]([{"memory": {0: 12, 1: 3}, "output": ["36"]}, {"memory": {0: 0, 1: 9}, "output": ["0"]}])

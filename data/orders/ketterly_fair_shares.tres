@@ -13,7 +13,6 @@ portrait_color = Color(0.7, 0.6, 0.55, 1)
 greeting = "Bless you for being open. The orphanage bread never divides evenly."
 item = "Scroll of Fair Shares"
 details = "Loaves are in slot 000, children in slot 001.\nTell me how many loaves each child gets, and how many are left for tomorrow."
-violations = PackedStringArray()
 spec = "READ slots 000 and 001; print slot 000 divided by slot 001, then the remainder."
 examples = Array[Dictionary]([{"memory": {0: 17, 1: 5}, "output": ["3", "2"]}])
 hidden_tests = Array[Dictionary]([{"memory": {0: 20, 1: 4}, "output": ["5", "0"]}, {"memory": {0: 3, 1: 7}, "output": ["0", "3"]}])

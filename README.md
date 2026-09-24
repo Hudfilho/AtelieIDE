@@ -114,8 +114,8 @@ O projeto agora abre numa tela inicial com duas opções: **Open the shop**, o d
 No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *Potion Craft* e *Witch Hat Atelier*:
 
 1. Toque o sino para chamar o próximo cliente.
-2. Confira o pedido contra o livro de regras do dia.
-3. Carimbe **REJECT** ou **APPROVE**.
+2. Inspecione: clique num campo do pedido e depois na regra do livro que ele viola, ou na ordem inversa. Ligações certas viram provas, marcadas em tinta vermelha; as erradas voltam como contradição.
+3. Carimbe **REJECT** ou **APPROVE**. Uma recusa só é correta se citar ao menos uma prova válida. Recusar sem prova conta como recusa sem motivo, mesmo que o pedido seja ilegal.
 4. Se aprovar, escreva o pergaminho na bancada, que é o editor de runas em modo jogo, só com as runas liberadas no dia. **Deliver scroll** roda o ritual contra os casos de teste da encomenda.
 5. No fim do dia aparece o livro-caixa. As decisões têm consequências, algumas na hora e outras nas manhãs seguintes: jornal, multas, reputação e flags do mundo, como `guild_suspicion`. As flags mudam quem aparece nos dias seguintes. No dia 3, por exemplo, o inspetor da Guilda faz uma visita de rotina ou uma auditoria, conforme a suspeita acumulada.
 
@@ -124,7 +124,7 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 | `scenes/game/` | `Title`, `Desk` (balcão) e `Workbench` (bancada) |
 | `scripts/game/` | Lógica do balcão, da bancada, do `GameState` (autoload) e do `AtelierSpellJudge` |
 | `scripts/game/data/` | Tipos de dados: `AtelierShopDay`, `AtelierScrollOrder`, `AtelierShopRule`, `AtelierConsequence`, `AtelierFlagCondition` |
-| `data/days/`, `data/orders/` | Conteúdo do demo em `.tres`, editável pelo Inspector |
+| `data/days/`, `data/orders/`, `data/rules/` | Conteúdo do demo em `.tres`, editável pelo Inspector |
 
 **Para criar um cliente novo:**
 
@@ -139,10 +139,20 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
    - `headline`, que sai no jornal, e `ledger_text`, que entra no livro-caixa.
    - `money`, `reputation` e `flag_changes`, cujos valores são somados às flags.
 
-   Pedidos ilegais precisam de pelo menos uma consequência ao serem entregues. A regra geral da loja (pagamento, bônus de elegância e reputação por recusar) fica no `GameState`.
+   A legalidade não é escrita no pedido: ela vem das regras do dia. Para regras sobre a natureza do pedido, use `tags` (por exemplo `offensive` ou `mind`). O jogador não vê as etiquetas e deduz pelo item e pelos detalhes. Pedidos ilegais precisam de pelo menos uma consequência ao serem entregues. A regra geral da loja (pagamento, bônus de elegância e reputação por recusar) fica no `GameState`.
 4. Para um cliente condicional, use `conditions`: todas precisam valer para ele aparecer. Para versões alternativas, use `variants`: a primeira variante cujas condições valem toma o lugar do cliente. O inspetor do dia 3 e o retorno do goblin usam esse recurso.
 5. Adicione a encomenda ao `orders` de um dia. As variantes não entram na lista, só o cliente base.
 6. Coloque a solução de referência em `tests/spell_judge_smoke.gd`, pelo `id`. O teste garante que toda encomenda e toda variante tem solução com as runas do dia, que os ids são únicos e que toda flag usada numa condição é produzida por alguma consequência.
+
+**Para criar uma regra:** crie um `.tres` em `data/rules/` com `AtelierShopRule`, com `id`, `title` (nome curto para o livro-caixa e as provas) e `text`. Em seguida:
+
+- Escolha a verificação em `check`:
+  - `FIELD_IS`: um campo igual a um valor, como `race` = `Elf`.
+  - `FIELDS_DIFFER`: dois campos diferentes, como `signature` ≠ `name`.
+  - `HAS_TAG`: o pedido tem uma etiqueta, como `offensive`.
+- Liste em `evidence_fields` os campos que o jogador pode citar como prova.
+- Coloque a regra nos `rules` dos dias em que vale.
+- Atualize `EXPECTED_BROKEN_RULES` em `tests/spell_judge_smoke.gd`, que fixa quais pedidos devem violar quais regras.
 
 ## Estrutura
 

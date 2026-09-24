@@ -168,13 +168,19 @@ theme_type_variation = &"PaperTitle"
 theme_override_font_sizes/font_size = 22
 text = "Shop Rulebook"
 
-[node name="RulesLabel" type="Label" parent="Papers/Rulebook/Rows"]
+[node name="RulesList" type="VBoxContainer" parent="Papers/Rulebook/Rows"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(290, 0)
 layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Hint" type="Label" parent="Papers/Rulebook/Rows"]
+custom_minimum_size = Vector2(290, 0)
+layout_mode = 2
 theme_type_variation = &"PaperLabel"
-theme_override_font_sizes/font_size = 15
-text = "- Rules"
+theme_override_colors/font_color = Color(0.42, 0.32, 0.22, 1)
+theme_override_font_sizes/font_size = 12
+text = "Inspect: click a request field, then the rule it breaks."
 autowrap_mode = 3
 
 [node name="RequestForm" type="PanelContainer" parent="Papers"]
@@ -197,28 +203,60 @@ theme_type_variation = &"PaperLabel"
 text = "Magic Scroll Request:"
 horizontal_alignment = 1
 
-[node name="ItemLabel" type="Label" parent="Papers/RequestForm/Rows"]
+[node name="ItemField" type="Button" parent="Papers/RequestForm/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_type_variation = &"PaperTitle"
+theme_type_variation = &"PaperTitleField"
+toggle_mode = true
 text = "Fireball"
-horizontal_alignment = 1
 
-[node name="FieldsLabel" type="Label" parent="Papers/RequestForm/Rows"]
+[node name="Fields" type="VBoxContainer" parent="Papers/RequestForm/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="NameField" type="Button" parent="Papers/RequestForm/Rows/Fields"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_type_variation = &"PaperLabel"
-text = "Name:"
+theme_type_variation = &"PaperField"
+toggle_mode = true
+text = "NameField"
+alignment = 0
+
+[node name="AgeField" type="Button" parent="Papers/RequestForm/Rows/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"PaperField"
+toggle_mode = true
+text = "AgeField"
+alignment = 0
+
+[node name="RaceField" type="Button" parent="Papers/RequestForm/Rows/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"PaperField"
+toggle_mode = true
+text = "RaceField"
+alignment = 0
+
+[node name="SignatureField" type="Button" parent="Papers/RequestForm/Rows/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"PaperField"
+toggle_mode = true
+text = "SignatureField"
+alignment = 0
 
 [node name="Line" type="HSeparator" parent="Papers/RequestForm/Rows"]
 layout_mode = 2
 
-[node name="DetailsLabel" type="Label" parent="Papers/RequestForm/Rows"]
+[node name="DetailsField" type="Button" parent="Papers/RequestForm/Rows"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(410, 0)
 layout_mode = 2
-theme_type_variation = &"PaperLabel"
-text = "Details:"
+theme_type_variation = &"PaperField"
+toggle_mode = true
+text = "DetailsField"
+alignment = 0
 autowrap_mode = 3
 
 [node name="SpecLabel" type="Label" parent="Papers/RequestForm/Rows"]
@@ -237,11 +275,11 @@ anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -330.0
-offset_top = 290.0
+offset_top = 276.0
 offset_right = -40.0
 offset_bottom = 460.0
 grow_horizontal = 0
-theme_override_constants/separation = 22
+theme_override_constants/separation = 14
 
 [node name="ApproveButton" type="Button" parent="Stamps"]
 unique_name_in_owner = true
@@ -255,6 +293,14 @@ layout_mode = 2
 theme_type_variation = &"RejectStamp"
 text = "REJECT"
 
+[node name="EvidenceLabel" type="Label" parent="Stamps"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.72, 0.55, 1)
+theme_override_font_sizes/font_size = 14
+text = ""
+autowrap_mode = 3
+
 [node name="FeedbackLabel" type="Label" parent="."]
 unique_name_in_owner = true
 layout_mode = 1
@@ -264,7 +310,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -380.0
-offset_top = -220.0
+offset_top = -190.0
 offset_right = -30.0
 offset_bottom = -24.0
 grow_horizontal = 0

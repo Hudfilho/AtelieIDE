@@ -59,7 +59,6 @@ portrait_color = Color(0.3, 0.34, 0.5, 1)
 greeting = "Your seal has been seen where it should not be. This is an audit, artisan. You will write under my eyes."
 item = "Audit Tally"
 details = "The Guild demands a tally: for the number in slot 000, the sum of every number from 1 up to it.\nHonest hands can manage."
-violations = PackedStringArray()
 spec = "READ slot 000 and print 1 + 2 + ... + slot 000 (for 4: 10).\nHint: a loop works, but the Guild admires a formula."
 examples = Array[Dictionary]([{"memory": {0: 4}, "output": ["10"]}])
 hidden_tests = Array[Dictionary]([{"memory": {0: 10}, "output": ["55"]}, {"memory": {0: 1}, "output": ["1"]}])

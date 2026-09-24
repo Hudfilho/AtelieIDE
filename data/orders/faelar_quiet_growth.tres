@@ -23,7 +23,6 @@ portrait_color = Color(0.6, 0.78, 0.72, 1)
 greeting = "A modest request. My garden is... impatient."
 item = "Scroll of Quiet Growth"
 details = "Doubles the growth of my moonflowers.\nThe current height is in slot 000."
-violations = PackedStringArray("elf_embargo")
 spec = "READ slot 000 and print it doubled."
 examples = Array[Dictionary]([{"memory": {0: 4}, "output": ["8"]}])
 hidden_tests = Array[Dictionary]([{"memory": {0: 11}, "output": ["22"]}])

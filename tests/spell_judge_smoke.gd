@@ -36,6 +36,17 @@ const SOLUTIONS := {
 	],
 }
 
+## Regras que cada encomenda deve violar no seu dia (as demais são legais). A
+## legalidade é derivada das regras; isto fixa a intenção do conteúdo, para um
+## erro de digitação numa assinatura não tornar um cliente honesto ilegal.
+const EXPECTED_BROKEN_RULES := {
+	"anderdingus_fireball": ["offensive_license", "signature"],
+	"faelar_quiet_growth": ["elf_embargo"],
+	"brom_doubled_ore": ["signature"],
+	"anderdingus_bigger_fireball": ["offensive_license", "signature"],
+	"osric_gentle_forgetting": ["forbidden_mind"],
+}
+
 ## A auditoria também aceita o laço (soma com STORE), só não ganha o bônus.
 const AUDIT_LOOP := [
 	["ORB", 0], ["ORB", 1], ["WARP_ENDPOINT", 5], ["CUP", 128], ["READ", 0], ["DIAMOND", 128],
@@ -77,10 +88,14 @@ func _check_order(judge: AtelierSpellJudge, day: AtelierShopDay, order: AtelierS
 		for cell in order.starting_ritual:
 			assert(str(cell["symbol"]).is_empty() or day.runes.has(cell["symbol"]), "%s draft uses a locked rune" % order.id)
 		assert(not judge.judge(order.starting_ritual, order)["passed"], "%s draft already solves the order" % order.id)
-	for rule_id in order.violations:
-		assert(day.rule_text(rule_id) != rule_id, "%s cites rule %s, which is not in force on %s" % [order.id, rule_id, day.title])
-	if not order.is_legal():
+	var broken := PackedStringArray(day.violated_rules(order).map(func(rule: AtelierShopRule) -> String: return rule.id))
+	var expected := PackedStringArray(EXPECTED_BROKEN_RULES.get(order.id, []))
+	broken.sort()
+	expected.sort()
+	assert(broken == expected, "%s breaks %s on %s, expected %s" % [order.id, broken, day.title, expected])
+	if not day.is_legal(order):
 		assert(not order.on_delivered.is_empty(), "%s is illegal but delivering it has no consequence" % order.id)
+		assert(not AtelierInspection.discrepancies(order, day.rules).is_empty(), "%s is illegal but nothing on the form proves it" % order.id)
 	var runes: Array = SOLUTIONS[order.id]
 	for rune in runes:
 		assert(day.runes.has(rune[0]), "%s needs %s, which is locked on %s" % [order.id, rune[0], day.title])

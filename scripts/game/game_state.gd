@@ -83,18 +83,27 @@ func resolve_customer(slot: AtelierScrollOrder) -> AtelierScrollOrder:
 func deliver(order: AtelierScrollOrder, elegant: bool) -> int:
 	var paid := order.reward + (ELEGANT_BONUS if elegant else 0)
 	var note := " (elegant work!)" if elegant else ""
-	record("Sold %s to %s%s" % [order.item, order.client_name, note], paid, 1 if order.is_legal() else 0)
+	record("Sold %s to %s%s" % [order.item, order.client_name, note], paid, 1 if current_day().is_legal(order) else 0)
 	_decide(order, "delivered", order.on_delivered)
 	return paid
 
 
-## Recusa o pedido; recusar um pedido legítimo custa reputação.
-func reject(order: AtelierScrollOrder) -> void:
-	if order.is_legal():
-		record("Turned away %s (honest request)" % order.client_name, 0, -1)
+## Recusa o pedido. Só é uma recusa correta se cita ao menos uma regra que o
+## pedido de fato viola (as provas da AtelierInspection); sem prova válida é
+## recusa sem motivo, mesmo que o pedido seja ilegal. Em ambos os casos o
+## cliente vai embora e as consequências on_rejected acontecem.
+func reject(order: AtelierScrollOrder, cited_rules: Array[AtelierShopRule] = []) -> bool:
+	var justified: Array[AtelierShopRule] = []
+	for rule in cited_rules:
+		if current_day().rules.has(rule) and rule.violated_by(order) and not justified.has(rule):
+			justified.append(rule)
+	if justified.is_empty():
+		record("Turned away %s without cause" % order.client_name, 0, -1)
 	else:
-		record("Refused %s's %s" % [order.client_name, order.item], 0, 1)
+		var titles := PackedStringArray(justified.map(func(rule: AtelierShopRule) -> String: return rule.title))
+		record("Refused %s's %s (%s)" % [order.client_name, order.item, ", ".join(titles)], 0, 1)
 	_decide(order, "rejected", order.on_rejected)
+	return not justified.is_empty()
 
 
 func abandon(order: AtelierScrollOrder) -> void:

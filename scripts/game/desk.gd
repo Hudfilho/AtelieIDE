@@ -3,13 +3,19 @@ extends Control
 ## Balcão da loja: o ciclo do dia. Toca o sino, o cliente entrega o pedido,
 ## o jogador confere com o livro de regras e carimba APROVAR ou RECUSAR.
 ## Aprovar leva à bancada, onde o pergaminho precisa ser escrito.
-## Só apresentação: pagamento, reputação e consequências ficam no GameState, e
-## qual versão de cada cliente aparece vem das flags (AtelierScrollOrder.resolve).
+## Só apresentação: pagamento, reputação e consequências ficam no GameState,
+## qual versão de cada cliente aparece vem das flags
+## (AtelierShopDay.resolve_customer), e se uma ligação campo → regra é prova
+## quem decide é a AtelierInspection. Aqui só se repassam os cliques.
 
 enum Phase { DAY_INTRO, WAITING, SERVING, CRAFTING, DAY_END, DEMO_END }
 
 ## Altura máxima do texto do jornal/livro-caixa antes de passar a rolar.
 const OVERLAY_BODY_MAX_HEIGHT := 440.0
+## Tinta das provas citadas no formulário e no livro de regras.
+const EVIDENCE_INK := Color(0.72, 0.06, 0.04)
+const EVIDENCE_MARK := "» "
+const CONTRADICTION_FLASH := Color(1.0, 0.45, 0.4)
 
 @onready var day_label: Label = %DayLabel
 @onready var money_label: Label = %MoneyLabel
@@ -20,14 +26,17 @@ const OVERLAY_BODY_MAX_HEIGHT := 440.0
 @onready var client_name_label: Label = %ClientName
 @onready var speech_label: Label = %Speech
 @onready var bell_button: Button = %BellButton
-@onready var rules_label: Label = %RulesLabel
+@onready var rules_list: VBoxContainer = %RulesList
 @onready var request_form: Control = %RequestForm
-@onready var item_label: Label = %ItemLabel
-@onready var fields_label: Label = %FieldsLabel
-@onready var details_label: Label = %DetailsLabel
+## Botão de cada campo inspecionável, pelas chaves de AtelierScrollOrder.INSPECTABLE_FIELDS.
+@onready var field_buttons: Dictionary[String, Button] = {
+	"item": %ItemField, "name": %NameField, "age": %AgeField,
+	"race": %RaceField, "signature": %SignatureField, "details": %DetailsField,
+}
 @onready var spec_label: Label = %SpecLabel
 @onready var approve_button: Button = %ApproveButton
 @onready var reject_button: Button = %RejectButton
+@onready var evidence_label: Label = %EvidenceLabel
 @onready var feedback_label: Label = %FeedbackLabel
 @onready var workbench = %Workbench
 @onready var overlay: Control = %Overlay
@@ -38,11 +47,17 @@ const OVERLAY_BODY_MAX_HEIGHT := 440.0
 var phase := Phase.DAY_INTRO
 var order_index := -1
 var current_order: AtelierScrollOrder
+var inspection: AtelierInspection
 var _overlay_action: Callable
+var _selected_field := ""
+var _selected_rule: AtelierShopRule
+var _rule_buttons: Dictionary[AtelierShopRule, Button] = {}
 
 
 func _ready() -> void:
 	GameState.changed.connect(_refresh_hud)
+	for field_name in field_buttons:
+		field_buttons[field_name].pressed.connect(_on_field_pressed.bind(field_name))
 	bell_button.pressed.connect(_call_next_client)
 	approve_button.pressed.connect(_on_approve)
 	reject_button.pressed.connect(_on_reject)
@@ -64,11 +79,11 @@ func _start_day(headlines: PackedStringArray) -> void:
 	order_index = -1
 	_clear_counter()
 	var day := _day()
-	rules_label.text = "\n\n".join(PackedStringArray(day.rules.map(func(rule: AtelierShopRule) -> String: return "- " + rule.text)))
+	_build_rulebook(day)
 	var body := day.intro
 	if not headlines.is_empty():
 		body = "[b]THE MORNING HERALD[/b]\n" + "\n\n".join(headlines) + "\n\n" + body
-	body += "\n\n[b]Rulebook[/b]\n" + rules_label.text
+	body += "\n\n[b]Rulebook[/b]\n" + "\n\n".join(PackedStringArray(day.rules.map(func(rule: AtelierShopRule) -> String: return "- " + rule.text)))
 	body += "\n\n[b]Runes on your bench[/b]\n" + ", ".join(_rune_labels(day.runes))
 	_show_overlay(day.title, body, "Open the shop", _begin_service)
 	_refresh_hud()
@@ -142,18 +157,21 @@ func _on_reject() -> void:
 	if phase != Phase.SERVING:
 		return
 	var order := current_order
-	GameState.reject(order)
-	if order.is_legal():
+	var cited := inspection.cited_rules()
+	if GameState.reject(order, cited):
+		var titles := PackedStringArray(cited.map(func(rule: AtelierShopRule) -> String: return rule.title))
+		_client_leaves("Good call. Refused on evidence: %s." % ", ".join(titles))
+	elif _day().is_legal(order):
 		_client_leaves("An honest customer leaves disappointed. Your reputation suffers.")
 	else:
-		_client_leaves("Good call. %s" % _violation_summary(order))
+		_client_leaves("You refused without citing a broken rule, so it counts as refusing without cause. Link a field to the rule it breaks before stamping.")
 
 
 func _on_scroll_delivered(result: Dictionary) -> void:
 	workbench.hide()
 	var order := current_order
 	var paid := GameState.deliver(order, result["elegant"])
-	if not order.is_legal():
+	if not _day().is_legal(order):
 		_client_leaves("%s pays and hurries off with the scroll. You have an uneasy feeling..." % order.client_name)
 	else:
 		_client_leaves("%s thanks you and pays %d coins." % [order.client_name, paid])
@@ -181,10 +199,11 @@ func _show_client(order: AtelierScrollOrder) -> void:
 	portrait_initial.text = order.client_name.left(1)
 	client_name_label.text = "%s, %s" % [order.client_name, order.race]
 	speech_label.text = "\"%s\"" % order.greeting
-	item_label.text = order.item
-	fields_label.text = "Name:  %s\nAge:  %s\nRace:  %s\nSignature:  %s" % [order.client_name, order.age, order.race, order.signature]
-	details_label.text = "Details:\n%s" % order.details
 	spec_label.text = "Scroll must: %s" % order.spec.get_slice("\n", 0)
+	inspection = AtelierInspection.new(order, _day().rules)
+	_selected_field = ""
+	_selected_rule = null
+	_refresh_inspection_marks()
 	portrait.show()
 	request_form.show()
 
@@ -194,6 +213,119 @@ func _clear_counter() -> void:
 	client_name_label.text = "The window is empty."
 	speech_label.text = ""
 	request_form.hide()
+	inspection = null
+	_selected_field = ""
+	_selected_rule = null
+	_refresh_inspection_marks()
+
+
+## ======================== INSPEÇÃO ========================
+
+func _build_rulebook(day: AtelierShopDay) -> void:
+	for child in rules_list.get_children():
+		rules_list.remove_child(child)
+		child.queue_free()
+	_rule_buttons.clear()
+	for rule in day.rules:
+		var button := Button.new()
+		button.name = "Rule_%s" % rule.id
+		button.theme_type_variation = &"PaperField"
+		button.toggle_mode = true
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		button.custom_minimum_size.x = 290.0
+		button.add_theme_font_size_override("font_size", 15)
+		button.pressed.connect(_on_rule_pressed.bind(rule))
+		rules_list.add_child(button)
+		_rule_buttons[rule] = button
+	_refresh_inspection_marks()
+
+
+func _on_field_pressed(field_name: String) -> void:
+	if phase == Phase.SERVING and inspection != null:
+		_selected_field = "" if _selected_field == field_name else field_name
+		_try_link()
+	_refresh_inspection_marks()
+
+
+func _on_rule_pressed(rule: AtelierShopRule) -> void:
+	if phase == Phase.SERVING and inspection != null:
+		_selected_rule = null if _selected_rule == rule else rule
+		_try_link()
+	_refresh_inspection_marks()
+
+
+## Com um campo e uma regra escolhidos, a inspeção julga a ligação.
+func _try_link() -> void:
+	if _selected_field.is_empty() and _selected_rule == null:
+		return
+	if _selected_rule == null:
+		_say_feedback("Now click the rule this field breaks.")
+		return
+	if _selected_field.is_empty():
+		_say_feedback("Now click the field on the request that breaks this rule.")
+		return
+	var field_name := _selected_field
+	var rule := _selected_rule
+	_selected_field = ""
+	_selected_rule = null
+	var link := inspection.link(field_name, rule)
+	_say_feedback(link["message"])
+	var result: AtelierInspection.Result = link["result"]
+	if result != AtelierInspection.Result.VALID and result != AtelierInspection.Result.DUPLICATE:
+		_flash(field_buttons[field_name])
+		_flash(_rule_buttons[rule])
+
+
+func _refresh_inspection_marks() -> void:
+	var order := inspection.order if inspection != null else null
+	for field_name in field_buttons:
+		var button := field_buttons[field_name]
+		var cited := inspection != null and inspection.evidence.any(func(entry: Dictionary) -> bool: return entry["field"] == field_name)
+		button.text = (EVIDENCE_MARK if cited else "") + _field_text(order, field_name)
+		button.set_pressed_no_signal(field_name == _selected_field)
+		_set_ink(button, cited)
+	for rule in _rule_buttons:
+		var button := _rule_buttons[rule]
+		var cited := inspection != null and inspection.cited_rules().has(rule)
+		button.text = (EVIDENCE_MARK if cited else "- ") + rule.text
+		button.set_pressed_no_signal(rule == _selected_rule)
+		_set_ink(button, cited)
+	if inspection == null:
+		evidence_label.text = ""
+	elif not inspection.has_evidence():
+		evidence_label.text = "No evidence yet. Refusing without a cited rule counts as refusing without cause."
+	else:
+		var lines: PackedStringArray = ["Evidence for refusal:"]
+		for entry in inspection.evidence:
+			var rule: AtelierShopRule = entry["rule"]
+			lines.append("- %s -> %s" % [AtelierScrollOrder.FIELD_LABELS[entry["field"]], rule.title])
+		evidence_label.text = "\n".join(lines)
+
+
+static func _field_text(order: AtelierScrollOrder, field_name: String) -> String:
+	if order == null:
+		return ""
+	match field_name:
+		"item":
+			return order.item
+		"details":
+			return "Details:\n%s" % order.details
+		_:
+			return "%s:  %s" % [AtelierScrollOrder.FIELD_LABELS[field_name], order.field_value(field_name)]
+
+
+static func _set_ink(button: Button, cited: bool) -> void:
+	for color_name in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+		if cited:
+			button.add_theme_color_override(color_name, EVIDENCE_INK)
+		else:
+			button.remove_theme_color_override(color_name)
+
+
+func _flash(control: Control) -> void:
+	control.modulate = CONTRADICTION_FLASH
+	create_tween().tween_property(control, "modulate", Color.WHITE, 0.45)
 
 
 func _refresh_hud() -> void:
@@ -243,13 +375,6 @@ func _cap_overlay_body() -> void:
 		overlay_body.fit_content = false
 		overlay_body.custom_minimum_size.y = OVERLAY_BODY_MAX_HEIGHT
 		overlay_body.scroll_to_line(0)
-
-
-func _violation_summary(order: AtelierScrollOrder) -> String:
-	var reasons: PackedStringArray = []
-	for rule_id in order.violations:
-		reasons.append(_day().rule_text(rule_id))
-	return "Broken rule: " + " / ".join(reasons)
 
 
 func _rune_labels(kinds: PackedStringArray) -> PackedStringArray:

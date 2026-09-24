@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="AtelierShopRule" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/shop_rule.gd" id="1_rule"]
+
+[resource]
+script = ExtResource("1_rule")
+id = "forbidden_mind"
+title = "Forbidden magic"
+text = "FORBIDDEN MAGIC: no scroll may alter a person's mind, memory or will."
+check = 3
+value = "mind"
+evidence_fields = PackedStringArray("item", "details")
