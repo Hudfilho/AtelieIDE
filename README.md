@@ -126,6 +126,12 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 | `scripts/game/data/` | Tipos de dados: `AtelierShopDay`, `AtelierScrollOrder`, `AtelierShopRule`, `AtelierConsequence`, `AtelierFlagCondition` |
 | `data/days/`, `data/orders/`, `data/rules/` | Conteúdo do demo em `.tres`, editável pelo Inspector |
 
+**Retorno tátil do balcão:** o nó `Feedback` do `Desk` (`AtelierDeskFeedback`) cuida só de animação e som. Ele faz o carimbo voar até o papel, deixa a marca APPROVED/REFUSED, faz a mesa tremer e toca as deixas de som `bell`, `stamp_approve`, `stamp_reject`, `paper` e `coins`.
+
+- A decisão só vale no impacto do carimbo. Os tempos ficam em constantes no topo de `desk_feedback.gd`.
+- Os sons atuais são provisórios, gerados em código. Para trocar um deles, arraste o arquivo para `Feedback > sounds` no Inspector.
+- Nos testes, `instant = true` faz tudo acontecer na hora, e `mute = true` só anuncia as deixas, sem tocar.
+
 **Para criar um cliente novo:**
 
 1. Duplique um `.tres` em `data/orders/`, dê um `id` único e edite os campos no Inspector.

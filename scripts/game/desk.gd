@@ -7,8 +7,21 @@ extends Control
 ## qual versão de cada cliente aparece vem das flags
 ## (AtelierShopDay.resolve_customer), e se uma ligação campo → regra é prova
 ## quem decide é a AtelierInspection. Aqui só se repassam os cliques.
+## Animação e som ficam no AtelierDeskFeedback (%Feedback): o carimbo só vira
+## decisão no impacto (stamp_impact), e o que vem depois espera o carimbo voltar.
 
-enum Phase { DAY_INTRO, WAITING, SERVING, CRAFTING, DAY_END, DEMO_END }
+enum Phase {
+	DAY_INTRO,
+	WAITING,
+	SERVING,
+	## Carimbo descendo: nada decidido ainda, e nenhum clique novo conta.
+	STAMPING,
+	CRAFTING,
+	## Recusa já decidida; a marca e a reação ficam à vista antes de o cliente sair.
+	LEAVING,
+	DAY_END,
+	DEMO_END,
+}
 
 ## Altura máxima do texto do jornal/livro-caixa antes de passar a rolar.
 const OVERLAY_BODY_MAX_HEIGHT := 440.0
@@ -16,6 +29,10 @@ const OVERLAY_BODY_MAX_HEIGHT := 440.0
 const EVIDENCE_INK := Color(0.72, 0.06, 0.04)
 const EVIDENCE_MARK := "» "
 const CONTRADICTION_FLASH := Color(1.0, 0.45, 0.4)
+## Pausas depois que o carimbo volta (segundos): a marca APPROVED antes da
+## bancada abrir, e a marca REFUSED com a reação antes do cliente sair.
+const APPROVED_HOLD := 0.35
+const REFUSED_LINGER := 0.9
 
 @onready var day_label: Label = %DayLabel
 @onready var money_label: Label = %MoneyLabel
@@ -43,6 +60,7 @@ const CONTRADICTION_FLASH := Color(1.0, 0.45, 0.4)
 @onready var overlay_title: Label = %OverlayTitle
 @onready var overlay_body: RichTextLabel = %OverlayBody
 @onready var overlay_button: Button = %OverlayButton
+@onready var feedback: AtelierDeskFeedback = %Feedback
 
 var phase := Phase.DAY_INTRO
 var order_index := -1
@@ -52,6 +70,8 @@ var _overlay_action: Callable
 var _selected_field := ""
 var _selected_rule: AtelierShopRule
 var _rule_buttons: Dictionary[AtelierShopRule, Button] = {}
+## Mensagem do balcão para quando o cliente recusado for embora.
+var _leave_message := ""
 
 
 func _ready() -> void:
@@ -64,6 +84,10 @@ func _ready() -> void:
 	overlay_button.pressed.connect(func() -> void: _overlay_action.call())
 	workbench.delivered.connect(_on_scroll_delivered)
 	workbench.abandoned.connect(_on_scroll_abandoned)
+	feedback.stamp_impact.connect(_on_stamp_impact)
+	feedback.stamp_finished.connect(_on_stamp_finished)
+	for paper: Control in [request_form, $Papers/Rulebook]:
+		paper.picked_up.connect(feedback.play_sfx.bind(&"paper"))
 	workbench.hide()
 	_start_day(PackedStringArray())
 
@@ -99,6 +123,7 @@ func _begin_service() -> void:
 func _call_next_client() -> void:
 	if phase != Phase.WAITING:
 		return
+	feedback.play_sfx(&"bell")
 	# Clientes cujas condições não valem hoje simplesmente não vêm.
 	current_order = null
 	while current_order == null:
@@ -146,31 +171,83 @@ func _show_demo_end(ledger_body: String) -> void:
 ## ======================== CARIMBOS ========================
 
 func _on_approve() -> void:
-	if phase != Phase.SERVING:
-		return
-	phase = Phase.CRAFTING
-	_refresh_controls()
-	workbench.open_order(current_order, _day().runes)
+	_press_stamp(AtelierDeskFeedback.APPROVE, approve_button)
 
 
 func _on_reject() -> void:
+	_press_stamp(AtelierDeskFeedback.REJECT, reject_button)
+
+
+## O clique só inicia o carimbo; cliques repetidos caem fora por causa da fase.
+func _press_stamp(kind: StringName, button: Button) -> void:
 	if phase != Phase.SERVING:
 		return
+	phase = Phase.STAMPING
+	_selected_field = ""
+	_selected_rule = null
+	_refresh_inspection_marks()
+	_refresh_controls()
+	feedback.play_stamp(kind, button, request_form)
+
+
+## Impacto do carimbo: é aqui que a decisão passa a valer.
+func _on_stamp_impact(kind: StringName) -> void:
+	if phase != Phase.STAMPING or current_order == null:
+		return
 	var order := current_order
-	var cited := inspection.cited_rules()
-	if GameState.reject(order, cited):
-		var titles := PackedStringArray(cited.map(func(rule: AtelierShopRule) -> String: return rule.title))
-		_client_leaves("Good call. Refused on evidence: %s." % ", ".join(titles))
-	elif _day().is_legal(order):
-		_client_leaves("An honest customer leaves disappointed. Your reputation suffers.")
+	if kind == AtelierDeskFeedback.APPROVE:
+		phase = Phase.CRAFTING
+		_say_reaction(order, true)
+		_say_feedback("Approved. Take the request to your bench.")
 	else:
-		_client_leaves("You refused without citing a broken rule, so it counts as refusing without cause. Link a field to the rule it breaks before stamping.")
+		phase = Phase.LEAVING
+		var cited := inspection.cited_rules()
+		if GameState.reject(order, cited):
+			var titles := PackedStringArray(cited.map(func(rule: AtelierShopRule) -> String: return rule.title))
+			_leave_message = "Good call. Refused on evidence: %s." % ", ".join(titles)
+		elif _day().is_legal(order):
+			_leave_message = "An honest customer leaves disappointed. Your reputation suffers."
+		else:
+			_leave_message = "You refused without citing a broken rule, so it counts as refusing without cause. Link a field to the rule it breaks before stamping."
+		_say_reaction(order, false)
+		_say_feedback(_leave_message)
+	_refresh_controls()
+
+
+## O carimbo voltou: depois de uma pausa curta, abre a bancada ou o cliente sai.
+## Cada passo confere se ainda é o mesmo cliente e a mesma fase.
+func _on_stamp_finished(kind: StringName) -> void:
+	var order := current_order
+	if kind == AtelierDeskFeedback.APPROVE and phase == Phase.CRAFTING:
+		await feedback.hold(APPROVED_HOLD)
+		if phase == Phase.CRAFTING and current_order == order and not workbench.visible:
+			workbench.open_order(order, _day().runes)
+	elif kind == AtelierDeskFeedback.REJECT and phase == Phase.LEAVING:
+		await feedback.hold(REFUSED_LINGER)
+		if phase == Phase.LEAVING and current_order == order:
+			_client_leaves(_leave_message)
+
+
+func _say_reaction(order: AtelierScrollOrder, approved: bool) -> void:
+	var line := order.reaction_approved if approved else order.reaction_refused
+	if line.is_empty():
+		if approved:
+			line = "Wonderful, thank you!"
+		elif _day().is_legal(order):
+			line = "But... my request was honest!"
+		else:
+			line = "Tch. Fine. I'll find another shop."
+	speech_label.text = "\"%s\"" % line
 
 
 func _on_scroll_delivered(result: Dictionary) -> void:
+	if phase != Phase.CRAFTING:
+		return
 	workbench.hide()
 	var order := current_order
 	var paid := GameState.deliver(order, result["elegant"])
+	if paid > 0:
+		feedback.play_sfx(&"coins")
 	if not _day().is_legal(order):
 		_client_leaves("%s pays and hurries off with the scroll. You have an uneasy feeling..." % order.client_name)
 	else:
@@ -178,6 +255,8 @@ func _on_scroll_delivered(result: Dictionary) -> void:
 
 
 func _on_scroll_abandoned() -> void:
+	if phase != Phase.CRAFTING:
+		return
 	workbench.hide()
 	var order := current_order
 	GameState.abandon(order)
@@ -204,8 +283,10 @@ func _show_client(order: AtelierScrollOrder) -> void:
 	_selected_field = ""
 	_selected_rule = null
 	_refresh_inspection_marks()
+	feedback.clear_ink()
 	portrait.show()
 	request_form.show()
+	feedback.play_sfx(&"paper")
 
 
 func _clear_counter() -> void:
@@ -213,6 +294,7 @@ func _clear_counter() -> void:
 	client_name_label.text = "The window is empty."
 	speech_label.text = ""
 	request_form.hide()
+	feedback.clear_ink()
 	inspection = null
 	_selected_field = ""
 	_selected_rule = null
@@ -346,8 +428,11 @@ func _customers_waiting() -> int:
 
 func _refresh_controls() -> void:
 	bell_button.disabled = phase != Phase.WAITING
-	approve_button.disabled = phase != Phase.SERVING
-	reject_button.disabled = phase != Phase.SERVING
+	# Durante STAMPING os carimbos seguem com a aparência normal (um deles está
+	# voando até o papel); cliques extras são ignorados pela fase em _press_stamp.
+	var stamps_ready := phase == Phase.SERVING or phase == Phase.STAMPING
+	approve_button.disabled = not stamps_ready
+	reject_button.disabled = not stamps_ready
 	_refresh_hud()
 
 

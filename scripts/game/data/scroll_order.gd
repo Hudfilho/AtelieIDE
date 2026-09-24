@@ -15,6 +15,9 @@ extends Resource
 @export var signature := ""
 @export var portrait_color := Color(0.45, 0.55, 0.35)
 @export_multiline var greeting := ""
+## Reação ao carimbo; vazio usa uma fala genérica do balcão.
+@export var reaction_approved := ""
+@export var reaction_refused := ""
 
 @export_group("Pedido")
 @export var item := ""

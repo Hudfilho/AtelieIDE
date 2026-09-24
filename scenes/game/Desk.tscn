@@ -4,6 +4,7 @@
 [ext_resource type="Theme" path="res://art/theme/shop_theme.tres" id="2_theme"]
 [ext_resource type="Script" path="res://scripts/game/draggable_paper.gd" id="3_paper"]
 [ext_resource type="PackedScene" path="res://scenes/game/Workbench.tscn" id="4_workbench"]
+[ext_resource type="Script" path="res://scripts/game/desk_feedback.gd" id="5_feedback"]
 
 [node name="Desk" type="Control"]
 layout_mode = 3
@@ -20,6 +21,10 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = -24.0
+offset_top = -24.0
+offset_right = 24.0
+offset_bottom = 24.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -29,6 +34,9 @@ color = Color(0.3, 0.19, 0.12, 1)
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
+offset_left = -24.0
+offset_top = -24.0
+offset_right = 24.0
 offset_bottom = 250.0
 grow_horizontal = 2
 mouse_filter = 2
@@ -38,7 +46,9 @@ color = Color(0.15, 0.1, 0.075, 1)
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
+offset_left = -24.0
 offset_top = 244.0
+offset_right = 24.0
 offset_bottom = 256.0
 grow_horizontal = 2
 mouse_filter = 2
@@ -269,6 +279,17 @@ theme_override_font_sizes/font_size = 14
 text = "Scroll must:"
 autowrap_mode = 3
 
+[node name="MarkLayer" type="Control" parent="Papers/RequestForm"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="InkMark" type="Label" parent="Papers/RequestForm/MarkLayer"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+theme_override_font_sizes/font_size = 34
+text = "APPROVED"
+
 [node name="Stamps" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 1
@@ -317,6 +338,39 @@ grow_horizontal = 0
 grow_vertical = 0
 text = ""
 autowrap_mode = 3
+
+[node name="StampLayer" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="StampHead" type="PanelContainer" parent="StampLayer"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+custom_minimum_size = Vector2(190, 58)
+mouse_filter = 2
+
+[node name="StampText" type="Label" parent="StampLayer/StampHead"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.96, 0.9, 0.72, 1)
+theme_override_font_sizes/font_size = 22
+text = "APPROVE"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Feedback" type="Node" parent="." node_paths=PackedStringArray("shake_target", "stamp_head", "stamp_text", "ink_mark")]
+unique_name_in_owner = true
+script = ExtResource("5_feedback")
+shake_target = NodePath("..")
+stamp_head = NodePath("../StampLayer/StampHead")
+stamp_text = NodePath("../StampLayer/StampHead/StampText")
+ink_mark = NodePath("../Papers/RequestForm/MarkLayer/InkMark")
 
 [node name="Workbench" parent="." instance=ExtResource("4_workbench")]
 unique_name_in_owner = true

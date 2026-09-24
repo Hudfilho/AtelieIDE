@@ -15,6 +15,8 @@ func _run() -> void:
 	var game_state: Node = root.get_node("GameState")
 	game_state.new_game()
 	var desk := load("res://scenes/game/Desk.tscn").instantiate() as Control
+	# Carimbo, tremida e pausas acontecem na hora: o teste não depende de animação.
+	(desk.get_node("%Feedback") as AtelierDeskFeedback).instant = true
 	root.add_child(desk)
 	await process_frame
 
