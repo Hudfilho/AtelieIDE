@@ -13,7 +13,9 @@ greeting = "Good morning! The bakery lantern died last night and I bake before s
 item = "Scroll of Warm Light"
 details = "Something bright for the oven corner, please.\nBrightness 3 is plenty, I don't want to wake the cat."
 violations = PackedStringArray()
-spec = "Print a light of brightness 3."
-test_cases = Array[Dictionary]([{"memory": {}, "output": ["3"]}])
+spec = "Print a light of brightness 3.
+Your master left a draft light scroll on the bench, but it is far too bright: click the Orb rune and lower its intensity."
+examples = Array[Dictionary]([{"memory": {}, "output": ["3"]}])
 par_runes = 2
 reward = 8
+starting_ritual = Array[Dictionary]([{"from": Vector2(0, 0), "to": Vector2(48, 0), "symbol": "ORB", "intensity": 128}, {"from": Vector2(48, 0), "to": Vector2(96, 0), "symbol": "TRIANGLE", "intensity": 128}])

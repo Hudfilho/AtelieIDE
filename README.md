@@ -129,7 +129,11 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 **Para criar um cliente novo:**
 
 1. Duplique um `.tres` em `data/orders/` e edite os campos no Inspector.
-2. Os casos de teste seguem o formato `{"memory": {0: 5}, "output": ["15"]}`. A memória é lida com `READ`.
+2. Preencha `examples`, os casos mostrados na bancada, e `hidden_tests`, os casos conferidos só na entrega. Ambos seguem o formato `{"memory": {0: 5}, "output": ["15"]}`, e a memória é lida com `READ`.
+   - Pedidos que leem entradas precisam de pelo menos um teste oculto, para que decorar a resposta do exemplo não baste.
+   - Se um teste oculto falha, a bancada mostra as entradas dele como pista.
+   - `max_steps` é o limite de passos por caso; acima dele, o feitiço é considerado um laço infinito.
+   - `starting_ritual` é opcional: um rascunho já desenhado ao abrir a encomenda. **Reset** volta a ele, e `Ctrl+Z` desfaz o reinício.
 3. Adicione a encomenda ao `orders` de um dia.
 4. Coloque a solução de referência em `tests/spell_judge_smoke.gd`. O teste garante que toda encomenda tem solução com as runas do dia.
 

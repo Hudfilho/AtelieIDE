@@ -27,6 +27,13 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 
+static func _uses_inputs(order: AtelierScrollOrder) -> bool:
+	for test_case in order.all_tests():
+		if not Dictionary(test_case.get("memory", {})).is_empty():
+			return true
+	return false
+
+
 static func _program(runes: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for index in range(runes.size()):
@@ -48,7 +55,13 @@ func _run() -> void:
 		assert(not day.orders.is_empty())
 		for order in day.orders:
 			assert(SOLUTIONS.has(order.item), "Missing reference solution for %s" % order.item)
-			assert(not order.test_cases.is_empty(), "%s has no test cases" % order.item)
+			assert(not order.examples.is_empty(), "%s has no visible example" % order.item)
+			if _uses_inputs(order):
+				assert(not order.hidden_tests.is_empty(), "%s reads inputs but has no hidden test; the examples could be hardcoded" % order.item)
+			if not order.starting_ritual.is_empty():
+				for cell in order.starting_ritual:
+					assert(str(cell["symbol"]).is_empty() or day.runes.has(cell["symbol"]), "%s draft uses a locked rune" % order.item)
+				assert(not judge.judge(order.starting_ritual, order)["passed"], "%s draft already solves the order" % order.item)
 			for rule_id in order.violations:
 				assert(day.rule_text(rule_id) != rule_id, "%s cites unknown rule %s" % [order.item, rule_id])
 			if not order.is_legal():
@@ -61,11 +74,38 @@ func _run() -> void:
 			assert(result["elegant"], "%s solution uses %d runes, par is %d" % [order.item, result["rune_count"], order.par_runes])
 			checked += 1
 
-	# Uma solução errada explica o caso que falhou.
+	# Decorar a resposta do exemplo passa na bancada, mas não nos testes ocultos.
 	var warming := load("res://data/orders/tomas_warming_charm.tres") as AtelierScrollOrder
-	var wrong := judge.judge(_program([["ORB", 15], ["TRIANGLE", 128]]), warming)
-	assert(not wrong["passed"])
-	assert("expected 30, got 15" in SpellJudge.describe_failure(wrong), SpellJudge.describe_failure(wrong))
+	var hardcoded := judge.judge(_program([["ORB", 15], ["TRIANGLE", 128]]), warming)
+	assert(not hardcoded["passed"])
+	assert(hardcoded["cases"][0]["passed"] and not hardcoded["cases"][0]["hidden"])
+	assert(hardcoded["cases"][1]["hidden"] and not hardcoded["cases"][1]["passed"])
+	var hardcoded_message := SpellJudge.describe_failure(hardcoded)
+	assert(hardcoded_message.begins_with("A hidden test failed."), hardcoded_message)
+	assert("slot 000 = 20" in hardcoded_message and "expected 30, got 15" in hardcoded_message, hardcoded_message)
+
+	# Um erro no exemplo visível não se apresenta como oculto.
+	var wrong := judge.judge(_program([["READ", 0], ["TRIANGLE", 128]]), warming)
+	assert(not SpellJudge.describe_failure(wrong).begins_with("A hidden"))
+	assert("expected 15, got 5" in SpellJudge.describe_failure(wrong), SpellJudge.describe_failure(wrong))
+
+	# Laço infinito: estoura o limite de passos da encomenda e vira timeout.
+	var looping_order := AtelierScrollOrder.new()
+	looping_order.examples = [{"memory": {}, "output": ["1"]}]
+	looping_order.max_steps = 50
+	var looping := judge.judge(_program([["ORB", 1], ["WARP_ENDPOINT", 1], ["JUMP_IF_TRUE", 1]]), looping_order)
+	assert(not looping["passed"])
+	assert(looping["cases"][0]["timed_out"] and int(looping["cases"][0]["steps"]) == 50)
+	assert("never finished (50 steps)" in SpellJudge.describe_failure(looping), SpellJudge.describe_failure(looping))
+	assert(int(judge.judge(_program(SOLUTIONS["Warming Charm"]), warming)["max_steps_used"]) > 0)
+
+	# A memória inicial semeia a VM sem ser alterada pelo STORE.
+	var vm := AtelierRuneVM.new()
+	var memory := {0: 7}
+	var compiled: Dictionary = AtelierRuneCompiler.new().compile(_program([["READ", 0], ["ORB", 1], ["DIAMOND", 128], ["SQUARE", 0], ["READ", 0], ["TRIANGLE", 128]]))
+	var run: Dictionary = vm.run(compiled["bytecode"], memory)
+	assert(run["output"] == ["8"] and not run["timed_out"], str(run))
+	assert(memory == {0: 7})
 	var broken := judge.judge(_program([["TRIANGLE", 128]]), warming)
 	assert(not broken["passed"])
 	assert("PRINT" in SpellJudge.describe_failure(broken), SpellJudge.describe_failure(broken))

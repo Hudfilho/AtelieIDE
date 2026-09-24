@@ -157,7 +157,8 @@ var col_title_shadow: Color
 
 const PALETTE_SYMBOLS = RuneCatalog.SYMBOLS
 
-## Emitido quando uma execução animada termina (por HALT, erro ou fim do programa).
+## Emitido quando uma execução animada termina (por HALT, erro ou fim do
+## programa). result["stopped"] indica que o jogador interrompeu no ■.
 signal ritual_finished(result: Dictionary)
 
 ## Modo jogo: a bancada do ateliê embutida numa cena do jogo, sem a barra de
@@ -824,6 +825,29 @@ func set_allowed_symbols(kinds: PackedStringArray) -> void:
 ## Limpa a bancada para uma nova encomenda.
 func load_connections(new_connections: Array, new_pan := Vector2(340.0, 230.0), new_zoom := 1.0) -> void:
 	_apply_opened_ritual({"connections": new_connections, "pan": new_pan, "zoom": new_zoom, "path": ""})
+
+
+## Centraliza o ritual (ou a origem, se vazio) na área de desenho visível.
+## Chame depois de abrir/fechar painéis, pois eles mudam essa área.
+func frame_connections() -> void:
+	var center := Vector2.ZERO
+	if not connections.is_empty():
+		var bounds := Rect2(connections[0]["from"], Vector2.ZERO)
+		for connection in connections:
+			bounds = bounds.expand(connection["from"]).expand(connection["to"])
+		center = bounds.get_center()
+	pan = (_canvas_rect().get_center() - center * zoom).round()
+	_update_hover()
+	queue_redraw()
+
+
+## Troca o ritual como uma ação desfazível (Ctrl+Z traz o anterior de volta).
+func replace_connections(new_connections: Array) -> void:
+	var previous := diagram.snapshot()
+	var undo_history := diagram.undo_history.duplicate()
+	load_connections(new_connections, pan, zoom)
+	diagram.undo_history = undo_history
+	diagram.record_undo_snapshot(previous)
 
 
 func _show_file_error(message: String) -> void:
@@ -1603,17 +1627,19 @@ func _step_paused_ritual() -> void:
 	_execute_next_ritual_step()
 
 
-func _finish_ritual() -> void:
+func _finish_ritual(stopped := false) -> void:
 	var was_active := _ritual_is_active()
 	ritual_running = false
 	ritual_paused = false
 	execution_step_elapsed = 0.0
 	if was_active and not execution_state.is_empty():
-		ritual_finished.emit(vm.result_from_state(execution_state))
+		var result := vm.result_from_state(execution_state)
+		result["stopped"] = stopped
+		ritual_finished.emit(result)
 
 
 func _stop_ritual() -> void:
-	_finish_ritual()
+	_finish_ritual(true)
 	execution_instructions.clear()
 	execution_connection = -1
 	execution_highlight_ends_at = animation_clock

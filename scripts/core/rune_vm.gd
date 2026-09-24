@@ -30,12 +30,14 @@ func run(bytecode: PackedByteArray, initial_memory: Dictionary = {}, max_steps :
 			break
 		var jump_target := int(state["jump_target"])
 		pc = jump_target if jump_target >= 0 else pc + 1
-	if steps >= max_steps and not bool(state["halted"]):
+	var timed_out := steps >= max_steps and not bool(state["halted"])
+	if timed_out:
 		var errors: Array = state["errors"]
 		errors.append("Limite de passos excedido.")
 		state["halted"] = true
 	var result := result_from_state(state)
 	result["steps"] = steps
+	result["timed_out"] = timed_out
 	return result
 
 

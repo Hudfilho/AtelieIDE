@@ -80,6 +80,11 @@ layout_mode = 2
 theme_type_variation = &"ApproveStamp"
 text = "Deliver scroll"
 
+[node name="ResetButton" type="Button" parent="Layout/OrderBar/Row/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Clear bench"
+
 [node name="AbandonButton" type="Button" parent="Layout/OrderBar/Row/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2

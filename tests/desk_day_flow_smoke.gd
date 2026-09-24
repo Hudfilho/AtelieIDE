@@ -40,11 +40,27 @@ func _run() -> void:
 	assert(canvas.palette_symbols.size() == 5, "Day 1 bench should show 5 runes")
 	assert(canvas.get_node_or_null("FileToolbar") == null, "Game mode hides the IDE file bar")
 
+	# Mira começa com o rascunho do mestre: forte demais.
+	assert(canvas.connections.size() == 2, "Mira's order starts with a draft")
+	var draft_center: Vector2 = canvas.call("_world_to_screen", Vector2(48.0, 0.0))
+	var drawing_area: Rect2 = canvas.call("_canvas_rect")
+	assert(drawing_area.grow(-60.0).has_point(draft_center), "The draft should be framed inside the drawing area")
+	assert((workbench.get_node("%ResetButton") as Button).text == "Reset to draft")
+	workbench.get_node("%DeliverButton").pressed.emit()
+	assert(workbench.visible)
+	assert("expected 3, got 128" in (workbench.get_node("%ResultLabel") as Label).text)
+
 	# Pergaminho errado: fica na bancada e explica a falha.
-	canvas.load_connections(SpellJudgeSmoke._program([["ORB", 4], ["TRIANGLE", 128]]))
+	canvas.load_connections(SpellJudgeSmoke._program([["ORB", 4], ["TRIANGLE", 128], ["CROSS", 128]]))
 	workbench.get_node("%DeliverButton").pressed.emit()
 	assert(workbench.visible)
 	assert("expected 3, got 4" in (workbench.get_node("%ResultLabel") as Label).text)
+
+	# Reiniciar volta ao rascunho, e Ctrl+Z desfaz o reinício.
+	workbench.get_node("%ResetButton").pressed.emit()
+	assert(canvas.connections.size() == 2)
+	canvas.call("_undo")
+	assert(canvas.connections.size() == 3, "Reset should be undoable")
 	canvas.load_connections(SpellJudgeSmoke._program(SpellJudgeSmoke.SOLUTIONS["Scroll of Warm Light"]))
 	workbench.get_node("%DeliverButton").pressed.emit()
 	assert(not workbench.visible)
@@ -56,9 +72,14 @@ func _run() -> void:
 	reject.pressed.emit()
 	assert(game_state.reputation == 5 + 1 + 1)
 
-	# Cliente 3 (Tomas): desistir custa reputação.
+	# Cliente 3 (Tomas): a bancada mostra só o exemplo; desistir custa reputação.
 	bell.pressed.emit()
 	approve.pressed.emit()
+	assert(canvas.connections.is_empty())
+	var cases_text := (workbench.get_node("%CasesLabel") as Label).text
+	assert("slot 000 = 5" in cases_text and "+2 hidden tests" in cases_text, cases_text)
+	assert(not "slot 000 = 20" in cases_text)
+	assert(canvas.run_memory == {0: 5})
 	workbench.get_node("%AbandonButton").pressed.emit()
 	assert(not workbench.visible)
 	assert(game_state.reputation == 6)
