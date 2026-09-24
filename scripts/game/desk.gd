@@ -256,6 +256,7 @@ func _say_reaction(order: AtelierScrollOrder, approved: bool) -> void:
 		else:
 			line = tr("DESK_REACTION_CAUGHT")
 	speech_label.text = "\"%s\"" % line
+	_show_mood(order, AtelierPortrait.Mood.HAPPY if approved else AtelierPortrait.Mood.UPSET)
 
 
 func _on_scroll_delivered(result: Dictionary) -> void:
@@ -292,8 +293,7 @@ func _client_leaves(message: String) -> void:
 ## ======================== APRESENTAÇÃO ========================
 
 func _show_client(order: AtelierScrollOrder) -> void:
-	portrait.texture = order.portrait if order.portrait != null else generic_portrait
-	portrait.self_modulate = Color.WHITE if order.portrait != null else order.portrait_color
+	_show_mood(order, AtelierPortrait.Mood.NEUTRAL)
 	# Fala = personalidade, papel = informação: a raça fica só no pedido.
 	client_name_label.text = order.client_name
 	speech_label.text = "\"%s\"" % order.greeting
@@ -307,6 +307,14 @@ func _show_client(order: AtelierScrollOrder) -> void:
 	portrait.show()
 	request_form.show()
 	feedback.play_sfx(&"paper")
+
+
+## Expressão do cliente na janela. Sem retrato próprio, fica a silhueta
+## genérica tingida com portrait_color (ela não muda de expressão).
+func _show_mood(order: AtelierScrollOrder, mood: AtelierPortrait.Mood) -> void:
+	var face := order.portrait
+	portrait.texture = face.texture_for(mood) if face != null else generic_portrait
+	portrait.self_modulate = Color.WHITE if face != null else order.portrait_color
 
 
 func _clear_counter() -> void:
@@ -406,10 +414,13 @@ func _react_to_mistake(link: Dictionary) -> void:
 	match link["patience"]:
 		AtelierInspection.Patience.UNEASY:
 			speech_label.text = "\"%s\"" % tr("DESK_PATIENCE_UNEASY")
+			_show_mood(current_order, AtelierPortrait.Mood.UNEASY)
 		AtelierInspection.Patience.UPSET:
 			speech_label.text = "\"%s\"" % tr("DESK_PATIENCE_UPSET")
+			_show_mood(current_order, AtelierPortrait.Mood.UPSET)
 		AtelierInspection.Patience.EXASPERATED:
 			speech_label.text = "\"%s\"" % tr("DESK_PATIENCE_EXASPERATED")
+			_show_mood(current_order, AtelierPortrait.Mood.UPSET)
 	if link["penalty_due"]:
 		GameState.penalize_inspection(current_order, inspection_mistake_penalty)
 		_say_feedback(str(link["message"]) + "\n" + tr("DESK_PATIENCE_PENALTY") % [inspection_mistake_penalty])

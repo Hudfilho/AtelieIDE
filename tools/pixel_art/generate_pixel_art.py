@@ -421,8 +421,9 @@ def window_front():
         d.rectangle((bx, 6, bx + 2, h - 8), fill=rgba("iron1"))
         d.line((bx, 6, bx, h - 8), fill=rgba("iron2"))
         d.line((bx + 3, 6, bx + 3, h - 8), fill=rgba("iron0"))
-    d.rectangle((6, 34, w - 7, 36), fill=rgba("iron1"))
-    d.line((6, 34, w - 7, 34), fill=rgba("iron2"))
+    # Travessa alta: os retratos (92x92, de y 20 até o balcão) ficam abaixo dela.
+    d.rectangle((6, 16, w - 7, 18), fill=rgba("iron1"))
+    d.line((6, 16, w - 7, 16), fill=rgba("iron2"))
     for cx, cy in ((3, 3), (w - 4, 3), (3, h - 4), (w - 4, h - 4)):
         img.putpixel((cx, cy), rgba("brass2"))
     save(img, "window_front.png")
@@ -431,55 +432,21 @@ def window_front():
 # ======================================================================
 # Personagens
 # ======================================================================
-def goblin():
-    img = new(72, 84)
-    d = ImageDraw.Draw(img)
-    d.polygon([(6, 83), (14, 66), (28, 60), (44, 60), (58, 66), (66, 83)], fill=rgba("cloak1"))
-    d.polygon([(40, 60), (58, 66), (66, 83), (44, 83)], fill=rgba("cloak0"))
-    d.polygon([(24, 60), (36, 70), (48, 60)], fill=rgba("cloak2"))
-    d.rectangle((30, 52, 42, 62), fill=rgba("green1"))
-    for side in (1, -1):
-        cx = 36
-        ear = [(cx - side * 18, 30), (cx - side * 36, 12), (cx - side * 32, 24), (cx - side * 20, 40)]
-        d.polygon(ear, fill=rgba("green2"))
-        inner = [(cx - side * 20, 30), (cx - side * 32, 17), (cx - side * 29, 25), (cx - side * 21, 35)]
-        d.polygon(inner, fill=rgba("green0"))
-    d.ellipse((14, 14, 58, 58), fill=rgba("green1"))
-    d.ellipse((13, 12, 55, 54), fill=rgba("green2"))
-    d.ellipse((21, 17, 33, 25), fill=rgba("green3"))
-    d.line((22, 26, 31, 24), fill=rgba("green0"), width=2)
-    d.line((40, 24, 49, 26), fill=rgba("green0"), width=2)
-    d.ellipse((22, 28, 32, 38), fill=rgba("white"))
-    d.ellipse((40, 28, 50, 38), fill=rgba("white"))
-    d.rectangle((26, 31, 29, 35), fill=rgba("void"))
-    d.rectangle((43, 31, 46, 35), fill=rgba("void"))
-    d.point([(27, 32), (44, 32)], fill=rgba("white"))
-    d.rectangle((34, 36, 37, 40), fill=rgba("green1"))
-    d.ellipse((25, 41, 47, 53), fill=rgba("void"))
-    d.ellipse((31, 46, 42, 54), fill=rgba("tongue"))
-    d.rectangle((28, 42, 30, 44), fill=rgba("white"))
-    d.rectangle((41, 42, 43, 44), fill=rgba("white"))
-    outline(img)
-    d = ImageDraw.Draw(img)
-    d.ellipse((62, 28, 68, 34), outline=rgba("brass2"))
-    for hx in (8, 50):
-        d.ellipse((hx, 76, hx + 14, 84), fill=rgba("green2"))
-        d.line((hx + 4, 78, hx + 4, 83), fill=rgba("green0"))
-        d.line((hx + 9, 78, hx + 9, 83), fill=rgba("green0"))
-    save(img, "portrait_goblin.png")
-
-
 def silhouette():
-    """Cliente genérico: capuz claro, tingido pela cor de cada encomenda."""
-    img = new(72, 84)
+    """Cliente genérico: capuz claro, tingido pela cor de cada encomenda. Mesma
+    tela dos retratos (92x92), com o busto encostado embaixo."""
+    img = new(92, 92)
     d = ImageDraw.Draw(img)
-    d.polygon([(4, 83), (12, 62), (26, 54), (46, 54), (60, 62), (68, 83)], fill=rgba("grey1"))
-    d.polygon([(40, 54), (60, 62), (68, 83), (46, 83)], fill=rgba("grey0"))
-    d.ellipse((14, 10, 58, 62), fill=rgba("grey2"))
-    d.polygon([(36, 6), (22, 20), (50, 20)], fill=rgba("grey2"))
-    d.ellipse((22, 22, 50, 58), fill=rgba("grey0"))
-    d.ellipse((25, 30, 47, 56), fill=rgba("void"))
-    d.point([(30, 40), (31, 40), (41, 40), (42, 40)], fill=rgba("grey2"))
+    ox, oy = 10, 8
+    def at(points):
+        return [(x + ox, y + oy) for x, y in points]
+    d.polygon(at([(4, 83), (12, 62), (26, 54), (46, 54), (60, 62), (68, 83)]), fill=rgba("grey1"))
+    d.polygon(at([(40, 54), (60, 62), (68, 83), (46, 83)]), fill=rgba("grey0"))
+    d.ellipse((14 + ox, 10 + oy, 58 + ox, 62 + oy), fill=rgba("grey2"))
+    d.polygon(at([(36, 6), (22, 20), (50, 20)]), fill=rgba("grey2"))
+    d.ellipse((22 + ox, 22 + oy, 50 + ox, 58 + oy), fill=rgba("grey0"))
+    d.ellipse((25 + ox, 30 + oy, 47 + ox, 56 + oy), fill=rgba("void"))
+    d.point(at([(30, 40), (31, 40), (41, 40), (42, 40)]), fill=rgba("grey2"))
     outline(img)
     save(img, "portrait_hooded.png")
 
@@ -729,7 +696,7 @@ if __name__ == "__main__":
     tiny = tiny_glyphs()
     write_font(tiny, 1, "pixel_font_tiny", "Atelier Pixel Tiny", cell=8, line=9, base=7)
     backdrop(); window_back(); window_front()
-    goblin(); silhouette()
+    silhouette()
     paper_9("parchment.png", 32, "cream0", "parch2", "cream1", ["cream1", "cream2"], curl=True)
     paper_9("note.png", 24, "parch0", "parch2", "parch1", ["parch1"])
     paper_9("card.png", 24, "parch0", "parch2", "parch1", ["parch1"], notches=False)

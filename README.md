@@ -142,7 +142,14 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 - **Dicas da nota:** mensagens do tipo "clique num campo" somem sozinhas depois de alguns segundos (`hint_fade_delay`). Resultados, avisos e penalidades ficam.
 - **Luz:** vem pintada no fundo (`backdrop.png`), com pontilhado. A vela aquece a parede e o centro da mesa, o luar esfria a quina do balcão sob a janela e as bordas são mais escuras. Papéis e objetos têm sombra de 2 px e se sobrepõem um pouco, como numa mesa de verdade.
 - A arte é provisória e original. É gerada por `tools/pixel_art/generate_pixel_art.py`, que produz o fundo, os sprites, as molduras 9-slice e as fontes. Rode o script de novo para ajustar a arte; as posições da vela e da janela no script têm de bater com `Desk.tscn`.
-- O goblin tem retrato próprio (`portrait` na encomenda). Os demais clientes usam uma silhueta tingida com `portrait_color`.
+- **Retratos:** clientes com retrato (`portrait` na encomenda, um `AtelierPortrait` em `data/portraits/`) mudam de expressão na janela:
+  - neutra ao chegar;
+  - feliz na aprovação;
+  - preocupada no primeiro sinal de impaciência;
+  - contrariada na recusa e no limite da paciência.
+
+  Hoje há retratos de Mira Holloway, Anderdingus, Elenia Valehart, Sleego e Kothar. Os outros clientes usam uma silhueta tingida com `portrait_color`.
+- Os PNGs dos retratos (92x92, em `art/portraits/`) saem de `tools/pixel_art/make_portraits.py`. O script recorta os painéis de expressão das fichas em `art/concepts/portraits/`, separa o personagem do fundo, reduz para pixel art com uma paleta de 32 cores por personagem e contorna a silhueta. As fichas são só a fonte visual: raça, idade e nome continuam vindo das encomendas. A pasta `art/concepts/` tem `.gdignore`, então o Godot não importa as fichas. `tests/portrait_smoke.gd` confere o formato dos PNGs e a troca de expressões.
 - A marca APPROVED/REFUSED cai numa área reservada do pergaminho (`StampBox`), sem cobrir texto.
 - As plaquinhas dos carimbos e o "tocar o sino" são escuras com borda de latão, com contraste de pelo menos 4.5:1 mesmo quando desligados.
 - `tests/pixel_desk_smoke.gd` monta o balcão para todo cliente de todos os dias. Ele confere que:

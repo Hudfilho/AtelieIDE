@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AtelierPortrait" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/portrait.gd" id="1_portrait"]
+[ext_resource type="Texture2D" path="res://art/portraits/elenia_valehart/neutral.png" id="neutral"]
+[ext_resource type="Texture2D" path="res://art/portraits/elenia_valehart/happy.png" id="happy"]
+[ext_resource type="Texture2D" path="res://art/portraits/elenia_valehart/uneasy.png" id="uneasy"]
+[ext_resource type="Texture2D" path="res://art/portraits/elenia_valehart/upset.png" id="upset"]
+
+[resource]
+script = ExtResource("1_portrait")
+character = "Elenia Valehart"
+neutral = ExtResource("neutral")
+happy = ExtResource("happy")
+uneasy = ExtResource("uneasy")
+upset = ExtResource("upset")
