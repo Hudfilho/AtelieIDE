@@ -74,7 +74,7 @@ static func symbol_data(kind: String) -> Dictionary:
 		var symbol: Dictionary = raw_symbol
 		if str(symbol["kind"]) == kind:
 			return symbol.duplicate(true)
-	return {"kind": kind, "label": kind, "description": "RUNE_UNKNOWN_DESC", "extra": "", "opcode": -1, "takes_operand": false, "result_type": ""}
+	return {"kind": kind, "label": kind, "description": "Unknown rune.", "extra": "", "opcode": -1, "takes_operand": false, "result_type": ""}
 
 
 static func symbol_for_opcode(opcode: int) -> Dictionary:

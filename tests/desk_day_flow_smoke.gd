@@ -48,16 +48,16 @@ func _run() -> void:
 	var draft_center: Vector2 = canvas.call("_world_to_screen", Vector2(48.0, 0.0))
 	var drawing_area: Rect2 = canvas.call("_canvas_rect")
 	assert(drawing_area.grow(-60.0).has_point(draft_center), "The draft should be framed inside the drawing area")
-	assert((workbench.get_node("%ResetButton") as Button).text == "Reset to draft")
+	assert((workbench.get_node("%ResetButton") as Button).text == tr("BENCH_RESET_DRAFT"))
 	workbench.get_node("%DeliverButton").pressed.emit()
 	assert(workbench.visible)
-	assert("expected 3, got 128" in (workbench.get_node("%ResultLabel") as Label).text)
+	assert(tr("JUDGE_MISMATCH") % ["3", "128"] in (workbench.get_node("%ResultLabel") as Label).text)
 
 	# Pergaminho errado: fica na bancada e explica a falha.
 	canvas.load_connections(SpellJudgeSmoke._program([["ORB", 4], ["TRIANGLE", 128], ["CROSS", 128]]))
 	workbench.get_node("%DeliverButton").pressed.emit()
 	assert(workbench.visible)
-	assert("expected 3, got 4" in (workbench.get_node("%ResultLabel") as Label).text)
+	assert(tr("JUDGE_MISMATCH") % ["3", "4"] in (workbench.get_node("%ResultLabel") as Label).text)
 
 	# Reiniciar volta ao rascunho, e Ctrl+Z desfaz o reinício.
 	workbench.get_node("%ResetButton").pressed.emit()
@@ -73,24 +73,25 @@ func _run() -> void:
 	bell.pressed.emit()
 	assert(_item(desk) == "Fireball")
 	var evidence_label := desk.get_node("%EvidenceLabel") as Label
-	assert("No evidence" in evidence_label.text)
+	assert(evidence_label.text == tr("DESK_NO_EVIDENCE"))
 	# Ligação errada: contradição, sem prova.
 	desk.get_node("%RaceField").pressed.emit()
 	_rule_button(desk, "signature").pressed.emit()
-	assert(feedback.text.begins_with("No contradiction"), feedback.text)
-	assert("No evidence" in evidence_label.text)
+	assert(desk.inspection.evidence.is_empty() and desk.inspection.mistakes == 1)
+	assert(feedback.text == tr("INSPECT_NO_CONTRADICTION") % [tr("FIELD_RACE"), "Goblin", "Matching signature"], feedback.text)
 	# Regra primeiro, campo depois: também vale; vira prova marcada em tinta.
 	_rule_button(desk, "signature").pressed.emit()
 	assert(_rule_button(desk, "signature").button_pressed, "The chosen rule stays selected")
 	desk.get_node("%SignatureField").pressed.emit()
-	assert(feedback.text.begins_with("Discrepancy confirmed"), feedback.text)
+	assert(desk.inspection.evidence.size() == 1 and desk.inspection.mistakes == 1, "A correct link adds evidence, not a mistake")
 	assert((desk.get_node("%SignatureField") as Button).text.begins_with("»"))
 	assert(_rule_button(desk, "signature").text.begins_with("»"))
 	assert(not (desk.get_node("%SignatureField") as Button).button_pressed, "Selection clears after a link")
-	assert("Signature -> Matching signature" in evidence_label.text, evidence_label.text)
+	assert("- %s -> %s" % [tr("FIELD_SIGNATURE"), "Matching signature"] in evidence_label.text, evidence_label.text)
 	reject.pressed.emit()
 	assert(game_state.reputation == 5 + 1 + 1, "A cited rejection is a correct rejection")
-	assert("Refused on evidence: Matching signature" in feedback.text, feedback.text)
+	assert(game_state.outcomes["anderdingus_fireball"] == "rejected")
+	assert(feedback.text.begins_with(tr("DESK_REFUSED_EVIDENCE") % ["Matching signature"]), feedback.text)
 	assert(evidence_label.text.is_empty())
 
 	# Cliente 3 (Tomas): a bancada mostra só o exemplo; desistir custa reputação.
@@ -98,8 +99,9 @@ func _run() -> void:
 	approve.pressed.emit()
 	assert(canvas.connections.is_empty())
 	var cases_text := (workbench.get_node("%CasesLabel") as Label).text
-	assert("slot 000 = 5" in cases_text and "+2 hidden tests" in cases_text, cases_text)
-	assert(not "slot 000 = 20" in cases_text)
+	var bench_judge = workbench.judge
+	assert(bench_judge.describe_memory({0: 5}) in cases_text and tr("BENCH_HIDDEN_MANY") % [2] in cases_text, cases_text)
+	assert(not bench_judge.describe_memory({0: 20}) in cases_text, "Hidden inputs must not be shown")
 	assert(canvas.run_memory == {0: 5})
 	workbench.get_node("%AbandonButton").pressed.emit()
 	assert(not workbench.visible)
@@ -108,7 +110,7 @@ func _run() -> void:
 	# Fim do dia 1 → livro-caixa → dia 2.
 	bell.pressed.emit()
 	assert(overlay.visible)
-	assert("Ledger" in (desk.get_node("%OverlayTitle") as Label).text)
+	assert(desk.phase == desk.Phase.DAY_END)
 	desk.get_node("%OverlayButton").pressed.emit()
 	assert(game_state.day_index == 1)
 	assert("Embargo" in (desk.get_node("%OverlayTitle") as Label).text)
@@ -126,7 +128,7 @@ func _run() -> void:
 	var reputation_before_brom: int = game_state.reputation
 	reject.pressed.emit()
 	assert(game_state.reputation == reputation_before_brom - 1)
-	assert("without cause" in feedback.text, feedback.text)
+	assert(feedback.text.begins_with(tr("DESK_REFUSED_NO_CAUSE")), feedback.text)
 	bell.pressed.emit() # Oona
 	approve.pressed.emit()
 	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["oona_vesper_bell"])
@@ -134,7 +136,7 @@ func _run() -> void:
 
 	# Fim do dia 2 → manhã do dia 3 traz o jornal, a multa e a suspeita.
 	bell.pressed.emit()
-	assert("Ledger" in (desk.get_node("%OverlayTitle") as Label).text)
+	assert(desk.phase == desk.Phase.DAY_END)
 	var money_before_morning: int = game_state.money
 	desk.get_node("%OverlayButton").pressed.emit()
 	assert("Inspection" in (desk.get_node("%OverlayTitle") as Label).text)
@@ -142,7 +144,7 @@ func _run() -> void:
 	assert(game_state.money == money_before_morning - 25)
 	assert(game_state.flag("guild_suspicion") == 1)
 	desk.get_node("%OverlayButton").pressed.emit()
-	assert("4 waiting" in (desk.get_node("%QueueLabel") as Label).text)
+	assert((desk.get_node("%QueueLabel") as Label).text == tr("DESK_HUD_QUEUE") % [4])
 
 	# Dia 3: o goblin recusado volta com um pedido honesto.
 	bell.pressed.emit()
@@ -168,7 +170,7 @@ func _run() -> void:
 	# Fim do demo: o jornal de amanhã mostra o que ainda está agendado.
 	bell.pressed.emit()
 	assert(overlay.visible)
-	assert((desk.get_node("%OverlayTitle") as Label).text == "End of the demo")
+	assert(desk.phase == desk.Phase.DEMO_END)
 	var ending := (desk.get_node("%OverlayBody") as RichTextLabel).text
 	assert("MERCHANT'S MEMORY STOLEN" in ending and "ATELIER CLEARED" in ending, ending)
 

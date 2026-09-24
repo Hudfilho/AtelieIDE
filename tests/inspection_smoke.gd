@@ -36,7 +36,7 @@ func _run() -> void:
 	assert(not inspection.has_evidence())
 	var link: Dictionary = inspection.link("signature", signature)
 	assert(link["result"] == Result.VALID, str(link))
-	assert("GoOBLiN" in link["message"] and "Signature" in link["message"], link["message"])
+	assert(link["message"] == tr("INSPECT_CONFIRMED") % [tr("FIELD_SIGNATURE"), "GoOBLiN", signature.title], link["message"])
 	assert(inspection.has_evidence() and inspection.cited_rules() == [signature])
 	assert(inspection.link("item", offensive)["result"] == Result.VALID)
 	assert(inspection.link("details", offensive)["result"] == Result.VALID)
@@ -53,8 +53,8 @@ func _run() -> void:
 	var honest: Dictionary = AtelierInspection.new(mira, day_1.rules).link("signature", signature)
 	assert(honest["result"] == Result.NOT_VIOLATED)
 	# O jogador recebe a mesma frase nos dois casos: nada vaza sobre a regra.
-	assert(wrong_field["message"].begins_with("No contradiction") and honest["message"].begins_with("No contradiction"))
-	assert(not "broken" in wrong_field["message"], wrong_field["message"])
+	assert(wrong_field["message"] == tr("INSPECT_NO_CONTRADICTION") % [tr("FIELD_RACE"), "Goblin", signature.title], wrong_field["message"])
+	assert(honest["message"] == tr("INSPECT_NO_CONTRADICTION") % [tr("FIELD_SIGNATURE"), "Mira Holloway", signature.title], honest["message"])
 	assert(wrong.link("race", embargo)["result"] == Result.NOT_IN_FORCE, "The embargo is not in force on day 1")
 	assert(not wrong.has_evidence() and wrong.cited_rules().is_empty())
 

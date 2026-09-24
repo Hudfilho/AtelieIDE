@@ -29,13 +29,6 @@ var outcomes: Dictionary[String, String] = {}
 var scheduled: Array[Dictionary] = []
 
 
-## Inglês é o idioma inicial, mesmo num sistema em outro idioma; um futuro
-## menu de opções pode trocar com TranslationServer.set_locale. Fica aqui por
-## ser o primeiro script a rodar (autoload), antes de qualquer cena ou teste.
-func _ready() -> void:
-	TranslationServer.set_locale(AtelierText.DEFAULT_LOCALE)
-
-
 func new_game() -> void:
 	money = STARTING_MONEY
 	reputation = STARTING_REPUTATION
@@ -89,7 +82,7 @@ func resolve_customer(slot: AtelierScrollOrder) -> AtelierScrollOrder:
 ## Entrega um pergaminho aprovado e aceito pelo juiz; devolve quanto foi pago.
 func deliver(order: AtelierScrollOrder, elegant: bool) -> int:
 	var paid := order.reward + (ELEGANT_BONUS if elegant else 0)
-	record(AtelierText.t("LEDGER_SOLD_ELEGANT" if elegant else "LEDGER_SOLD", [order.item, order.client_name]), paid, 1 if current_day().is_legal(order) else 0)
+	record(tr("LEDGER_SOLD_ELEGANT" if elegant else "LEDGER_SOLD") % [order.item, order.client_name], paid, 1 if current_day().is_legal(order) else 0)
 	_decide(order, "delivered", order.on_delivered)
 	return paid
 
@@ -104,10 +97,10 @@ func reject(order: AtelierScrollOrder, cited_rules: Array[AtelierShopRule] = [])
 		if current_day().rules.has(rule) and rule.violated_by(order) and not justified.has(rule):
 			justified.append(rule)
 	if justified.is_empty():
-		record(AtelierText.t("LEDGER_REFUSED_NO_CAUSE", [order.client_name]), 0, -1)
+		record(tr("LEDGER_REFUSED_NO_CAUSE") % [order.client_name], 0, -1)
 	else:
 		var titles := PackedStringArray(justified.map(func(rule: AtelierShopRule) -> String: return rule.title))
-		record(AtelierText.t("LEDGER_REFUSED", [order.client_name, order.item, ", ".join(titles)]), 0, 1)
+		record(tr("LEDGER_REFUSED") % [order.client_name, order.item, ", ".join(titles)], 0, 1)
 	_decide(order, "rejected", order.on_rejected)
 	return not justified.is_empty()
 
@@ -115,11 +108,11 @@ func reject(order: AtelierScrollOrder, cited_rules: Array[AtelierShopRule] = [])
 ## Penalidade por inspeção confusa (ligações erradas demais com um cliente).
 ## Quem garante que acontece uma vez por cliente é a AtelierInspection.
 func penalize_inspection(order: AtelierScrollOrder, amount: int) -> void:
-	record(AtelierText.t("LEDGER_INSPECTION_PENALTY", [order.client_name]), 0, -amount)
+	record(tr("LEDGER_INSPECTION_PENALTY") % [order.client_name], 0, -amount)
 
 
 func abandon(order: AtelierScrollOrder) -> void:
-	record(AtelierText.t("LEDGER_ABANDONED", [order.item, order.client_name]), 0, -1)
+	record(tr("LEDGER_ABANDONED") % [order.item, order.client_name], 0, -1)
 	_decide(order, "abandoned", order.on_abandoned)
 
 
@@ -169,6 +162,6 @@ func _apply(consequence: AtelierConsequence) -> void:
 	for flag_name in consequence.flag_changes:
 		flags[flag_name] = flag(flag_name) + consequence.flag_changes[flag_name]
 	if consequence.money != 0 or consequence.reputation != 0 or not consequence.ledger_text.is_empty():
-		record(consequence.ledger_text if not consequence.ledger_text.is_empty() else AtelierText.t("LEDGER_CONSEQUENCE"), consequence.money, consequence.reputation)
+		record(consequence.ledger_text if not consequence.ledger_text.is_empty() else tr("LEDGER_CONSEQUENCE"), consequence.money, consequence.reputation)
 	else:
 		changed.emit()

@@ -34,15 +34,15 @@ func _ready() -> void:
 
 func open_order(new_order: AtelierScrollOrder, runes: PackedStringArray) -> void:
 	order = new_order
-	order_title.text = AtelierText.t("BENCH_ORDER_TITLE", [order.item, order.client_name])
+	order_title.text = tr("BENCH_ORDER_TITLE") % [order.item, order.client_name]
 	spec_label.text = order.spec
 	cases_label.text = _describe_cases()
-	_say(AtelierText.t("BENCH_START_HINT"), Color.WHITE)
+	_say(tr("BENCH_START_HINT"), Color.WHITE)
 	canvas.load_connections(order.starting_ritual)
 	canvas.set_allowed_symbols(runes)
 	# O ▶ da bancada usa as entradas do primeiro exemplo, para o READ ter o que ler.
 	canvas.run_memory = order.preview_memory()
-	reset_button.text = AtelierText.t("BENCH_RESET_DRAFT" if not order.starting_ritual.is_empty() else "BENCH_CLEAR")
+	reset_button.text = tr("BENCH_RESET_DRAFT" if not order.starting_ritual.is_empty() else "BENCH_CLEAR")
 	canvas.top_panel_open = true
 	# O Oráculo abre sozinho ao apertar ▶; fechado, sobra espaço para desenhar.
 	canvas.bottom_panel_open = false
@@ -62,23 +62,23 @@ func _describe_cases() -> String:
 	var lines: PackedStringArray = []
 	for test_case in order.examples:
 		var memory: Dictionary = test_case.get("memory", {})
-		var inputs := SpellJudge.describe_memory(memory)
-		lines.append("%s  ->  %s" % [inputs if not inputs.is_empty() else AtelierText.t("BENCH_NO_INPUTS"), SpellJudge.describe_output(test_case.get("output", []))])
-	var text := AtelierText.t("BENCH_EXAMPLES", ["   ;   ".join(lines)])
+		var inputs := judge.describe_memory(memory)
+		lines.append("%s  ->  %s" % [inputs if not inputs.is_empty() else tr("BENCH_NO_INPUTS"), judge.describe_output(test_case.get("output", []))])
+	var text := tr("BENCH_EXAMPLES") % ["   ;   ".join(lines)]
 	var hidden_count := order.hidden_tests.size()
 	if hidden_count == 1:
-		text += "   " + AtelierText.t("BENCH_HIDDEN_ONE")
+		text += "   " + tr("BENCH_HIDDEN_ONE")
 	elif hidden_count > 1:
-		text += "   " + AtelierText.t("BENCH_HIDDEN_MANY", [hidden_count])
+		text += "   " + tr("BENCH_HIDDEN_MANY") % [hidden_count]
 	if order.par_runes > 0:
-		text += "   |   " + AtelierText.t("BENCH_PAR", [order.par_runes])
+		text += "   |   " + tr("BENCH_PAR") % [order.par_runes]
 	return text
 
 
 func _on_reset_pressed() -> void:
 	canvas.replace_connections(order.starting_ritual)
 	canvas.frame_connections()
-	_say(AtelierText.t("BENCH_RESET_DONE"), Color.WHITE)
+	_say(tr("BENCH_RESET_DONE"), Color.WHITE)
 	canvas.grab_focus()
 
 
@@ -86,15 +86,15 @@ func _on_reset_pressed() -> void:
 func _on_preview_finished(result: Dictionary) -> void:
 	if order == null or order.examples.is_empty() or not visible or result.get("stopped", false):
 		return
-	var expected := SpellJudge.describe_output(order.examples[0].get("output", []))
-	var actual := SpellJudge.describe_output(result.get("output", []))
+	var expected := judge.describe_output(order.examples[0].get("output", []))
+	var actual := judge.describe_output(result.get("output", []))
 	var errors: Array = result.get("errors", [])
 	if not errors.is_empty():
-		_say(AtelierText.t("BENCH_PREVIEW_BROKE", [str(errors[0])]), FAIL_COLOR)
+		_say(tr("BENCH_PREVIEW_BROKE") % [str(errors[0])], FAIL_COLOR)
 	elif actual == expected:
-		_say(AtelierText.t("BENCH_PREVIEW_MATCH", [actual]), PASS_COLOR)
+		_say(tr("BENCH_PREVIEW_MATCH") % [actual], PASS_COLOR)
 	else:
-		_say(AtelierText.t("BENCH_PREVIEW_MISMATCH", [actual, expected]), FAIL_COLOR)
+		_say(tr("BENCH_PREVIEW_MISMATCH") % [actual, expected], FAIL_COLOR)
 
 
 func _say(text: String, color: Color) -> void:
@@ -105,6 +105,6 @@ func _say(text: String, color: Color) -> void:
 func _on_deliver_pressed() -> void:
 	var result := judge.judge(canvas.connections, order)
 	if not result["passed"]:
-		_say(SpellJudge.describe_failure(result), FAIL_COLOR)
+		_say(judge.describe_failure(result), FAIL_COLOR)
 		return
 	delivered.emit(result)

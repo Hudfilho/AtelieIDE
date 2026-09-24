@@ -132,12 +132,14 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 - Os sons atuais são provisórios, gerados em código. Para trocar um deles, arraste o arquivo para `Feedback > sounds` no Inspector.
 - Nos testes, `instant = true` faz tudo acontecer na hora, e `mute = true` só anuncia as deixas, sem tocar.
 
-**Idiomas:** os textos do jogo, da bancada e da IDE ficam em `localization/strings.csv`, com uma coluna `en` e outra `pt_BR`. O Godot importa esse arquivo como tradução, e o inglês é o idioma inicial, definido em `GameState._ready`.
+**Idiomas:** o jogo usa a localização nativa do Godot. A tabela `localization/strings.csv`, com uma coluna `en` e outra `pt_BR`, é registrada em `project.godot`.
 
-- No código, use `AtelierText.t("CHAVE")` ou `AtelierText.t("CHAVE", [args])`.
-- Nas cenas, escreva a chave no campo `text`; o Godot traduz sozinho.
-- O conteúdo dos `.tres` (clientes, regras, manchetes) continua em inglês. Ele passa pela tradução automática usando o próprio texto como chave, então pode ser traduzido depois sem mexer nos recursos.
-- O teste `tests/localization_smoke.gd` confere que toda chave usada existe e resolve em inglês, e que nenhum texto fixo sobrou no código.
+- O inglês é o fallback. O jogo abre no idioma do sistema quando há tradução para ele (`pt_BR`); nos demais casos, abre em inglês.
+- No código, use `tr("CHAVE")` ou `tr("CHAVE") % [args]`. Nas cenas, escreva a chave no `text`; o `Control` traduz sozinho.
+- Engine e UI devolvem códigos, e quem mostra o texto chama `tr()`. Os diagnósticos do compilador trazem um `code`, e `AtelierRitualFile` devolve `error` como chave, com `error_args` quando há argumentos.
+- Mensagens só de desenvolvimento ficam em inglês simples, marcadas com `# dev-only`, e não entram na tabela. É o caso do overlay F3, dos erros internos de bytecode e da exportação binária, que ainda não tem interface.
+- O conteúdo autoral (clientes, regras, dias e manchetes nos `.tres`) não vira chave: é texto em inglês e passa pela tradução automática usando o próprio texto como chave.
+- O teste `tests/localization_smoke.gd` confere que toda chave usada existe e resolve em inglês, que nenhuma chave da tabela está sem uso e que nenhum texto fixo sobrou nas chamadas de exibição. Os testes não dependem do idioma ativo.
 
 **Para rodar os testes:** rode `godot --headless --path . --import` uma vez e depois `godot --headless --path . -s tests/<teste>.gd`.
 

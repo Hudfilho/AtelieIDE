@@ -111,17 +111,17 @@ func _start_day(headlines: PackedStringArray) -> void:
 	_build_rulebook(day)
 	var body := day.intro
 	if not headlines.is_empty():
-		body = "[b]%s[/b]\n" % AtelierText.t("DESK_HERALD_HEADER") + "\n\n".join(headlines) + "\n\n" + body
-	body += "\n\n[b]%s[/b]\n" % AtelierText.t("DESK_RULEBOOK_HEADER") + "\n\n".join(PackedStringArray(day.rules.map(func(rule: AtelierShopRule) -> String: return "- " + rule.text)))
-	body += "\n\n[b]%s[/b]\n" % AtelierText.t("DESK_RUNES_HEADER") + ", ".join(_rune_labels(day.runes))
-	_show_overlay(day.title, body, AtelierText.t("DESK_OPEN_SHOP"), _begin_service)
+		body = "[b]%s[/b]\n" % tr("DESK_HERALD_HEADER") + "\n\n".join(headlines) + "\n\n" + body
+	body += "\n\n[b]%s[/b]\n" % tr("DESK_RULEBOOK_HEADER") + "\n\n".join(PackedStringArray(day.rules.map(func(rule: AtelierShopRule) -> String: return "- " + rule.text)))
+	body += "\n\n[b]%s[/b]\n" % tr("DESK_RUNES_HEADER") + ", ".join(_rune_labels(day.runes))
+	_show_overlay(day.title, body, tr("DESK_OPEN_SHOP"), _begin_service)
 	_refresh_hud()
 
 
 func _begin_service() -> void:
 	overlay.hide()
 	phase = Phase.WAITING
-	_say_feedback(AtelierText.t("DESK_RING_FIRST"))
+	_say_feedback(tr("DESK_RING_FIRST"))
 	_refresh_controls()
 
 
@@ -139,7 +139,7 @@ func _call_next_client() -> void:
 		current_order = GameState.resolve_customer(_day().orders[order_index])
 	phase = Phase.SERVING
 	_show_client(current_order)
-	_say_feedback(AtelierText.t("DESK_CHECK_REQUEST"))
+	_say_feedback(tr("DESK_CHECK_REQUEST"))
 	_refresh_controls()
 
 
@@ -151,10 +151,10 @@ func _end_day() -> void:
 	for entry in GameState.ledger:
 		earned += int(entry["money"])
 		lines.append("%s   [color=#e8c07a]%s[/color]%s" % [entry["text"], _signed(entry["money"], "DESK_SIGNED_COINS"), _reputation_suffix(entry["reputation"])])
-	var body := "\n".join(lines) if not lines.is_empty() else AtelierText.t("DESK_QUIET_DAY")
-	body += "\n\n" + AtelierText.t("DESK_DAY_TOTALS", [_signed(earned, "DESK_SIGNED_COINS"), GameState.money, GameState.reputation])
+	var body := "\n".join(lines) if not lines.is_empty() else tr("DESK_QUIET_DAY")
+	body += "\n\n" + tr("DESK_DAY_TOTALS") % [_signed(earned, "DESK_SIGNED_COINS"), GameState.money, GameState.reputation]
 	if GameState.has_next_day():
-		_show_overlay(AtelierText.t("DESK_LEDGER_TITLE", [_day().title]), body, AtelierText.t("DESK_SLEEP"), _go_to_next_day)
+		_show_overlay(tr("DESK_LEDGER_TITLE") % [_day().title], body, tr("DESK_SLEEP"), _go_to_next_day)
 	else:
 		_show_demo_end(body)
 
@@ -168,9 +168,9 @@ func _show_demo_end(ledger_body: String) -> void:
 	var body := ledger_body
 	var upcoming := GameState.upcoming_headlines()
 	if not upcoming.is_empty():
-		body += "\n\n[b]%s[/b]\n" % AtelierText.t("DESK_TOMORROW_HERALD") + "\n\n".join(upcoming)
-	body += "\n\n[i]%s[/i]" % AtelierText.t("DESK_THANKS")
-	_show_overlay(AtelierText.t("DESK_DEMO_END_TITLE"), body, AtelierText.t("DESK_BACK_TO_TITLE"), func() -> void: get_tree().change_scene_to_file("res://scenes/game/Title.tscn"))
+		body += "\n\n[b]%s[/b]\n" % tr("DESK_TOMORROW_HERALD") + "\n\n".join(upcoming)
+	body += "\n\n[i]%s[/i]" % tr("DESK_THANKS")
+	_show_overlay(tr("DESK_DEMO_END_TITLE"), body, tr("DESK_BACK_TO_TITLE"), func() -> void: get_tree().change_scene_to_file("res://scenes/game/Title.tscn"))
 
 
 ## ======================== CARIMBOS ========================
@@ -203,17 +203,17 @@ func _on_stamp_impact(kind: StringName) -> void:
 	if kind == AtelierDeskFeedback.APPROVE:
 		phase = Phase.CRAFTING
 		_say_reaction(order, true)
-		_say_feedback(AtelierText.t("DESK_APPROVED"))
+		_say_feedback(tr("DESK_APPROVED"))
 	else:
 		phase = Phase.LEAVING
 		var cited := inspection.cited_rules()
 		if GameState.reject(order, cited):
 			var titles := PackedStringArray(cited.map(func(rule: AtelierShopRule) -> String: return rule.title))
-			_leave_message = AtelierText.t("DESK_REFUSED_EVIDENCE", [", ".join(titles)])
+			_leave_message = tr("DESK_REFUSED_EVIDENCE") % [", ".join(titles)]
 		elif _day().is_legal(order):
-			_leave_message = AtelierText.t("DESK_REFUSED_HONEST")
+			_leave_message = tr("DESK_REFUSED_HONEST")
 		else:
-			_leave_message = AtelierText.t("DESK_REFUSED_NO_CAUSE")
+			_leave_message = tr("DESK_REFUSED_NO_CAUSE")
 		_say_reaction(order, false)
 		_say_feedback(_leave_message)
 	_refresh_controls()
@@ -237,11 +237,11 @@ func _say_reaction(order: AtelierScrollOrder, approved: bool) -> void:
 	var line := order.reaction_approved if approved else order.reaction_refused
 	if line.is_empty():
 		if approved:
-			line = AtelierText.t("DESK_REACTION_APPROVED")
+			line = tr("DESK_REACTION_APPROVED")
 		elif _day().is_legal(order):
-			line = AtelierText.t("DESK_REACTION_HONEST")
+			line = tr("DESK_REACTION_HONEST")
 		else:
-			line = AtelierText.t("DESK_REACTION_CAUGHT")
+			line = tr("DESK_REACTION_CAUGHT")
 	speech_label.text = "\"%s\"" % line
 
 
@@ -254,9 +254,9 @@ func _on_scroll_delivered(result: Dictionary) -> void:
 	if paid > 0:
 		feedback.play_sfx(&"coins")
 	if not _day().is_legal(order):
-		_client_leaves(AtelierText.t("DESK_DELIVERED_ILLEGAL", [order.client_name]))
+		_client_leaves(tr("DESK_DELIVERED_ILLEGAL") % [order.client_name])
 	else:
-		_client_leaves(AtelierText.t("DESK_DELIVERED", [order.client_name, paid]))
+		_client_leaves(tr("DESK_DELIVERED") % [order.client_name, paid])
 
 
 func _on_scroll_abandoned() -> void:
@@ -265,14 +265,14 @@ func _on_scroll_abandoned() -> void:
 	workbench.hide()
 	var order := current_order
 	GameState.abandon(order)
-	_client_leaves(AtelierText.t("DESK_ABANDONED", [order.client_name]))
+	_client_leaves(tr("DESK_ABANDONED") % [order.client_name])
 
 
 func _client_leaves(message: String) -> void:
 	phase = Phase.WAITING
 	current_order = null
 	_clear_counter()
-	_say_feedback(message + "\n" + AtelierText.t("DESK_RING_NEXT" if _customers_waiting() > 0 else "DESK_RING_CLOSE"))
+	_say_feedback(message + "\n" + tr("DESK_RING_NEXT" if _customers_waiting() > 0 else "DESK_RING_CLOSE"))
 	_refresh_controls()
 
 
@@ -283,7 +283,7 @@ func _show_client(order: AtelierScrollOrder) -> void:
 	portrait_initial.text = order.client_name.left(1)
 	client_name_label.text = "%s, %s" % [order.client_name, order.race]
 	speech_label.text = "\"%s\"" % order.greeting
-	spec_label.text = AtelierText.t("DESK_SCROLL_MUST", [order.spec.get_slice("\n", 0)])
+	spec_label.text = tr("DESK_SCROLL_MUST") % [order.spec.get_slice("\n", 0)]
 	inspection = AtelierInspection.new(order, _day().rules, inspection_mistake_threshold)
 	_selected_field = ""
 	_selected_rule = null
@@ -296,7 +296,7 @@ func _show_client(order: AtelierScrollOrder) -> void:
 
 func _clear_counter() -> void:
 	portrait.hide()
-	client_name_label.text = AtelierText.t("DESK_WINDOW_EMPTY")
+	client_name_label.text = tr("DESK_WINDOW_EMPTY")
 	speech_label.text = ""
 	request_form.hide()
 	feedback.clear_ink()
@@ -347,10 +347,10 @@ func _try_link() -> void:
 	if _selected_field.is_empty() and _selected_rule == null:
 		return
 	if _selected_rule == null:
-		_say_feedback(AtelierText.t("DESK_PICK_RULE"))
+		_say_feedback(tr("DESK_PICK_RULE"))
 		return
 	if _selected_field.is_empty():
-		_say_feedback(AtelierText.t("DESK_PICK_FIELD"))
+		_say_feedback(tr("DESK_PICK_FIELD"))
 		return
 	var field_name := _selected_field
 	var rule := _selected_rule
@@ -369,14 +369,14 @@ func _try_link() -> void:
 func _react_to_mistake(link: Dictionary) -> void:
 	match link["patience"]:
 		AtelierInspection.Patience.UNEASY:
-			speech_label.text = "\"%s\"" % AtelierText.t("DESK_PATIENCE_UNEASY")
+			speech_label.text = "\"%s\"" % tr("DESK_PATIENCE_UNEASY")
 		AtelierInspection.Patience.UPSET:
-			speech_label.text = "\"%s\"" % AtelierText.t("DESK_PATIENCE_UPSET")
+			speech_label.text = "\"%s\"" % tr("DESK_PATIENCE_UPSET")
 		AtelierInspection.Patience.EXASPERATED:
-			speech_label.text = "\"%s\"" % AtelierText.t("DESK_PATIENCE_EXASPERATED")
+			speech_label.text = "\"%s\"" % tr("DESK_PATIENCE_EXASPERATED")
 	if link["penalty_due"]:
 		GameState.penalize_inspection(current_order, inspection_mistake_penalty)
-		_say_feedback(str(link["message"]) + "\n" + AtelierText.t("DESK_PATIENCE_PENALTY", [inspection_mistake_penalty]))
+		_say_feedback(str(link["message"]) + "\n" + tr("DESK_PATIENCE_PENALTY") % [inspection_mistake_penalty])
 
 
 func _refresh_inspection_marks() -> void:
@@ -396,27 +396,27 @@ func _refresh_inspection_marks() -> void:
 	if inspection == null:
 		evidence_label.text = ""
 	elif not inspection.has_evidence():
-		evidence_label.text = AtelierText.t("DESK_NO_EVIDENCE")
+		evidence_label.text = tr("DESK_NO_EVIDENCE")
 	else:
-		var lines: PackedStringArray = [AtelierText.t("DESK_EVIDENCE_HEADER")]
+		var lines: PackedStringArray = [tr("DESK_EVIDENCE_HEADER")]
 		for entry in inspection.evidence:
 			var rule: AtelierShopRule = entry["rule"]
-			lines.append("- %s -> %s" % [AtelierScrollOrder.field_label(entry["field"]), rule.title])
+			lines.append("- %s -> %s" % [tr(AtelierScrollOrder.FIELD_LABELS[entry["field"]]), rule.title])
 		evidence_label.text = "\n".join(lines)
 	if inspection != null and inspection.mistakes > 0:
-		evidence_label.text += "\n" + AtelierText.t("DESK_WRONG_LINKS", [inspection.mistakes, inspection.mistake_threshold])
+		evidence_label.text += "\n" + tr("DESK_WRONG_LINKS") % [inspection.mistakes, inspection.mistake_threshold]
 
 
-static func _field_text(order: AtelierScrollOrder, field_name: String) -> String:
+func _field_text(order: AtelierScrollOrder, field_name: String) -> String:
 	if order == null:
 		return ""
 	match field_name:
 		"item":
 			return order.item
 		"details":
-			return AtelierText.t("DESK_FIELD_DETAILS", [order.details])
+			return tr("DESK_FIELD_DETAILS") % [order.details]
 		_:
-			return "%s:  %s" % [AtelierScrollOrder.field_label(field_name), order.field_value(field_name)]
+			return "%s:  %s" % [tr(AtelierScrollOrder.FIELD_LABELS[field_name]), order.field_value(field_name)]
 
 
 static func _set_ink(button: Button, cited: bool) -> void:
@@ -434,9 +434,9 @@ func _flash(control: Control) -> void:
 
 func _refresh_hud() -> void:
 	day_label.text = _day().title
-	money_label.text = AtelierText.t("DESK_HUD_MONEY", [GameState.money])
-	reputation_label.text = AtelierText.t("DESK_HUD_REPUTATION", [GameState.reputation])
-	queue_label.text = AtelierText.t("DESK_HUD_QUEUE", [_customers_waiting()])
+	money_label.text = tr("DESK_HUD_MONEY") % [GameState.money]
+	reputation_label.text = tr("DESK_HUD_REPUTATION") % [GameState.reputation]
+	queue_label.text = tr("DESK_HUD_QUEUE") % [_customers_waiting()]
 
 
 ## Clientes ainda na fila que de fato viriam com as flags atuais.
@@ -492,13 +492,13 @@ func _rune_labels(kinds: PackedStringArray) -> PackedStringArray:
 
 
 ## Valor com sinal na unidade da chave (DESK_SIGNED_COINS/_REP); vazio se zero.
-static func _signed(value: int, unit_key: String) -> String:
+func _signed(value: int, unit_key: String) -> String:
 	if value == 0:
 		return ""
-	return AtelierText.t(unit_key, ["+%d" % value if value > 0 else "%d" % value])
+	return tr(unit_key) % ["+%d" % value if value > 0 else "%d" % value]
 
 
-static func _reputation_suffix(value: int) -> String:
+func _reputation_suffix(value: int) -> String:
 	if value == 0:
 		return ""
 	return "   [color=#9fc28a]%s[/color]" % _signed(value, "DESK_SIGNED_REP")

@@ -31,26 +31,26 @@ static func encode(instructions: Array) -> PackedByteArray:
 static func decode(bytes: PackedByteArray) -> Dictionary:
 	var errors: Array[String] = []
 	if bytes.size() < HEADER_SIZE:
-		return {"ok": false, "errors": [AtelierText.t("BYTECODE_TOO_SHORT")]}
+		return {"ok": false, "errors": ["Binary is shorter than the RUNE header."]}  # dev-only
 	for index in range(MAGIC.size()):
 		if bytes[index] != MAGIC[index]:
-			return {"ok": false, "errors": [AtelierText.t("BYTECODE_BAD_MAGIC")]}
+			return {"ok": false, "errors": ["Invalid RUNE signature."]}  # dev-only
 	if bytes[4] != VERSION:
-		return {"ok": false, "errors": [AtelierText.t("BYTECODE_BAD_VERSION")]}
+		return {"ok": false, "errors": ["Unsupported bytecode version."]}  # dev-only
 	var instruction_count := bytes[5] | (bytes[6] << 8)
 	var cursor := HEADER_SIZE
 	var instructions: Array[Dictionary] = []
 	for _index in range(instruction_count):
 		if cursor >= bytes.size():
-			errors.append(AtelierText.t("BYTECODE_TRUNCATED"))
+			errors.append("The bytecode ended before the last instruction.")  # dev-only
 			break
 		var opcode := bytes[cursor]
 		cursor += 1
 		if RuneCatalog.symbol_for_opcode(opcode).is_empty():
-			errors.append(AtelierText.t("BYTECODE_UNKNOWN_OPCODE", [opcode]))
+			errors.append("Unknown opcode: 0x%02X." % opcode)  # dev-only
 			break
 		if cursor >= bytes.size():
-			errors.append(AtelierText.t("BYTECODE_MISSING_INTENSITY", [RuneCatalog.name_for_opcode(opcode)]))
+			errors.append("Missing intensity for %s." % RuneCatalog.name_for_opcode(opcode))  # dev-only
 			break
 		var intensity := bytes[cursor]
 		cursor += 1

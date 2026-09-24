@@ -109,11 +109,6 @@ IDE_DIALOG_OPEN_OTHER,Open another rune?,Abrir outra runa?
 IDE_DIALOG_UNSAVED,The current ritual has unsaved changes. Opening another rune will discard them.,O ritual atual tem alterações não salvas. Abrir outra runa vai descartá-las.
 IDE_SAVE_FAILED,Could not save the rune.,Falha ao salvar a runa.
 IDE_OPEN_FAILED,Could not open the rune.,Falha ao abrir a runa.
-IDE_PERF_TITLE,DIAGNOSTICS  •  F3,DIAGNÓSTICO  •  F3
-IDE_PERF_FRAME,%.0f FPS  |  draw %.2f ms,%.0f FPS  |  desenho %.2f ms
-IDE_PERF_PARTS,grid %.2f  |  code %.2f  |  panels %.2f ms,grade %.2f  |  código %.2f  |  abas %.2f ms
-IDE_PERF_CELLS,%d cells  |  %d visible,%d células  |  %d visíveis
-IDE_PERF_DOTS,%d grid dots  |  %d draw calls,%d pontos da grade  |  %d draw calls
 BENCH_RUN_STOPPED,Execution stopped.,Execução interrompida.
 BENCH_INTENSITY,INTENSITY,INTENSIDADE
 BENCH_GRIMOIRE_EMPTY,No runes in the ritual yet.,Ainda não há símbolos no ritual.
@@ -168,7 +163,6 @@ VM_ONLY_BOOLEANS,%s only accepts 0 or 1.,%s aceita apenas 0 ou 1.
 VM_EMPTY_SLOT,"%s tried to read slot %d, which is empty.","%s tentou ler a posição %d, que está vazia."
 VM_WARP_MANY_ENDS,WARP %03d found more than one WARP END with the same intensity.,WARP %03d encontrou mais de um WARP END com a mesma intensidade.
 VM_WARP_NO_TARGET,WARP %03d found no other portal or matching WARP END.,WARP %03d não encontrou outro portal ou WARP END compatível.
-VM_UNKNOWN_OPCODE,Opcode not implemented: %d.,Opcode não implementado: %d.
 VM_INT_SET_PENDING,A previous INT_SET is still waiting for a value.,INT_SET anterior ainda está esperando um valor.
 VM_JUMP_MANY_ENDS,JUMP_IF_TRUE %03d found more than one matching WARP END.,JUMP_IF_TRUE %03d encontrou mais de um WARP END compatível.
 VM_JUMP_NO_TARGET,JUMP_IF_TRUE %03d found no matching WARP or WARP END.,JUMP_IF_TRUE %03d não encontrou WARP ou WARP END compatível.
@@ -177,12 +171,6 @@ VM_INT_SET_NO_TARGET,INT_SET found a value but no target rune.,"INT_SET encontro
 VM_INT_MOD_NEEDS_TWO,INT_MOD expects two runes after it.,INT_MOD espera dois selos depois dele.
 VM_INT_MOD_NEEDS_OP,"INT_MOD expects ADD, SUB, MUL, DIV, MOD or NEG right after it.","INT_MOD espera ADD, SUB, MUL, DIV, MOD ou NEG logo depois dele."
 VM_INT_MOD_ZERO,INT_MOD %s does not accept intensity 000.,INT_MOD %s não aceita intensidade 000.
-BYTECODE_TOO_SHORT,Binary is shorter than the RUNE header.,Binário menor que o cabeçalho RUNE.
-BYTECODE_BAD_MAGIC,Invalid RUNE signature.,Assinatura RUNE inválida.
-BYTECODE_BAD_VERSION,Unsupported bytecode version.,Versão de bytecode não suportada.
-BYTECODE_TRUNCATED,The bytecode ended before the last instruction.,O bytecode terminou antes da última instrução.
-BYTECODE_UNKNOWN_OPCODE,Unknown opcode: 0x%02X.,Opcode desconhecido: 0x%02X.
-BYTECODE_MISSING_INTENSITY,Missing intensity for %s.,Intensidade ausente para %s.
 FILE_TOO_MANY,The ritual has too many connections for this format.,O ritual tem conexões demais para este formato.
 FILE_CREATE_FAILED,Could not create the file (%s).,Não foi possível criar o arquivo (%s).
 FILE_WRITE_FAILED,Could not finish saving the file (%s).,Não foi possível terminar de salvar o arquivo (%s).
@@ -260,5 +248,3 @@ RUNE_FORK_DESC,Reads the memory slot given by the intensity onto the stack.,Lê 
 RUNE_FORK_EXTRA,memory,memória
 RUNE_READ_DESC,Pushes the memory at the address given by the intensity.,Empilha a memória no endereço indicado pela intensidade.
 RUNE_READ_EXTRA,memory,memória
-RUNE_UNKNOWN_DESC,Unknown rune.,Símbolo desconhecido.
-COMPILER_WRITE_FAILED,Could not write the binary to %s.,Não foi possível gravar o binário em %s.

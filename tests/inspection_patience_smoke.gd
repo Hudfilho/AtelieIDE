@@ -85,11 +85,12 @@ func _run() -> void:
 	desk.get_node("%RaceField").pressed.emit()
 	rules.get_node("Rule_signature").pressed.emit()
 	assert(desk.inspection.mistakes == 1 and game_state.reputation == reputation)
-	assert(not "Hm?" in speech.text, "The first wrong link gets no reaction")
+	assert(speech.text == "\"%s\"" % desk.current_order.greeting, "The first wrong link gets no reaction")
 	desk.get_node("%AgeField").pressed.emit()
 	rules.get_node("Rule_signature").pressed.emit()
-	assert("Is something wrong with my form?" in speech.text, speech.text)
-	assert("Wrong links: 2/3" in evidence_label.text, evidence_label.text)
+	assert(desk.inspection.patience() == Patience.UNEASY)
+	assert(speech.text == "\"%s\"" % tr("DESK_PATIENCE_UNEASY"), speech.text)
+	assert(tr("DESK_WRONG_LINKS") % [2, 3] in evidence_label.text, evidence_label.text)
 	assert(game_state.reputation == reputation)
 	# Tentativa e erro em massa: uma penalidade só.
 	for attempt in 10:
@@ -98,16 +99,17 @@ func _run() -> void:
 	assert(game_state.reputation == reputation - 1, "Penalized %d times" % (reputation - game_state.reputation))
 	var penalty_lines := 0
 	for entry in game_state.ledger:
-		if "fussy inspection" in str(entry["text"]):
+		if entry["text"] == tr("LEDGER_INSPECTION_PENALTY") % ["Mira Holloway"]:
 			penalty_lines += 1
 	assert(penalty_lines == 1)
-	assert("*sigh*" in speech.text, speech.text)
-	assert("Wrong links: 12/3" in evidence_label.text, evidence_label.text)
+	assert(desk.inspection.patience() == Patience.EXASPERATED)
+	assert(speech.text == "\"%s\"" % tr("DESK_PATIENCE_EXASPERATED"), speech.text)
+	assert(tr("DESK_WRONG_LINKS") % [12, 3] in evidence_label.text, evidence_label.text)
 	# O próximo cliente começa do zero.
 	desk.get_node("%RejectButton").pressed.emit()
 	bell.pressed.emit() # Anderdingus
 	assert(desk.inspection.mistakes == 0 and not desk.inspection.penalty_triggered)
-	assert(not "Wrong links" in evidence_label.text, evidence_label.text)
+	assert(evidence_label.text == tr("DESK_NO_EVIDENCE"), "A new client shows no mistake count: %s" % evidence_label.text)
 	desk.get_node("%RaceField").pressed.emit()
 	rules.get_node("Rule_signature").pressed.emit()
 	assert(desk.inspection.mistakes == 1)

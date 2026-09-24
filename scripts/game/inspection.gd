@@ -74,7 +74,7 @@ func link(field_name: String, rule: AtelierShopRule) -> Dictionary:
 			penalty_triggered = true
 			penalty_due = true
 	return {
-		"result": result, "message": describe(result, order, field_name, rule),
+		"result": result, "message": describe(result, field_name, rule),
 		"mistake": mistake, "mistakes": mistakes, "patience": patience(), "penalty_due": penalty_due,
 	}
 
@@ -130,20 +130,20 @@ static func discrepancies(inspected_order: AtelierScrollOrder, rules_in_force: A
 	return found
 
 
-static func describe(result: Result, inspected_order: AtelierScrollOrder, field_name: String, rule: AtelierShopRule) -> String:
-	var label := AtelierScrollOrder.field_label(field_name)
-	var value := _short(inspected_order.field_value(field_name))
+func describe(result: Result, field_name: String, rule: AtelierShopRule) -> String:
+	var label := tr(AtelierScrollOrder.FIELD_LABELS.get(field_name, field_name))
+	var value := _short(order.field_value(field_name))
 	match result:
 		Result.VALID:
-			return AtelierText.t("INSPECT_CONFIRMED", [label, value, rule.title])
+			return tr("INSPECT_CONFIRMED") % [label, value, rule.title]
 		Result.DUPLICATE:
-			return AtelierText.t("INSPECT_DUPLICATE", [label, rule.title])
+			return tr("INSPECT_DUPLICATE") % [label, rule.title]
 		# Mesma frase para os dois casos de propósito: dizer "a regra é violada,
 		# mas não por este campo" revelaria a resposta sem dedução.
 		Result.WRONG_FIELD, Result.NOT_VIOLATED:
-			return AtelierText.t("INSPECT_NO_CONTRADICTION", [label, value, rule.title])
+			return tr("INSPECT_NO_CONTRADICTION") % [label, value, rule.title]
 		_:
-			return AtelierText.t("INSPECT_NOT_IN_FORCE", [rule.title])
+			return tr("INSPECT_NOT_IN_FORCE") % [rule.title]
 
 
 static func _short(text: String) -> String:

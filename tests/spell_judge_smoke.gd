@@ -100,7 +100,7 @@ func _check_order(judge: AtelierSpellJudge, day: AtelierShopDay, order: AtelierS
 	for rune in runes:
 		assert(day.runes.has(rune[0]), "%s needs %s, which is locked on %s" % [order.id, rune[0], day.title])
 	var result := judge.judge(_program(runes), order)
-	assert(result["passed"], "%s failed: %s" % [order.id, SpellJudge.describe_failure(result)])
+	assert(result["passed"], "%s failed: %s" % [order.id, judge.describe_failure(result)])
 	assert(result["elegant"], "%s solution uses %d runes, par is %d" % [order.id, result["rune_count"], order.par_runes])
 
 
@@ -131,7 +131,7 @@ func _run() -> void:
 
 	var audit := load("res://data/orders/guild_inspector_audit.tres") as AtelierScrollOrder
 	var audit_loop := judge.judge(_program(AUDIT_LOOP), audit)
-	assert(audit_loop["passed"], SpellJudge.describe_failure(audit_loop))
+	assert(audit_loop["passed"], judge.describe_failure(audit_loop))
 	assert(not audit_loop["elegant"], "The loop should pass the audit but miss the elegance bonus")
 
 	# Decorar a resposta do exemplo passa na bancada, mas não nos testes ocultos.
@@ -140,14 +140,17 @@ func _run() -> void:
 	assert(not hardcoded["passed"])
 	assert(hardcoded["cases"][0]["passed"] and not hardcoded["cases"][0]["hidden"])
 	assert(hardcoded["cases"][1]["hidden"] and not hardcoded["cases"][1]["passed"])
-	var hardcoded_message := SpellJudge.describe_failure(hardcoded)
-	assert(hardcoded_message.begins_with("A hidden test failed."), hardcoded_message)
-	assert("slot 000 = 20" in hardcoded_message and "expected 30, got 15" in hardcoded_message, hardcoded_message)
+	assert(hardcoded["cases"][1]["memory"] == {0: 20} and hardcoded["cases"][1]["actual"] == ["15"])
+	var hardcoded_message := judge.describe_failure(hardcoded)
+	var hidden_prefix := (tr("JUDGE_HIDDEN_FAILED") % [""]).strip_edges()
+	assert(hardcoded_message.begins_with(hidden_prefix), hardcoded_message)
+	assert(judge.describe_memory({0: 20}) in hardcoded_message and tr("JUDGE_MISMATCH") % ["30", "15"] in hardcoded_message, hardcoded_message)
 
 	# Um erro no exemplo visível não se apresenta como oculto.
 	var wrong := judge.judge(_program([["READ", 0], ["TRIANGLE", 128]]), warming)
-	assert(not SpellJudge.describe_failure(wrong).begins_with("A hidden"))
-	assert("expected 15, got 5" in SpellJudge.describe_failure(wrong), SpellJudge.describe_failure(wrong))
+	assert(not wrong["cases"][0]["hidden"] and wrong["cases"][0]["actual"] == ["5"])
+	assert(not judge.describe_failure(wrong).begins_with(hidden_prefix))
+	assert(tr("JUDGE_MISMATCH") % ["15", "5"] in judge.describe_failure(wrong), judge.describe_failure(wrong))
 
 	# Laço infinito: estoura o limite de passos da encomenda e vira timeout.
 	var looping_order := AtelierScrollOrder.new()
@@ -156,7 +159,7 @@ func _run() -> void:
 	var looping := judge.judge(_program([["ORB", 1], ["WARP_ENDPOINT", 1], ["JUMP_IF_TRUE", 1]]), looping_order)
 	assert(not looping["passed"])
 	assert(looping["cases"][0]["timed_out"] and int(looping["cases"][0]["steps"]) == 50)
-	assert("never finished (50 steps)" in SpellJudge.describe_failure(looping), SpellJudge.describe_failure(looping))
+	assert(tr("JUDGE_TIMEOUT") % [50] in judge.describe_failure(looping), judge.describe_failure(looping))
 	assert(int(judge.judge(_program(SOLUTIONS["tomas_warming_charm"]), warming)["max_steps_used"]) > 0)
 
 	# A memória inicial semeia a VM sem ser alterada pelo STORE.
@@ -168,7 +171,7 @@ func _run() -> void:
 	assert(memory == {0: 7})
 	var broken := judge.judge(_program([["TRIANGLE", 128]]), warming)
 	assert(not broken["passed"])
-	assert("PRINT" in SpellJudge.describe_failure(broken), SpellJudge.describe_failure(broken))
+	assert(tr("VM_NEEDS_VALUE") % ["PRINT"] in judge.describe_failure(broken), judge.describe_failure(broken))
 	var empty := judge.judge([], warming)
 	assert(not empty["compiled"])
 
