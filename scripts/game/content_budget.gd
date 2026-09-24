@@ -23,15 +23,15 @@ const RULES_MAX_VISIBLE := 3
 
 ## Larguras de texto no layout atual do balcão (px do balcão). O teste
 ## content_budget_smoke confere que batem com o que a cena desenha.
-const TITLE_WIDTH := 218.0
-const DETAILS_WIDTH := 218.0
-const SPEC_WIDTH := 222.0
+const TITLE_WIDTH := 212.0
+const DETAILS_WIDTH := 212.0
+const SPEC_WIDTH := 216.0
 const SPEECH_WIDTH := 172.0
-const RULE_WIDTH := 76.0
+const RULE_WIDTH := 77.0
 ## Livro aberto: altura útil de cada página, o cabeçalho de cada página
 ## (título à esquerda, florão à direita: linha miúda + espaço) e o espaço
 ## entre regras.
-const RULES_PAGE_HEIGHT := 185.0
+const RULES_PAGE_HEIGHT := 172.0
 const RULES_TITLE_HEIGHT := 13.0
 const RULE_SEPARATION := 6.0
 ## Folga de 1 px sob cada campo e regra, onde cai o sublinhado da seleção.

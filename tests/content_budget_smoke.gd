@@ -31,7 +31,7 @@ func _run() -> void:
 	var spec_label := desk.get_node("%SpecLabel") as Label
 	var speech_label := desk.get_node("%Speech") as Label
 	var pages: Array[Control] = [desk.get_node("%LeftPage"), desk.get_node("%RightPage")]
-	var form_room: float = (desk.get_node("%RequestForm") as Control).size.x - 22.0
+	var form_room: float = (desk.get_node("%RequestForm") as Control).size.x - 28.0
 	assert(is_equal_approx(AtelierContentBudget.TITLE_WIDTH + 4.0, form_room), "Title width %s does not match the request (%s)" % [AtelierContentBudget.TITLE_WIDTH, form_room])
 	var compared := 0
 	for day_index in DAYS.size():

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://climmlqt4fywq"
-path="res://.godot/imported/card.png-12daecb70e8feaa8376ff14e598aca34.ctex"
+uid="uid://bqmvx2kgufj1p"
+path="res://.godot/imported/stamp_tray.png-8e4b31e7d361ded88346682e89a93217.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/pixel/card.png"
-dest_files=["res://.godot/imported/card.png-12daecb70e8feaa8376ff14e598aca34.ctex"]
+source_file="res://art/pixel/stamp_tray.png"
+dest_files=["res://.godot/imported/stamp_tray.png-8e4b31e7d361ded88346682e89a93217.ctex"]
 
 [params]
 

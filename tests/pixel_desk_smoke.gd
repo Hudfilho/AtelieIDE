@@ -11,11 +11,11 @@ extends SceneTree
 
 const DAYS: Array[String] = ["res://data/days/day_01.tres", "res://data/days/day_02.tres", "res://data/days/day_03.tres"]
 const STAGE := Rect2(0, 0, 640, 360)
-## Livro aberto (book_spread.png): vinco no x 98 do sprite, sombra do vinco
-## até 8 px de cada lado, e o pé da página (florão) começa no y 194.
-const BOOK_SEAM_X := 98.0
+## Livro aberto (book_spread.png): vinco no x 101 do sprite, sombra do vinco
+## até 6 px de cada lado, e a moldura de baixo das páginas no y 186.
+const BOOK_SEAM_X := 101.0
 const BOOK_GUTTER := 6.0
-const BOOK_PAGE_BOTTOM := 194.0
+const BOOK_PAGE_BOTTOM := 186.0
 
 var problems: PackedStringArray = []
 
@@ -65,7 +65,7 @@ func _run() -> void:
 	var theme := load("res://art/pixel/pixel_theme.tres") as Theme
 	var desk_wood := Color8(107, 69, 48)
 	var wall := Color8(61, 38, 32)
-	var plates := {"PixelStamp": ["plate", "plate_disabled"], "PixelPrompt": ["normal", "disabled"]}
+	var plates := {"PixelStamp": ["plate", "plate_disabled"], "PixelBell": ["plate", "plate_disabled"]}
 	for variation: String in plates:
 		var under := desk_wood if variation == "PixelStamp" else wall
 		var enabled_plate := theme.get_stylebox(plates[variation][0], variation) as StyleBoxFlat
@@ -91,7 +91,7 @@ func _run() -> void:
 			small_text.append_array([row[1], row[2]])
 		if row[0].begins_with("DESK_INK_"):
 			big_text.append_array([row[1], row[2]])
-		if row[0] in ["DESK_FORM_HEADER", "DESK_REQUIRED_EFFECT", "DESK_NOTES_HEADER", "DESK_RULEBOOK_TITLE", "FIELD_DETAILS", "DESK_WINDOW_EMPTY"]:
+		if row[0] in ["DESK_REQUIRED_EFFECT", "DESK_RULEBOOK_TITLE", "FIELD_DETAILS", "DESK_WINDOW_EMPTY"]:
 			tiny_text.append_array([row[1], row[2]])
 		if row[0] == "DESK_WINDOW_EMPTY":
 			title_text.append_array([row[1], row[2]])

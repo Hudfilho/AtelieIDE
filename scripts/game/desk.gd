@@ -447,7 +447,7 @@ func _refresh_inspection_marks() -> void:
 	else:
 		# Uma linha por regra citada (com os campos que a provam): cabe na nota
 		# do balcão mesmo com todas as provas de um pedido.
-		var lines: PackedStringArray = [tr("DESK_EVIDENCE_HEADER")]
+		var lines: PackedStringArray = []
 		for rule in inspection.cited_rules():
 			var fields: PackedStringArray = []
 			for entry in inspection.evidence:
@@ -486,11 +486,18 @@ func _flash(control: Control) -> void:
 	create_tween().tween_property(control, "modulate", Color.WHITE, 0.45)
 
 
+## Cartão do dia: números ao lado dos ícones pintados (sol, moedas, estandarte,
+## fila); o texto completo fica na dica de cada número.
 func _refresh_hud() -> void:
-	day_label.text = _day().title
-	money_label.text = tr("DESK_HUD_MONEY") % [GameState.money]
-	reputation_label.text = tr("DESK_HUD_REPUTATION") % [GameState.reputation]
-	queue_label.text = tr("DESK_HUD_QUEUE") % [_customers_waiting()]
+	var waiting := _customers_waiting()
+	day_label.text = tr("DESK_HUD_DAY") % [GameState.day_index + 1]
+	day_label.tooltip_text = _day().title
+	money_label.text = str(GameState.money)
+	money_label.tooltip_text = tr("DESK_HUD_MONEY") % [GameState.money]
+	reputation_label.text = str(GameState.reputation)
+	reputation_label.tooltip_text = tr("DESK_HUD_REPUTATION") % [GameState.reputation]
+	queue_label.text = str(waiting)
+	queue_label.tooltip_text = tr("DESK_HUD_QUEUE") % [waiting]
 
 
 ## Clientes ainda na fila que de fato viriam com as flags atuais.

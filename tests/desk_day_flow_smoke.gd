@@ -153,7 +153,8 @@ func _run() -> void:
 	assert(game_state.money == money_before_morning - 25)
 	assert(game_state.flag("guild_suspicion") == 1)
 	desk.get_node("%OverlayButton").pressed.emit()
-	assert((desk.get_node("%QueueLabel") as Label).text == tr("DESK_HUD_QUEUE") % [4])
+	var queue_label := desk.get_node("%QueueLabel") as Label
+	assert(queue_label.text == "4" and queue_label.tooltip_text == tr("DESK_HUD_QUEUE") % [4], queue_label.text)
 
 	# Dia 3: o goblin recusado volta com um pedido honesto.
 	bell.pressed.emit()

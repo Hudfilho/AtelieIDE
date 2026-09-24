@@ -6,9 +6,7 @@ TITLE_SANDBOX,Rune sandbox (Atelier IDE),Ateliê livre (Atelier IDE)
 TITLE_QUIT,Quit,Sair
 DESK_BELL,Ring the bell,Tocar o sino
 DESK_RULEBOOK_TITLE,Today's rules,Regras de hoje
-DESK_FORM_HEADER,Magic scroll request,Pedido de pergaminho mágico
 DESK_REQUIRED_EFFECT,Required effect,Efeito exigido
-DESK_NOTES_HEADER,Inspection notes,Notas da inspeção
 DESK_APPROVE,APPROVE,APROVAR
 DESK_REJECT,REJECT,RECUSAR
 DESK_INK_APPROVED,APPROVED,APROVADO
@@ -43,8 +41,8 @@ DESK_RING_CLOSE,No one else is waiting. Ring the bell to close the shop.,Não h�
 DESK_PICK_RULE,Now click the rule this field breaks.,Agora clique na regra que este campo viola.
 DESK_PICK_FIELD,Now click the field on the request that breaks this rule.,Agora clique no campo do pedido que viola esta regra.
 DESK_NO_EVIDENCE,No evidence yet: refusing now counts as refusing without cause.,Nenhuma prova ainda: recusar agora conta como recusa sem motivo.
-DESK_EVIDENCE_HEADER,Evidence:,Provas:
 DESK_WRONG_LINKS,Wrong links: %d/%d,Ligações erradas: %d/%d
+DESK_HUD_DAY,Day %d,Dia %d
 DESK_HUD_MONEY,%d coins,%d moedas
 DESK_HUD_REPUTATION,Reputation %d,Reputação %d
 DESK_HUD_QUEUE,%d waiting outside,%d esperando lá fora

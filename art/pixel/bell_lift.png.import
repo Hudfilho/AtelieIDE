@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dh18rv0gywm6t"
-path="res://.godot/imported/icon_queue.png-897a28160bfd3f227b0573219bee11cb.ctex"
+uid="uid://omvgwr3r4gcs"
+path="res://.godot/imported/bell_lift.png-c9204af41529b9c4812d562962095f88.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/pixel/icon_queue.png"
-dest_files=["res://.godot/imported/icon_queue.png-897a28160bfd3f227b0573219bee11cb.ctex"]
+source_file="res://art/pixel/bell_lift.png"
+dest_files=["res://.godot/imported/bell_lift.png-c9204af41529b9c4812d562962095f88.ctex"]
 
 [params]
 

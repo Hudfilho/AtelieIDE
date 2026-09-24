@@ -130,18 +130,24 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 
 - **Grade inteira:** `AtelierPixelFrame` (`scripts/game/pixel_frame.gd`) mostra o balcão com a maior escala inteira que cabe na janela, centralizado, e pinta tarjas no espaço que sobra. Por exemplo: 2x em 1280x720, 3x em 1920x1080, 4x em 2560x1440, e 2x com tarjas de 43/24 px em 1366x768. Nunca há escala fracionária. O balcão fica numa `CanvasLayer` abaixo da interface, porque a posição de um `Control` é arredondada para o pixel lógico e, com a janela esticada, isso desalinha o balcão em 1 px.
 
-- **Balcão físico (M8):** em vez de painéis, o jogador vê objetos sobre a mesa. Em cima ficam a janela com o cliente, o balão de fala (só o nome e a fala; a raça fica no pedido) e o sino sobre o balcão. Na mesa ficam:
+- **Balcão físico (M8):** em vez de painéis, o jogador vê objetos sobre a mesa. Em cima ficam a janela com o cliente, o balão de fala (só o nome e a fala; a raça fica no pedido) e a vela e o sino no peitoril. Na mesa ficam:
   - o livro de regras aberto, com duas páginas e regras numeradas (`AtelierContentBudget.rule_pages` divide as regras entre as páginas);
   - o pedido no centro, o papel mais claro da cena;
-  - os carimbos de borracha em pé (`AtelierDeskStamp`), que sobem 2 px no hover, com o nome numa plaquinha de latão;
-  - uma única nota da inspeção;
-  - o cartão do dia, preso por um alfinete.
+  - os carimbos em pé na bandeja de tinta (`AtelierDeskStamp`, que também serve para o sino): sobem 2 px no hover e têm o nome numa plaquinha de latão;
+  - uma única nota da inspeção, presa com tacha.
+
+  Na parede fica o cartão do dia: número do dia, moedas, reputação e fila ao lado dos ícones pintados, com o texto completo na dica de cada número.
 - **Hierarquia do texto:** quatro fontes bitmap próprias. Versaletes miúdos para cabeçalhos e rótulos de seção; a normal para o texto; a de título (mais alta e em negrito) para o nome do pergaminho e do cliente; e a grande, só para a marca do carimbo.
 - **Cores com significado:** vermelho é discrepância e recusa, verde é aprovado, roxo é o efeito exigido e dourado é interação (seleção, sino). Nenhuma delas aparece como enfeite.
 - **Seleção:** o campo ou a regra escolhida ganha uma barra dourada na margem e um sublinhado, sem pintar a linha inteira. As provas continuam em tinta vermelha com `»`.
 - **Dicas da nota:** mensagens do tipo "clique num campo" somem sozinhas depois de alguns segundos (`hint_fade_delay`). Resultados, avisos e penalidades ficam.
-- **Luz:** vem pintada no fundo (`backdrop.png`), com pontilhado. A vela aquece a parede e o centro da mesa, o luar esfria a quina do balcão sob a janela e as bordas são mais escuras. Papéis e objetos têm sombra de 2 px e se sobrepõem um pouco, como numa mesa de verdade.
-- A arte é provisória e original. É gerada por `tools/pixel_art/generate_pixel_art.py`, que produz o fundo, os sprites, as molduras 9-slice e as fontes. Rode o script de novo para ajustar a arte; as posições da vela e da janela no script têm de bater com `Desk.tscn`.
+- **Arte de produção:** fundo, livro, pedido, nota, carimbos com a bandeja, sino, vela e cartão do dia vêm dos assets em `art/concepts/desk/` (a pasta tem `.gdignore`), convertidos por `tools/pixel_art/import_desk_art.py` para a grade de 640x360:
+  - o fundo é reduzido por área, o que recupera a grade de pixels dele;
+  - os objetos soltos são recortados do fundo liso;
+  - os papéis com texto são remontados em fatias. Cantos, moldura e beirada rasgada ficam em escala uniforme, e o miolo, limpo das linhas pautadas, é esticado até o tamanho que o orçamento de texto pede. As molduras finas do livro são redesenhadas a 1 px.
+
+  Os tamanhos e posições do script têm de bater com `Desk.tscn`. A janela do cliente é a do fundo; o retrato fica na frente das grades, apoiado no peitoril. O fundo traz uma bandeja de carimbos pintada: a frente da bandeja do asset cobre essa bandeja, e os pegadores pintados atrás dela são cobertos com a gaveta de cima.
+- `tools/pixel_art/generate_pixel_art.py` continua gerando o que é desenhado por código: as quatro fontes bitmap, a silhueta genérica, o balão de fala e a área tracejada do carimbo.
 - **Retratos:** clientes com retrato (`portrait` na encomenda, um `AtelierPortrait` em `data/portraits/`) mudam de expressão na janela:
   - neutra ao chegar;
   - feliz na aprovação;

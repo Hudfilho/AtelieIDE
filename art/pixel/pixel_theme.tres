@@ -6,61 +6,41 @@
 [ext_resource type="Texture2D" path="res://art/pixel/parchment.png" id="4_parchment"]
 [ext_resource type="Texture2D" path="res://art/pixel/book_spread.png" id="5_book"]
 [ext_resource type="Texture2D" path="res://art/pixel/note.png" id="6_note"]
-[ext_resource type="Texture2D" path="res://art/pixel/card.png" id="7_card"]
 [ext_resource type="Texture2D" path="res://art/pixel/bubble.png" id="8_bubble"]
 [ext_resource type="Texture2D" path="res://art/pixel/stamp_box.png" id="9_stamp_box"]
 
 [sub_resource type="StyleBoxTexture" id="paper"]
-content_margin_left = 10.0
-content_margin_top = 8.0
-content_margin_right = 12.0
-content_margin_bottom = 10.0
+content_margin_left = 14.0
+content_margin_top = 16.0
+content_margin_right = 14.0
+content_margin_bottom = 8.0
 texture = ExtResource("4_parchment")
-texture_margin_left = 8.0
-texture_margin_top = 8.0
-texture_margin_right = 10.0
-texture_margin_bottom = 10.0
-axis_stretch_horizontal = 1
-axis_stretch_vertical = 1
+texture_margin_left = 40.0
+texture_margin_top = 40.0
+texture_margin_right = 40.0
+texture_margin_bottom = 40.0
 
 [sub_resource type="StyleBoxTexture" id="book"]
-content_margin_left = 10.0
-content_margin_top = 9.0
-content_margin_right = 12.0
+content_margin_left = 12.0
+content_margin_top = 12.0
+content_margin_right = 13.0
 content_margin_bottom = 28.0
 texture = ExtResource("5_book")
-texture_margin_left = 99.0
-texture_margin_top = 30.0
-texture_margin_right = 100.0
+texture_margin_left = 100.0
+texture_margin_top = 40.0
+texture_margin_right = 101.0
 texture_margin_bottom = 40.0
-axis_stretch_horizontal = 1
-axis_stretch_vertical = 1
 
 [sub_resource type="StyleBoxTexture" id="note"]
-content_margin_left = 8.0
-content_margin_top = 7.0
+content_margin_left = 10.0
+content_margin_top = 16.0
 content_margin_right = 10.0
 content_margin_bottom = 8.0
 texture = ExtResource("6_note")
-texture_margin_left = 8.0
-texture_margin_top = 8.0
-texture_margin_right = 10.0
-texture_margin_bottom = 10.0
-axis_stretch_horizontal = 1
-axis_stretch_vertical = 1
-
-[sub_resource type="StyleBoxTexture" id="card"]
-content_margin_left = 8.0
-content_margin_top = 8.0
-content_margin_right = 10.0
-content_margin_bottom = 7.0
-texture = ExtResource("7_card")
-texture_margin_left = 8.0
-texture_margin_top = 8.0
-texture_margin_right = 10.0
-texture_margin_bottom = 10.0
-axis_stretch_horizontal = 1
-axis_stretch_vertical = 1
+texture_margin_left = 30.0
+texture_margin_top = 30.0
+texture_margin_right = 30.0
+texture_margin_bottom = 30.0
 
 [sub_resource type="StyleBoxTexture" id="bubble"]
 content_margin_left = 7.0
@@ -125,9 +105,15 @@ anti_aliasing = false
 
 [sub_resource type="StyleBoxEmpty" id="stamp_room"]
 content_margin_left = 4.0
-content_margin_top = 58.0
+content_margin_top = 89.0
 content_margin_right = 4.0
-content_margin_bottom = 3.0
+content_margin_bottom = 2.0
+
+[sub_resource type="StyleBoxEmpty" id="bell_room"]
+content_margin_left = 4.0
+content_margin_top = 36.0
+content_margin_right = 4.0
+content_margin_bottom = 1.0
 
 [sub_resource type="StyleBoxFlat" id="plate"]
 content_margin_left = 3.0
@@ -196,8 +182,6 @@ Book/base_type = &"PanelContainer"
 Book/styles/panel = SubResource("book")
 Note/base_type = &"PanelContainer"
 Note/styles/panel = SubResource("note")
-DayCard/base_type = &"PanelContainer"
-DayCard/styles/panel = SubResource("card")
 Bubble/base_type = &"PanelContainer"
 Bubble/styles/panel = SubResource("bubble")
 StampBox/base_type = &"Panel"
@@ -206,10 +190,8 @@ TinyCaps/base_type = &"Label"
 TinyCaps/fonts/font = ExtResource("3_font_tiny")
 TinyCaps/font_sizes/font_size = 8
 TinyCaps/colors/font_color = Color(0.42, 0.29, 0.16, 1)
-CardTitle/base_type = &"Label"
-CardTitle/colors/font_color = Color(0.165, 0.114, 0.078, 1)
 CardLabel/base_type = &"Label"
-CardLabel/colors/font_color = Color(0.28, 0.19, 0.12, 1)
+CardLabel/colors/font_color = Color(0.2, 0.13, 0.08, 1)
 BubbleName/base_type = &"Label"
 BubbleName/fonts/font = ExtResource("2_font_title")
 BubbleName/font_sizes/font_size = 13
@@ -258,14 +240,20 @@ PixelStamp/styles/focus = SubResource("stamp_room")
 PixelStamp/styles/plate = SubResource("plate")
 PixelStamp/styles/plate_hover = SubResource("plate_hover")
 PixelStamp/styles/plate_disabled = SubResource("plate_disabled")
-PixelPrompt/base_type = &"Button"
-PixelPrompt/colors/font_color = Color(0.96, 0.86, 0.54, 1)
-PixelPrompt/colors/font_hover_color = Color(1, 0.93, 0.66, 1)
-PixelPrompt/colors/font_pressed_color = Color(1, 0.93, 0.66, 1)
-PixelPrompt/colors/font_disabled_color = Color(0.66, 0.58, 0.45, 1)
-PixelPrompt/colors/icon_disabled_color = Color(0.62, 0.57, 0.52, 0.85)
-PixelPrompt/styles/normal = SubResource("plate")
-PixelPrompt/styles/hover = SubResource("plate_hover")
-PixelPrompt/styles/pressed = SubResource("plate_hover")
-PixelPrompt/styles/disabled = SubResource("plate_disabled")
-PixelPrompt/styles/focus = SubResource("flat")
+PixelBell/base_type = &"Button"
+PixelBell/colors/font_color = Color(0.96, 0.86, 0.54, 1)
+PixelBell/colors/font_hover_color = Color(1, 0.93, 0.66, 1)
+PixelBell/colors/font_pressed_color = Color(1, 0.93, 0.66, 1)
+PixelBell/colors/font_hover_pressed_color = Color(1, 0.93, 0.66, 1)
+PixelBell/colors/font_focus_color = Color(0.96, 0.86, 0.54, 1)
+PixelBell/colors/font_disabled_color = Color(0.66, 0.58, 0.45, 1)
+PixelBell/colors/icon_disabled_color = Color(0.62, 0.57, 0.52, 0.85)
+PixelBell/styles/normal = SubResource("bell_room")
+PixelBell/styles/hover = SubResource("bell_room")
+PixelBell/styles/pressed = SubResource("bell_room")
+PixelBell/styles/hover_pressed = SubResource("bell_room")
+PixelBell/styles/disabled = SubResource("bell_room")
+PixelBell/styles/focus = SubResource("bell_room")
+PixelBell/styles/plate = SubResource("plate")
+PixelBell/styles/plate_hover = SubResource("plate_hover")
+PixelBell/styles/plate_disabled = SubResource("plate_disabled")

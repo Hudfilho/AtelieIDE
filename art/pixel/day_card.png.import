@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d1kl7o7bvklri"
-path="res://.godot/imported/ink_pad.png-1b6acbc9e871f82c0e02e3ec147dd70f.ctex"
+uid="uid://bpl61sx0p2m8r"
+path="res://.godot/imported/day_card.png-3463ee52a1fb8f38da4385a8bafa91ff.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/pixel/ink_pad.png"
-dest_files=["res://.godot/imported/ink_pad.png-1b6acbc9e871f82c0e02e3ec147dd70f.ctex"]
+source_file="res://art/pixel/day_card.png"
+dest_files=["res://.godot/imported/day_card.png-3463ee52a1fb8f38da4385a8bafa91ff.ctex"]
 
 [params]
 

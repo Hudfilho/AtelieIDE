@@ -1,10 +1,11 @@
 class_name AtelierDeskStamp
 extends Button
 
-## Carimbo de borracha em pé sobre a mesa: o sprite fica em cima (erguido 2 px
-## com contorno de latão no hover) e o nome numa plaquinha de latão embaixo.
-## Continua sendo um Button comum (texto traduzido, disabled, pressed); o
-## estilo PixelStamp reserva o alto do botão para o sprite.
+## Objeto clicável em pé no balcão (os carimbos na bandeja, o sino no
+## peitoril): o sprite fica em cima (erguido 2 px com contorno de latão no
+## hover) e o nome numa plaquinha de latão embaixo. Continua sendo um Button
+## comum (texto traduzido, disabled, pressed); o estilo (PixelStamp,
+## PixelBell) reserva o alto do botão para o sprite.
 
 ## Folga acima do corpo no sprite em repouso (é para onde ele sobe no hover).
 const HEAD_TOP := 4.0
