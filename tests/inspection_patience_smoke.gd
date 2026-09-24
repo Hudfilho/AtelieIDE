@@ -78,16 +78,15 @@ func _run() -> void:
 	var bell := desk.get_node("%BellButton") as Button
 	var speech := desk.get_node("%Speech") as Label
 	var evidence_label := desk.get_node("%EvidenceLabel") as Label
-	var rules = desk.get_node("%RulesList")
 
 	bell.pressed.emit() # Mira
 	var reputation: int = game_state.reputation
 	desk.get_node("%RaceField").pressed.emit()
-	rules.get_node("Rule_signature").pressed.emit()
+	desk.rule_button("signature").pressed.emit()
 	assert(desk.inspection.mistakes == 1 and game_state.reputation == reputation)
 	assert(speech.text == "\"%s\"" % desk.current_order.greeting, "The first wrong link gets no reaction")
 	desk.get_node("%AgeField").pressed.emit()
-	rules.get_node("Rule_signature").pressed.emit()
+	desk.rule_button("signature").pressed.emit()
 	assert(desk.inspection.patience() == Patience.UNEASY)
 	assert(speech.text == "\"%s\"" % tr("DESK_PATIENCE_UNEASY"), speech.text)
 	assert(tr("DESK_WRONG_LINKS") % [2, 3] in evidence_label.text, evidence_label.text)
@@ -95,7 +94,7 @@ func _run() -> void:
 	# Tentativa e erro em massa: uma penalidade só.
 	for attempt in 10:
 		desk.get_node("%NameField").pressed.emit()
-		rules.get_node("Rule_offensive_license").pressed.emit()
+		desk.rule_button("offensive_license").pressed.emit()
 	assert(game_state.reputation == reputation - 1, "Penalized %d times" % (reputation - game_state.reputation))
 	var penalty_lines := 0
 	for entry in game_state.ledger:
@@ -111,7 +110,7 @@ func _run() -> void:
 	assert(desk.inspection.mistakes == 0 and not desk.inspection.penalty_triggered)
 	assert(evidence_label.text == tr("DESK_NO_EVIDENCE"), "A new client shows no mistake count: %s" % evidence_label.text)
 	desk.get_node("%RaceField").pressed.emit()
-	rules.get_node("Rule_signature").pressed.emit()
+	desk.rule_button("signature").pressed.emit()
 	assert(desk.inspection.mistakes == 1)
 	desk.queue_free()
 	await process_frame

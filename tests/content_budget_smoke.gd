@@ -26,25 +26,37 @@ func _run() -> void:
 	(desk.get_node("%Feedback") as AtelierDeskFeedback).mute = true
 	root.add_child(desk)
 	await _frames()
+	var item_field := desk.get_node("%ItemField") as Button
 	var details_field := desk.get_node("%DetailsField") as Button
 	var spec_label := desk.get_node("%SpecLabel") as Label
 	var speech_label := desk.get_node("%Speech") as Label
-	var rules_list := desk.get_node("%RulesList") as Control
+	var pages: Array[Control] = [desk.get_node("%LeftPage"), desk.get_node("%RightPage")]
+	var form_room: float = (desk.get_node("%RequestForm") as Control).size.x - 22.0
+	assert(is_equal_approx(AtelierContentBudget.TITLE_WIDTH + 4.0, form_room), "Title width %s does not match the request (%s)" % [AtelierContentBudget.TITLE_WIDTH, form_room])
 	var compared := 0
 	for day_index in DAYS.size():
 		game_state.day_index = day_index
 		var day: AtelierShopDay = game_state.current_day()
 		desk._build_rulebook(day)
 		await _frames()
-		for rule_button: Button in rules_list.get_children():
+		var split := AtelierContentBudget.rule_pages(day.rules)
+		for rule in day.rules:
+			var rule_button: Button = desk.rule_button(rule.id)
 			var rule_lines := int(rule_button.get_combined_minimum_size().y) / AtelierContentBudget.LINE_HEIGHT
 			assert(rule_lines == AtelierContentBudget.rendered_lines(rule_button.text, AtelierContentBudget.RULE_WIDTH), "%s: rule lines differ" % rule_button.name)
-		assert(is_equal_approx(rules_list.get_combined_minimum_size().y, AtelierContentBudget.rules_page_height(day.rules)), "%s: rules page height differs: %s vs %s" % [day.title, rules_list.get_combined_minimum_size().y, AtelierContentBudget.rules_page_height(day.rules)])
+			var page_index := 0 if split[0].has(rule) else 1
+			assert(pages[page_index].is_ancestor_of(rule_button), "%s is on the wrong page" % rule.id)
+		for index in pages.size():
+			var drawn := pages[index].get_combined_minimum_size().y
+			var measured := AtelierContentBudget.page_height(split[index], "")
+			assert(is_equal_approx(drawn, measured), "%s page %d: height differs: %s vs %s" % [day.title, index + 1, drawn, measured])
 		for slot in day.orders:
 			for order in AtelierShopDay.versions_of(slot):
 				desk.current_order = order
 				desk._show_client(order)
 				await _frames()
+				var fits_title := AtelierContentBudget.rendered_lines(order.item, AtelierContentBudget.TITLE_WIDTH, AtelierContentBudget.TITLE_FONT_PATH, AtelierContentBudget.TITLE_FONT_SIZE) == 1
+				assert(fits_title == (item_field.get_combined_minimum_size().x <= form_room), "%s: title verdict differs from the drawn width %s" % [order.id, item_field.get_combined_minimum_size().x])
 				var shown_details := int(details_field.get_combined_minimum_size().y) / AtelierContentBudget.LINE_HEIGHT
 				assert(shown_details == AtelierContentBudget.rendered_lines(details_field.text, AtelierContentBudget.DETAILS_WIDTH), "%s: details lines differ (%d shown)" % [order.id, shown_details])
 				assert(spec_label.get_line_count() == AtelierContentBudget.rendered_lines(spec_label.text, AtelierContentBudget.SPEC_WIDTH), "%s: spec lines differ" % order.id)
@@ -67,16 +79,19 @@ func _run() -> void:
 	var long_sentence := "The villagers keep arguing about the well, the mill, the bridge and the price of bread every single night. "
 	var oversized := AtelierScrollOrder.new()
 	oversized.id = "oversized"
+	oversized.item = "Scroll of the Exceedingly Long and Wordy Title"
 	oversized.details = long_sentence + long_sentence
 	oversized.spec = long_sentence
 	oversized.greeting = long_sentence + long_sentence
 	var order_problems := "\n".join(AtelierContentBudget.check_order(oversized))
+	assert("title takes" in order_problems, order_problems)
 	assert("details has" in order_problems and "characters" in order_problems, order_problems)
 	assert("details takes" in order_problems, order_problems)
 	assert("scroll requirement takes" in order_problems, order_problems)
 	assert("speech takes" in order_problems, order_problems)
 	var tidy := AtelierScrollOrder.new()
 	tidy.id = "tidy"
+	tidy.item = "Scroll of Light"
 	tidy.details = "A short request."
 	tidy.spec = "Print 3."
 	tidy.greeting = "Hello!"
@@ -97,7 +112,17 @@ func _run() -> void:
 		rule.text = long_sentence + long_sentence
 		wordy_rules.rules.append(rule)
 	var wordy := "\n".join(AtelierContentBudget.check_day(wordy_rules))
-	assert("rulebook page" in wordy and not "at most 3" in wordy, wordy)
+	assert("rulebook page 1" in wordy and "rulebook page 2" in wordy and not "at most 3" in wordy, wordy)
+
+	# Uma regra comprida só na página direita também é pega.
+	var heavy_right := AtelierShopDay.new()
+	heavy_right.title = "Heavy right page"
+	for text in ["Short rule.", long_sentence + long_sentence + long_sentence]:
+		var rule := AtelierShopRule.new()
+		rule.text = text
+		heavy_right.rules.append(rule)
+	var heavy := "\n".join(AtelierContentBudget.check_day(heavy_right))
+	assert("rulebook page 2" in heavy and not "rulebook page 1" in heavy, heavy)
 
 	print("CONTENT_BUDGET_SMOKE_OK (%d customer versions measured)" % compared)
 	quit(0)

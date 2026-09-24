@@ -5,8 +5,10 @@ TITLE_PLAY,Open the shop,Abrir a loja
 TITLE_SANDBOX,Rune sandbox (Atelier IDE),Ateliê livre (Atelier IDE)
 TITLE_QUIT,Quit,Sair
 DESK_BELL,Ring the bell,Tocar o sino
-DESK_RULEBOOK_TITLE,Shop Rulebook,Livro de regras
-DESK_FORM_HEADER,Magic Scroll Request:,Pedido de pergaminho mágico:
+DESK_RULEBOOK_TITLE,Today's rules,Regras de hoje
+DESK_FORM_HEADER,Magic scroll request,Pedido de pergaminho mágico
+DESK_REQUIRED_EFFECT,Required effect,Efeito exigido
+DESK_NOTES_HEADER,Inspection notes,Notas da inspeção
 DESK_APPROVE,APPROVE,APROVAR
 DESK_REJECT,REJECT,RECUSAR
 DESK_INK_APPROVED,APPROVED,APROVADO
@@ -17,7 +19,7 @@ DESK_RULEBOOK_HEADER,Rulebook,Livro de regras
 DESK_RUNES_HEADER,Runes on your bench,Runas na sua bancada
 DESK_OPEN_SHOP,Open the shop,Abrir a loja
 DESK_RING_FIRST,Ring the bell to call the first client.,Toque o sino para chamar o primeiro cliente.
-DESK_CHECK_REQUEST,"Check the request: click a field, then the rule it breaks. Stamp when you are sure.",Confira o pedido: clique num campo e depois na regra que ele viola. Carimbe quando tiver certeza.
+DESK_CHECK_REQUEST,"Click a field, then the rule it breaks. Stamp when you are sure.",Clique num campo e depois na regra que ele viola. Carimbe quando tiver certeza.
 DESK_QUIET_DAY,A quiet day.,Um dia tranquilo.
 DESK_DAY_TOTALS,[b]Today:[/b] %s     [b]Purse:[/b] %d coins     [b]Reputation:[/b] %d,[b]Hoje:[/b] %s     [b]Bolsa:[/b] %d moedas     [b]Reputação:[/b] %d
 DESK_LEDGER_TITLE,%s - Ledger,%s - Livro-caixa
@@ -29,7 +31,7 @@ DESK_BACK_TO_TITLE,Back to the title,Voltar ao título
 DESK_APPROVED,Approved. Take the request to your bench.,Aprovado. Leve o pedido para a bancada.
 DESK_REFUSED_EVIDENCE,Good call. Refused on evidence: %s.,Boa decisão. Recusado com provas: %s.
 DESK_REFUSED_HONEST,An honest customer leaves disappointed. Your reputation suffers.,Um cliente honesto vai embora decepcionado. Sua reputação sofre.
-DESK_REFUSED_NO_CAUSE,"You refused without citing a broken rule, so it counts as refusing without cause. Link a field to the rule it breaks before stamping.","Você recusou sem citar uma regra violada, então conta como recusa sem motivo. Ligue um campo à regra que ele viola antes de carimbar."
+DESK_REFUSED_NO_CAUSE,"Refused without citing a rule, so it counts as refusing without cause. Link a field to a rule before stamping.","Recusado sem citar uma regra, então conta como recusa sem motivo. Ligue um campo a uma regra antes de carimbar."
 DESK_REACTION_APPROVED,"Wonderful, thank you!","Maravilha, obrigado!"
 DESK_REACTION_HONEST,But... my request was honest!,Mas... meu pedido era honesto!
 DESK_REACTION_CAUGHT,Tch. Fine. I'll find another shop.,Tsc. Tudo bem. Vou achar outra loja.
@@ -38,13 +40,11 @@ DESK_DELIVERED,%s thanks you and pays %d coins.,%s agradece e paga %d moedas.
 DESK_ABANDONED,You couldn't write the scroll. %s leaves empty-handed.,Você não conseguiu escrever o pergaminho. %s vai embora de mãos vazias.
 DESK_RING_NEXT,Ring the bell for the next client.,Toque o sino para o próximo cliente.
 DESK_RING_CLOSE,No one else is waiting. Ring the bell to close the shop.,Não há mais ninguém esperando. Toque o sino para fechar a loja.
-DESK_SCROLL_MUST,Scroll must: %s,O pergaminho deve: %s
 DESK_PICK_RULE,Now click the rule this field breaks.,Agora clique na regra que este campo viola.
 DESK_PICK_FIELD,Now click the field on the request that breaks this rule.,Agora clique no campo do pedido que viola esta regra.
-DESK_NO_EVIDENCE,No evidence yet. Refusing without a cited rule counts as refusing without cause.,Nenhuma prova ainda. Recusar sem citar uma regra conta como recusa sem motivo.
-DESK_EVIDENCE_HEADER,Evidence for refusal:,Provas para a recusa:
+DESK_NO_EVIDENCE,No evidence yet: refusing now counts as refusing without cause.,Nenhuma prova ainda: recusar agora conta como recusa sem motivo.
+DESK_EVIDENCE_HEADER,Evidence:,Provas:
 DESK_WRONG_LINKS,Wrong links: %d/%d,Ligações erradas: %d/%d
-DESK_FIELD_DETAILS,Details: %s,Detalhes: %s
 DESK_HUD_MONEY,%d coins,%d moedas
 DESK_HUD_REPUTATION,Reputation %d,Reputação %d
 DESK_HUD_QUEUE,%d waiting outside,%d esperando lá fora
@@ -53,7 +53,7 @@ DESK_SIGNED_REP,%s rep,%s rep.
 DESK_PATIENCE_UNEASY,Hm? Is something wrong with my form?,Hum? Tem algo errado com meu formulário?
 DESK_PATIENCE_UPSET,Are you going to stamp it or not? I haven't got all day!,Vai carimbar ou não? Não tenho o dia todo!
 DESK_PATIENCE_EXASPERATED,*sigh*,*suspiro*
-DESK_PATIENCE_PENALTY,The client is losing patience with your inspection. Reputation -%d.,O cliente está perdendo a paciência com a inspeção. Reputação -%d.
+DESK_PATIENCE_PENALTY,The client is losing patience. Reputation -%d.,O cliente está perdendo a paciência. Reputação -%d.
 FIELD_ITEM,Item,Item
 FIELD_NAME,Name,Nome
 FIELD_AGE,Age,Idade

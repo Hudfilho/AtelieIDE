@@ -130,18 +130,38 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 
 - **Grade inteira:** `AtelierPixelFrame` (`scripts/game/pixel_frame.gd`) mostra o balcão com a maior escala inteira que cabe na janela, centralizado, e pinta tarjas no espaço que sobra. Por exemplo: 2x em 1280x720, 3x em 1920x1080, 4x em 2560x1440, e 2x com tarjas de 43/24 px em 1366x768. Nunca há escala fracionária. O balcão fica numa `CanvasLayer` abaixo da interface, porque a posição de um `Control` é arredondada para o pixel lógico e, com a janela esticada, isso desalinha o balcão em 1 px.
 
-- A arte é provisória e original. É gerada por `tools/pixel_art/generate_pixel_art.py`, que produz os sprites, as molduras 9-slice e uma fonte bitmap própria com acentos, em dois tamanhos. Rode o script de novo para ajustar a arte.
+- **Balcão físico (M8):** em vez de painéis, o jogador vê objetos sobre a mesa. Em cima ficam a janela com o cliente, o balão de fala (só o nome e a fala; a raça fica no pedido) e o sino sobre o balcão. Na mesa ficam:
+  - o livro de regras aberto, com duas páginas e regras numeradas (`AtelierContentBudget.rule_pages` divide as regras entre as páginas);
+  - o pedido no centro, o papel mais claro da cena;
+  - os carimbos de borracha em pé (`AtelierDeskStamp`), que sobem 2 px no hover, com o nome numa plaquinha de latão;
+  - uma única nota da inspeção;
+  - o cartão do dia, preso por um alfinete.
+- **Hierarquia do texto:** quatro fontes bitmap próprias. Versaletes miúdos para cabeçalhos e rótulos de seção; a normal para o texto; a de título (mais alta e em negrito) para o nome do pergaminho e do cliente; e a grande, só para a marca do carimbo.
+- **Cores com significado:** vermelho é discrepância e recusa, verde é aprovado, roxo é o efeito exigido e dourado é interação (seleção, sino). Nenhuma delas aparece como enfeite.
+- **Seleção:** o campo ou a regra escolhida ganha uma barra dourada na margem e um sublinhado, sem pintar a linha inteira. As provas continuam em tinta vermelha com `»`.
+- **Dicas da nota:** mensagens do tipo "clique num campo" somem sozinhas depois de alguns segundos (`hint_fade_delay`). Resultados, avisos e penalidades ficam.
+- **Luz:** vem pintada no fundo (`backdrop.png`), com pontilhado. A vela aquece a parede e o centro da mesa, o luar esfria a quina do balcão sob a janela e as bordas são mais escuras. Papéis e objetos têm sombra de 2 px e se sobrepõem um pouco, como numa mesa de verdade.
+- A arte é provisória e original. É gerada por `tools/pixel_art/generate_pixel_art.py`, que produz o fundo, os sprites, as molduras 9-slice e as fontes. Rode o script de novo para ajustar a arte; as posições da vela e da janela no script têm de bater com `Desk.tscn`.
 - O goblin tem retrato próprio (`portrait` na encomenda). Os demais clientes usam uma silhueta tingida com `portrait_color`.
 - A marca APPROVED/REFUSED cai numa área reservada do pergaminho (`StampBox`), sem cobrir texto.
-- Os rótulos dos carimbos e o "tocar o sino" usam placas escuras com borda de latão, com contraste de pelo menos 4.5:1 mesmo quando desligados.
-- `tests/pixel_desk_smoke.gd` monta o balcão para todo cliente de todos os dias e confere que nada sai da tela ou se sobrepõe, que a marca fica dentro da área e que a fonte tem todos os caracteres. Rode também com `locale/test="pt_BR"`. `tests/pixel_frame_smoke.gd` confere a escala inteira e o centro em várias resoluções.
+- As plaquinhas dos carimbos e o "tocar o sino" são escuras com borda de latão, com contraste de pelo menos 4.5:1 mesmo quando desligados.
+- `tests/pixel_desk_smoke.gd` monta o balcão para todo cliente de todos os dias. Ele confere que:
+  - nada sai da tela;
+  - cada página do livro fica do seu lado do vinco;
+  - pedido, carimbos, sino e nota não se sobrepõem;
+  - a marca fica dentro da área;
+  - as quatro fontes têm todos os caracteres;
+  - as dicas somem e os avisos ficam.
 
-**Orçamento de texto do balcão:** `AtelierContentBudget` (`scripts/game/content_budget.gd`) mede o texto com a fonte e a largura reais do balcão, em todos os idiomas carregados. Os limites são:
+  Rode também com `locale/test="pt_BR"`. `tests/pixel_frame_smoke.gd` confere a escala inteira e o centro em várias resoluções.
 
-- detalhes com até 150 caracteres e até 4 linhas;
-- a primeira linha do pedido (`spec`) com até 2 linhas, já que é a única que o balcão mostra (o resto aparece na bancada);
+**Orçamento de texto do balcão:** `AtelierContentBudget` (`scripts/game/content_budget.gd`) mede o texto com a fonte e a largura reais do balcão. Os limites são:
+
+- o nome do pergaminho (`item`) numa linha só, na fonte de título;
+- detalhes com até 150 caracteres e até 4 linhas, contando o `»` de prova;
+- a primeira linha do pedido (`spec`) com até 2 linhas, já que é a única que o balcão mostra, como "efeito exigido" (o resto aparece na bancada);
 - falas do cliente com até 3 linhas;
-- no máximo 3 regras por dia, que caibam na página do livro de regras.
+- no máximo 3 regras por dia, e as regras de cada página do livro aberto cabem nela.
 
 A fonte nunca encolhe para caber. Conteúdo fora do limite é um erro de conteúdo: o jogo avisa ao abrir o dia (só em debug) e `tests/content_budget_smoke.gd` falha. Esse teste também confere que a medição bate com o balcão montado.
 

@@ -1,81 +1,82 @@
 [gd_resource type="Theme" format=3]
 
 [ext_resource type="FontFile" path="res://art/pixel/pixel_font.fnt" id="1_font"]
-[ext_resource type="FontFile" path="res://art/pixel/pixel_font_big.fnt" id="2_font_big"]
-[ext_resource type="Texture2D" path="res://art/pixel/parchment.png" id="3_parchment"]
-[ext_resource type="Texture2D" path="res://art/pixel/book.png" id="4_book"]
-[ext_resource type="Texture2D" path="res://art/pixel/note.png" id="5_note"]
-[ext_resource type="Texture2D" path="res://art/pixel/sign.png" id="6_sign"]
-[ext_resource type="Texture2D" path="res://art/pixel/bubble.png" id="7_bubble"]
-[ext_resource type="Texture2D" path="res://art/pixel/stamp_box.png" id="8_stamp_box"]
+[ext_resource type="FontFile" path="res://art/pixel/pixel_font_title.fnt" id="2_font_title"]
+[ext_resource type="FontFile" path="res://art/pixel/pixel_font_tiny.fnt" id="3_font_tiny"]
+[ext_resource type="Texture2D" path="res://art/pixel/parchment.png" id="4_parchment"]
+[ext_resource type="Texture2D" path="res://art/pixel/book_spread.png" id="5_book"]
+[ext_resource type="Texture2D" path="res://art/pixel/note.png" id="6_note"]
+[ext_resource type="Texture2D" path="res://art/pixel/card.png" id="7_card"]
+[ext_resource type="Texture2D" path="res://art/pixel/bubble.png" id="8_bubble"]
+[ext_resource type="Texture2D" path="res://art/pixel/stamp_box.png" id="9_stamp_box"]
 
 [sub_resource type="StyleBoxTexture" id="paper"]
-content_margin_left = 8.0
-content_margin_top = 6.0
-content_margin_right = 8.0
-content_margin_bottom = 6.0
-texture = ExtResource("3_parchment")
-texture_margin_left = 6.0
-texture_margin_top = 6.0
-texture_margin_right = 6.0
-texture_margin_bottom = 6.0
+content_margin_left = 10.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 10.0
+texture = ExtResource("4_parchment")
+texture_margin_left = 8.0
+texture_margin_top = 8.0
+texture_margin_right = 10.0
+texture_margin_bottom = 10.0
 axis_stretch_horizontal = 1
 axis_stretch_vertical = 1
 
 [sub_resource type="StyleBoxTexture" id="book"]
-content_margin_left = 9.0
-content_margin_top = 7.0
-content_margin_right = 9.0
-content_margin_bottom = 7.0
-texture = ExtResource("4_book")
-texture_margin_left = 7.0
-texture_margin_top = 7.0
-texture_margin_right = 7.0
-texture_margin_bottom = 7.0
+content_margin_left = 10.0
+content_margin_top = 9.0
+content_margin_right = 12.0
+content_margin_bottom = 28.0
+texture = ExtResource("5_book")
+texture_margin_left = 99.0
+texture_margin_top = 30.0
+texture_margin_right = 100.0
+texture_margin_bottom = 40.0
 axis_stretch_horizontal = 1
 axis_stretch_vertical = 1
 
 [sub_resource type="StyleBoxTexture" id="note"]
-content_margin_left = 6.0
-content_margin_top = 4.0
-content_margin_right = 6.0
-content_margin_bottom = 4.0
-texture = ExtResource("5_note")
-texture_margin_left = 5.0
-texture_margin_top = 5.0
-texture_margin_right = 5.0
-texture_margin_bottom = 5.0
+content_margin_left = 8.0
+content_margin_top = 7.0
+content_margin_right = 10.0
+content_margin_bottom = 8.0
+texture = ExtResource("6_note")
+texture_margin_left = 8.0
+texture_margin_top = 8.0
+texture_margin_right = 10.0
+texture_margin_bottom = 10.0
 axis_stretch_horizontal = 1
 axis_stretch_vertical = 1
 
-[sub_resource type="StyleBoxTexture" id="sign"]
-content_margin_left = 6.0
-content_margin_top = 4.0
-content_margin_right = 6.0
-content_margin_bottom = 4.0
-texture = ExtResource("6_sign")
-texture_margin_left = 5.0
-texture_margin_top = 5.0
-texture_margin_right = 5.0
-texture_margin_bottom = 5.0
+[sub_resource type="StyleBoxTexture" id="card"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 10.0
+content_margin_bottom = 7.0
+texture = ExtResource("7_card")
+texture_margin_left = 8.0
+texture_margin_top = 8.0
+texture_margin_right = 10.0
+texture_margin_bottom = 10.0
 axis_stretch_horizontal = 1
 axis_stretch_vertical = 1
 
 [sub_resource type="StyleBoxTexture" id="bubble"]
 content_margin_left = 7.0
 content_margin_top = 5.0
-content_margin_right = 7.0
-content_margin_bottom = 5.0
-texture = ExtResource("7_bubble")
+content_margin_right = 9.0
+content_margin_bottom = 7.0
+texture = ExtResource("8_bubble")
 texture_margin_left = 5.0
 texture_margin_top = 5.0
-texture_margin_right = 5.0
-texture_margin_bottom = 5.0
+texture_margin_right = 7.0
+texture_margin_bottom = 7.0
 axis_stretch_horizontal = 1
 axis_stretch_vertical = 1
 
 [sub_resource type="StyleBoxTexture" id="stamp_box"]
-texture = ExtResource("8_stamp_box")
+texture = ExtResource("9_stamp_box")
 texture_margin_left = 4.0
 texture_margin_top = 4.0
 texture_margin_right = 4.0
@@ -87,22 +88,25 @@ draw_center = false
 [sub_resource type="StyleBoxEmpty" id="field"]
 content_margin_left = 2.0
 content_margin_right = 2.0
+content_margin_bottom = 1.0
 
 [sub_resource type="StyleBoxFlat" id="field_hover"]
 content_margin_left = 2.0
 content_margin_right = 2.0
-bg_color = Color(0.45, 0.3, 0.15, 0.2)
+content_margin_bottom = 1.0
+bg_color = Color(0, 0, 0, 0)
+border_width_bottom = 1
+border_color = Color(0.77, 0.64, 0.41, 1)
 anti_aliasing = false
 
 [sub_resource type="StyleBoxFlat" id="field_selected"]
 content_margin_left = 2.0
 content_margin_right = 2.0
-bg_color = Color(0.85, 0.62, 0.2, 0.45)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
+content_margin_bottom = 1.0
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
 border_width_bottom = 1
-border_color = Color(0.42, 0.3, 0.18, 1)
+border_color = Color(0.72, 0.5, 0.12, 1)
 anti_aliasing = false
 
 [sub_resource type="StyleBoxEmpty" id="flat"]
@@ -118,6 +122,12 @@ content_margin_right = 2.0
 content_margin_bottom = 2.0
 bg_color = Color(1, 0.95, 0.8, 0.12)
 anti_aliasing = false
+
+[sub_resource type="StyleBoxEmpty" id="stamp_room"]
+content_margin_left = 4.0
+content_margin_top = 58.0
+content_margin_right = 4.0
+content_margin_bottom = 3.0
 
 [sub_resource type="StyleBoxFlat" id="plate"]
 content_margin_left = 3.0
@@ -159,7 +169,7 @@ border_color = Color(0.4, 0.3, 0.17, 1)
 anti_aliasing = false
 
 [sub_resource type="StyleBoxLine" id="rule_line"]
-color = Color(0.61, 0.48, 0.29, 1)
+color = Color(0.77, 0.64, 0.41, 1)
 
 [resource]
 default_font = ExtResource("1_font")
@@ -177,28 +187,35 @@ Button/styles/pressed = SubResource("flat_hover")
 Button/styles/disabled = SubResource("flat")
 Button/styles/focus = SubResource("flat")
 Label/colors/font_color = Color(0.94, 0.87, 0.69, 1)
-HSeparator/constants/separation = 4
+Label/constants/line_spacing = 0
+HSeparator/constants/separation = 5
 HSeparator/styles/separator = SubResource("rule_line")
-HeaderLabel/base_type = &"Label"
-HeaderLabel/colors/font_color = Color(0.96, 0.86, 0.54, 1)
 Paper/base_type = &"PanelContainer"
 Paper/styles/panel = SubResource("paper")
 Book/base_type = &"PanelContainer"
 Book/styles/panel = SubResource("book")
 Note/base_type = &"PanelContainer"
 Note/styles/panel = SubResource("note")
-Sign/base_type = &"PanelContainer"
-Sign/styles/panel = SubResource("sign")
+DayCard/base_type = &"PanelContainer"
+DayCard/styles/panel = SubResource("card")
 Bubble/base_type = &"PanelContainer"
 Bubble/styles/panel = SubResource("bubble")
 StampBox/base_type = &"Panel"
 StampBox/styles/panel = SubResource("stamp_box")
+TinyCaps/base_type = &"Label"
+TinyCaps/fonts/font = ExtResource("3_font_tiny")
+TinyCaps/font_sizes/font_size = 8
+TinyCaps/colors/font_color = Color(0.42, 0.29, 0.16, 1)
+CardTitle/base_type = &"Label"
+CardTitle/colors/font_color = Color(0.165, 0.114, 0.078, 1)
+CardLabel/base_type = &"Label"
+CardLabel/colors/font_color = Color(0.28, 0.19, 0.12, 1)
+BubbleName/base_type = &"Label"
+BubbleName/fonts/font = ExtResource("2_font_title")
+BubbleName/font_sizes/font_size = 13
+BubbleName/colors/font_color = Color(0.3, 0.17, 0.1, 1)
 PaperLabel/base_type = &"Label"
 PaperLabel/colors/font_color = Color(0.165, 0.114, 0.078, 1)
-PaperHeader/base_type = &"Label"
-PaperHeader/colors/font_color = Color(0.54, 0.16, 0.12, 1)
-PaperHint/base_type = &"Label"
-PaperHint/colors/font_color = Color(0.45, 0.34, 0.22, 1)
 PaperSpec/base_type = &"Label"
 PaperSpec/colors/font_color = Color(0.33, 0.2, 0.38, 1)
 NoteLabel/base_type = &"Label"
@@ -216,33 +233,31 @@ PaperField/styles/hover = SubResource("field_hover")
 PaperField/styles/pressed = SubResource("field_selected")
 PaperField/styles/hover_pressed = SubResource("field_selected")
 PaperField/styles/focus = SubResource("field")
-PaperTitleField/base_type = &"Button"
-PaperTitleField/fonts/font = ExtResource("2_font_big")
-PaperTitleField/font_sizes/font_size = 22
-PaperTitleField/colors/font_color = Color(0.54, 0.16, 0.12, 1)
-PaperTitleField/colors/font_hover_color = Color(0.54, 0.16, 0.12, 1)
-PaperTitleField/colors/font_pressed_color = Color(0.54, 0.16, 0.12, 1)
-PaperTitleField/colors/font_focus_color = Color(0.54, 0.16, 0.12, 1)
-PaperTitleField/colors/font_hover_pressed_color = Color(0.54, 0.16, 0.12, 1)
-PaperTitleField/styles/normal = SubResource("field")
-PaperTitleField/styles/hover = SubResource("field_hover")
-PaperTitleField/styles/pressed = SubResource("field_selected")
-PaperTitleField/styles/hover_pressed = SubResource("field_selected")
-PaperTitleField/styles/focus = SubResource("field")
-PaperTitleFieldCompact/base_type = &"PaperTitleField"
-PaperTitleFieldCompact/fonts/font = ExtResource("1_font")
-PaperTitleFieldCompact/font_sizes/font_size = 11
+PaperTitleField/base_type = &"PaperField"
+PaperTitleField/fonts/font = ExtResource("2_font_title")
+PaperTitleField/font_sizes/font_size = 13
+PaperTitleField/colors/font_color = Color(0.24, 0.13, 0.08, 1)
+PaperTitleField/colors/font_hover_color = Color(0.24, 0.13, 0.08, 1)
+PaperTitleField/colors/font_pressed_color = Color(0.24, 0.13, 0.08, 1)
+PaperTitleField/colors/font_focus_color = Color(0.24, 0.13, 0.08, 1)
+PaperTitleField/colors/font_hover_pressed_color = Color(0.24, 0.13, 0.08, 1)
 PixelStamp/base_type = &"Button"
 PixelStamp/colors/font_color = Color(0.96, 0.86, 0.54, 1)
 PixelStamp/colors/font_hover_color = Color(1, 0.93, 0.66, 1)
 PixelStamp/colors/font_pressed_color = Color(1, 0.93, 0.66, 1)
+PixelStamp/colors/font_hover_pressed_color = Color(1, 0.93, 0.66, 1)
+PixelStamp/colors/font_focus_color = Color(0.96, 0.86, 0.54, 1)
 PixelStamp/colors/font_disabled_color = Color(0.66, 0.58, 0.45, 1)
 PixelStamp/colors/icon_disabled_color = Color(0.62, 0.57, 0.52, 0.85)
-PixelStamp/styles/normal = SubResource("plate")
-PixelStamp/styles/hover = SubResource("plate_hover")
-PixelStamp/styles/pressed = SubResource("plate_hover")
-PixelStamp/styles/disabled = SubResource("plate_disabled")
-PixelStamp/styles/focus = SubResource("flat")
+PixelStamp/styles/normal = SubResource("stamp_room")
+PixelStamp/styles/hover = SubResource("stamp_room")
+PixelStamp/styles/pressed = SubResource("stamp_room")
+PixelStamp/styles/hover_pressed = SubResource("stamp_room")
+PixelStamp/styles/disabled = SubResource("stamp_room")
+PixelStamp/styles/focus = SubResource("stamp_room")
+PixelStamp/styles/plate = SubResource("plate")
+PixelStamp/styles/plate_hover = SubResource("plate_hover")
+PixelStamp/styles/plate_disabled = SubResource("plate_disabled")
 PixelPrompt/base_type = &"Button"
 PixelPrompt/colors/font_color = Color(0.96, 0.86, 0.54, 1)
 PixelPrompt/colors/font_hover_color = Color(1, 0.93, 0.66, 1)

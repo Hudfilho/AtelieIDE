@@ -1,14 +1,21 @@
 extends SceneTree
 
 ## Balcão em pixel art: renderiza num SubViewport de 640x360 com filtro
-## nearest, a fonte bitmap cobre todo texto que o balcão pode mostrar e, para
+## nearest, as fontes bitmap cobrem todo texto que o balcão pode mostrar e, para
 ## todo cliente de todos os dias, nada transborda nem fica coberto: pergaminho,
-## livro de regras, balão de fala e notas cabem na tela, e a marca de tinta cai
-## inteira dentro da área do carimbo, sem cobrir nenhum campo.
+## livro aberto (cada regra na sua página, longe do vinco), balão de fala e a
+## nota da inspeção cabem na tela; a marca de tinta cai inteira dentro da área
+## do carimbo, sem cobrir nenhum campo; e as coisas clicáveis (campos, regras,
+## carimbos, sino) não se sobrepõem, mesmo com os papéis encostados.
 ## Coleta todos os problemas e mostra de uma vez antes de falhar.
 
 const DAYS: Array[String] = ["res://data/days/day_01.tres", "res://data/days/day_02.tres", "res://data/days/day_03.tres"]
 const STAGE := Rect2(0, 0, 640, 360)
+## Livro aberto (book_spread.png): vinco no x 98 do sprite, sombra do vinco
+## até 8 px de cada lado, e o pé da página (florão) começa no y 194.
+const BOOK_SEAM_X := 98.0
+const BOOK_GUTTER := 6.0
+const BOOK_PAGE_BOTTOM := 194.0
 
 var problems: PackedStringArray = []
 
@@ -53,29 +60,41 @@ func _run() -> void:
 	for name in ["%Workbench", "%Overlay"]:
 		assert(not viewport.is_ancestor_of(desk.get_node(name)), "%s should stay at full resolution" % name)
 
-	# Contraste dos rótulos dos carimbos e do sino (achado do M6): legíveis
-	# ligados e desligados, e o desligado ainda visivelmente mais apagado.
+	# Contraste dos rótulos dos carimbos (plaquinha de latão) e do sino (achado
+	# do M6): legíveis ligados e desligados, e o desligado visivelmente mais apagado.
 	var theme := load("res://art/pixel/pixel_theme.tres") as Theme
 	var desk_wood := Color8(107, 69, 48)
 	var wall := Color8(61, 38, 32)
-	for variation in ["PixelStamp", "PixelPrompt"]:
+	var plates := {"PixelStamp": ["plate", "plate_disabled"], "PixelPrompt": ["normal", "disabled"]}
+	for variation: String in plates:
 		var under := desk_wood if variation == "PixelStamp" else wall
-		var enabled := _contrast(theme.get_color("font_color", variation), under.blend((theme.get_stylebox("normal", variation) as StyleBoxFlat).bg_color))
-		var disabled := _contrast(theme.get_color("font_disabled_color", variation), under.blend((theme.get_stylebox("disabled", variation) as StyleBoxFlat).bg_color))
+		var enabled_plate := theme.get_stylebox(plates[variation][0], variation) as StyleBoxFlat
+		var disabled_plate := theme.get_stylebox(plates[variation][1], variation) as StyleBoxFlat
+		var enabled := _contrast(theme.get_color("font_color", variation), under.blend(enabled_plate.bg_color))
+		var disabled := _contrast(theme.get_color("font_disabled_color", variation), under.blend(disabled_plate.bg_color))
 		_check(enabled >= 4.5, "%s enabled label contrast %.2f < 4.5" % [variation, enabled])
 		_check(disabled >= 4.5, "%s disabled label contrast %.2f < 4.5" % [variation, disabled])
 		_check(enabled >= disabled * 1.5, "%s disabled label is not distinguishable from enabled (%.2f vs %.2f)" % [variation, disabled, enabled])
 
-	# Fonte: todo caractere que o balcão pode mostrar existe na fonte bitmap.
+	# Fontes: todo caractere que o balcão pode mostrar existe na fonte bitmap
+	# que o mostra (normal, grande da marca, título e versaletes miúdos).
 	var small_font := load("res://art/pixel/pixel_font.fnt") as FontFile
 	var big_font := load("res://art/pixel/pixel_font_big.fnt") as FontFile
+	var title_font := load("res://art/pixel/pixel_font_title.fnt") as FontFile
+	var tiny_font := load("res://art/pixel/pixel_font_tiny.fnt") as FontFile
 	var small_text := PackedStringArray()
 	var big_text := PackedStringArray()
+	var title_text := PackedStringArray()
+	var tiny_text := PackedStringArray(["0123456789"])
 	for row in _table_rows():
 		if row[0].begins_with("DESK_") or row[0].begins_with("FIELD_") or row[0].begins_with("INSPECT_"):
 			small_text.append_array([row[1], row[2]])
 		if row[0].begins_with("DESK_INK_"):
 			big_text.append_array([row[1], row[2]])
+		if row[0] in ["DESK_FORM_HEADER", "DESK_REQUIRED_EFFECT", "DESK_NOTES_HEADER", "DESK_RULEBOOK_TITLE", "FIELD_DETAILS", "DESK_WINDOW_EMPTY"]:
+			tiny_text.append_array([row[1], row[2]])
+		if row[0] == "DESK_WINDOW_EMPTY":
+			title_text.append_array([row[1], row[2]])
 	for day_path in DAYS:
 		var day := load(day_path) as AtelierShopDay
 		small_text.append(day.title)
@@ -85,9 +104,11 @@ func _run() -> void:
 			for order in AtelierShopDay.versions_of(slot):
 				small_text.append_array([order.client_name, order.age, order.race, order.signature, order.item, order.details,
 						order.spec, order.greeting, order.reaction_approved, order.reaction_refused])
-				big_text.append(order.item)
+				title_text.append_array([order.item, order.client_name])
 	_check_font(small_font, small_text, "pixel_font")
 	_check_font(big_font, big_text, "pixel_font_big")
+	_check_font(title_font, title_text, "pixel_font_title")
+	_check_font(tiny_font, tiny_text, "pixel_font_tiny")
 
 	# Layout de cada cliente, em cada dia.
 	var form := desk.get_node("%RequestForm") as Control
@@ -97,13 +118,27 @@ func _run() -> void:
 			desk.get_node("%RaceField"), desk.get_node("%SignatureField"), desk.get_node("%DetailsField"), desk.get_node("%SpecLabel")]
 	var bubble := desk.get_node("%Speech").get_parent().get_parent() as Control
 	var bell := desk.get_node("%BellButton") as Control
-	var feedback_card := desk.get_node("%FeedbackCard") as Control
+	var rulebook := desk.get_node("%Rulebook") as Control
+	var pages: Array[Control] = [desk.get_node("%LeftPage"), desk.get_node("%RightPage")]
+	var stamps: Array[Control] = [desk.get_node("%ApproveButton"), desk.get_node("%RejectButton")]
+	var feedback_card := desk.get_node("%InspectionNote") as Control
 	var feedback_label := desk.get_node("%FeedbackLabel") as Control
 	var checked := 0
 	for day_index in DAYS.size():
 		game_state.day_index = day_index
 		var day: AtelierShopDay = game_state.current_day()
 		desk._build_rulebook(day)
+		await _frames()
+		# Livro aberto: cada página fica do seu lado do vinco e acima do pé da
+		# página; nenhuma regra fica embaixo do pedido (que encosta no livro).
+		var book := rulebook.get_global_rect()
+		var seam_x := book.position.x + BOOK_SEAM_X
+		_check(pages[0].get_global_rect().end.x <= seam_x - BOOK_GUTTER, "day %d: left page runs into the seam" % (day_index + 1))
+		_check(pages[1].get_global_rect().position.x >= seam_x + BOOK_GUTTER, "day %d: right page runs into the seam" % (day_index + 1))
+		for page in pages:
+			_check(page.get_global_rect().end.y <= book.position.y + BOOK_PAGE_BOTTOM, "day %d: %s runs past the page (%s)" % [day_index + 1, page.name, page.get_global_rect()])
+		for rule in day.rules:
+			_check(not desk.rule_button(rule.id).get_global_rect().intersects(form.get_global_rect()), "day %d: the request covers rule %s" % [day_index + 1, rule.id])
 		desk.phase = desk.Phase.SERVING
 		for slot in day.orders:
 			for order in AtelierShopDay.versions_of(slot):
@@ -112,7 +147,14 @@ func _run() -> void:
 				desk._show_client(order)
 				await _frames()
 				_check(STAGE.encloses(form.get_global_rect()), "%s: request form leaves the screen %s" % [where, form.get_global_rect()])
-				_check(STAGE.encloses(desk.get_node("%Rulebook").get_global_rect()), "%s: rulebook leaves the screen" % where)
+				_check(STAGE.encloses(rulebook.get_global_rect()), "%s: rulebook leaves the screen" % where)
+				# Coisas clicáveis não se sobrepõem: pedido, carimbos, sino e a nota.
+				var solids: Dictionary[String, Rect2] = {"request": form.get_global_rect(), "bell": bell.get_global_rect(),
+						"note": feedback_card.get_global_rect(), "approve": stamps[0].get_global_rect(), "reject": stamps[1].get_global_rect()}
+				var names := solids.keys()
+				for i in names.size():
+					for j in range(i + 1, names.size()):
+						_check(not solids[names[i]].intersects(solids[names[j]]), "%s: %s overlaps %s" % [where, names[i], names[j]])
 				for kind in [AtelierDeskFeedback.APPROVE, AtelierDeskFeedback.REJECT]:
 					feedback.show_ink(kind)
 					await _frames(2)
@@ -163,6 +205,17 @@ func _run() -> void:
 	await _frames()
 	_check(STAGE.encloses(feedback_card.get_global_rect()), "after leaving: notes leave the screen %s" % feedback_card.get_global_rect())
 	_check(feedback_card.get_global_rect().encloses(feedback_label.get_global_rect()), "after leaving: feedback text does not fit its note")
+
+	# Dicas de uso somem da nota sozinhas; resultados e avisos ficam.
+	desk.hint_fade_delay = 0.05
+	var note_text := desk.get_node("%FeedbackLabel") as Label
+	desk._say_hint(desk.tr("DESK_PICK_RULE"))
+	await create_timer(0.1 + desk.HINT_FADE_TIME).timeout
+	_check(note_text.modulate.a == 0.0, "A usage hint should fade out of the note (alpha %.2f)" % note_text.modulate.a)
+	desk._say_hint(desk.tr("DESK_PICK_FIELD"))
+	desk._say_feedback(desk.tr("DESK_PATIENCE_PENALTY") % [1])
+	await create_timer(0.1 + desk.HINT_FADE_TIME).timeout
+	_check(note_text.modulate.a == 1.0, "A warning must stay in the note (alpha %.2f)" % note_text.modulate.a)
 
 	desk.queue_free()
 	await process_frame

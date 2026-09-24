@@ -33,6 +33,9 @@ const CONTRADICTION_FLASH := Color(1.0, 0.45, 0.4)
 ## bancada abrir, e a marca REFUSED com a reação antes do cliente sair.
 const APPROVED_HOLD := 0.35
 const REFUSED_LINGER := 0.9
+## Dicas de uso (o que clicar agora) somem da nota depois de um tempo; avisos,
+## resultados e penalidades ficam.
+const HINT_FADE_TIME := 0.6
 
 ## Silhueta usada por clientes sem retrato próprio (tingida com portrait_color).
 @export var generic_portrait: Texture2D
@@ -40,6 +43,8 @@ const REFUSED_LINGER := 0.9
 @export var inspection_mistake_threshold := AtelierInspection.DEFAULT_MISTAKE_THRESHOLD
 ## Reputação perdida, uma única vez por cliente, ao atingir o limite.
 @export var inspection_mistake_penalty := 1
+## Segundos que uma dica fica na nota antes de sumir.
+@export var hint_fade_delay := 6.0
 
 @onready var day_label: Label = %DayLabel
 @onready var money_label: Label = %MoneyLabel
@@ -49,7 +54,8 @@ const REFUSED_LINGER := 0.9
 @onready var client_name_label: Label = %ClientName
 @onready var speech_label: Label = %Speech
 @onready var bell_button: Button = %BellButton
-@onready var rules_list: VBoxContainer = %RulesList
+## Páginas do livro de regras aberto (a divisão vem de AtelierContentBudget.rule_pages).
+@onready var rule_pages: Array[VBoxContainer] = [%RulesLeft, %RulesRight]
 @onready var request_form: Control = %RequestForm
 ## Botão de cada campo inspecionável, pelas chaves de AtelierScrollOrder.INSPECTABLE_FIELDS.
 @onready var field_buttons: Dictionary[String, Button] = {
@@ -78,6 +84,7 @@ var _selected_rule: AtelierShopRule
 var _rule_buttons: Dictionary[AtelierShopRule, Button] = {}
 ## Mensagem do balcão para quando o cliente recusado for embora.
 var _leave_message := ""
+var _hint_tween: Tween
 
 
 func _ready() -> void:
@@ -127,7 +134,7 @@ func _start_day(headlines: PackedStringArray) -> void:
 func _begin_service() -> void:
 	overlay.hide()
 	phase = Phase.WAITING
-	_say_feedback(tr("DESK_RING_FIRST"))
+	_say_hint(tr("DESK_RING_FIRST"))
 	_refresh_controls()
 
 
@@ -145,7 +152,7 @@ func _call_next_client() -> void:
 		current_order = GameState.resolve_customer(_day().orders[order_index])
 	phase = Phase.SERVING
 	_show_client(current_order)
-	_say_feedback(tr("DESK_CHECK_REQUEST"))
+	_say_hint(tr("DESK_CHECK_REQUEST"))
 	_refresh_controls()
 
 
@@ -287,15 +294,16 @@ func _client_leaves(message: String) -> void:
 func _show_client(order: AtelierScrollOrder) -> void:
 	portrait.texture = order.portrait if order.portrait != null else generic_portrait
 	portrait.self_modulate = Color.WHITE if order.portrait != null else order.portrait_color
-	client_name_label.text = "%s, %s" % [order.client_name, order.race]
+	# Fala = personalidade, papel = informação: a raça fica só no pedido.
+	client_name_label.text = order.client_name
 	speech_label.text = "\"%s\"" % order.greeting
-	spec_label.text = tr("DESK_SCROLL_MUST") % [order.spec.get_slice("\n", 0)]
+	# O balcão mostra só o resumo (primeira linha); a bancada mostra o resto.
+	spec_label.text = order.spec.get_slice("\n", 0)
 	inspection = AtelierInspection.new(order, _day().rules, inspection_mistake_threshold)
 	_selected_field = ""
 	_selected_rule = null
 	_refresh_inspection_marks()
 	feedback.clear_ink()
-	_fit_item_title()
 	portrait.show()
 	request_form.show()
 	feedback.play_sfx(&"paper")
@@ -313,37 +321,47 @@ func _clear_counter() -> void:
 	_refresh_inspection_marks()
 
 
-## Títulos longos não cabem na fonte grande do pergaminho: usa a pequena.
-func _fit_item_title() -> void:
-	var item_button := field_buttons["item"]
-	item_button.theme_type_variation = &"PaperTitleField"
-	var font := item_button.get_theme_font(&"font")
-	var width := font.get_string_size(item_button.text, HORIZONTAL_ALIGNMENT_LEFT, -1, item_button.get_theme_font_size(&"font_size")).x
-	var room := request_form.size.x - 24.0
-	if width > room:
-		item_button.theme_type_variation = &"PaperTitleFieldCompact"
-
-
 ## ======================== INSPEÇÃO ========================
 
+## Livro aberto: as regras numeradas se dividem entre as duas páginas.
 func _build_rulebook(day: AtelierShopDay) -> void:
-	for child in rules_list.get_children():
-		rules_list.remove_child(child)
-		child.queue_free()
+	for page in rule_pages:
+		for child in page.get_children():
+			page.remove_child(child)
+			child.queue_free()
 	_rule_buttons.clear()
-	for rule in day.rules:
-		var button := Button.new()
-		button.name = "Rule_%s" % rule.id
-		button.theme_type_variation = &"PaperField"
-		button.toggle_mode = true
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		# Largura e fonte vêm da cena e do tema (RulesList), não do código.
-		button.custom_minimum_size.x = rules_list.custom_minimum_size.x
-		button.pressed.connect(_on_rule_pressed.bind(rule))
-		rules_list.add_child(button)
-		_rule_buttons[rule] = button
+	var pages := AtelierContentBudget.rule_pages(day.rules)
+	var number := 0
+	for page_index in pages.size():
+		for rule: AtelierShopRule in pages[page_index]:
+			number += 1
+			var entry := VBoxContainer.new()
+			entry.add_theme_constant_override(&"separation", 0)
+			var label := Label.new()
+			label.theme_type_variation = &"TinyCaps"
+			label.text = "%02d" % number
+			entry.add_child(label)
+			var button := Button.new()
+			button.name = "Rule_%s" % rule.id
+			button.theme_type_variation = &"PaperField"
+			button.toggle_mode = true
+			button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			# Largura e fonte vêm da cena (página) e do tema, não do código.
+			button.custom_minimum_size.x = rule_pages[page_index].custom_minimum_size.x
+			button.pressed.connect(_on_rule_pressed.bind(rule))
+			entry.add_child(button)
+			rule_pages[page_index].add_child(entry)
+			_rule_buttons[rule] = button
 	_refresh_inspection_marks()
+
+
+## Botão de uma regra do dia pelo id (para testes e ferramentas).
+func rule_button(rule_id: String) -> Button:
+	for rule in _rule_buttons:
+		if rule.id == rule_id:
+			return _rule_buttons[rule]
+	return null
 
 
 func _on_field_pressed(field_name: String) -> void:
@@ -365,10 +383,10 @@ func _try_link() -> void:
 	if _selected_field.is_empty() and _selected_rule == null:
 		return
 	if _selected_rule == null:
-		_say_feedback(tr("DESK_PICK_RULE"))
+		_say_hint(tr("DESK_PICK_RULE"))
 		return
 	if _selected_field.is_empty():
-		_say_feedback(tr("DESK_PICK_FIELD"))
+		_say_hint(tr("DESK_PICK_FIELD"))
 		return
 	var field_name := _selected_field
 	var rule := _selected_rule
@@ -408,7 +426,7 @@ func _refresh_inspection_marks() -> void:
 	for rule in _rule_buttons:
 		var button := _rule_buttons[rule]
 		var cited := inspection != null and inspection.cited_rules().has(rule)
-		button.text = (EVIDENCE_MARK if cited else "- ") + rule.text
+		button.text = (EVIDENCE_MARK if cited else "") + rule.text
 		button.set_pressed_no_signal(rule == _selected_rule)
 		_set_ink(button, cited)
 	if inspection == null:
@@ -428,8 +446,8 @@ func _refresh_inspection_marks() -> void:
 		evidence_label.text = "\n".join(lines)
 	if inspection != null and inspection.mistakes > 0:
 		evidence_label.text += "\n" + tr("DESK_WRONG_LINKS") % [inspection.mistakes, inspection.mistake_threshold]
-	# A nota de provas só ocupa espaço quando há algo a mostrar.
-	%EvidenceCard.visible = not evidence_label.text.is_empty()
+	# As provas só ocupam espaço na nota quando há algo a mostrar.
+	evidence_label.visible = not evidence_label.text.is_empty()
 
 
 func _field_text(order: AtelierScrollOrder, field_name: String) -> String:
@@ -439,7 +457,7 @@ func _field_text(order: AtelierScrollOrder, field_name: String) -> String:
 		"item":
 			return order.item
 		"details":
-			return tr("DESK_FIELD_DETAILS") % [order.details]
+			return order.details
 		_:
 			return "%s:  %s" % [tr(AtelierScrollOrder.FIELD_LABELS[field_name]), order.field_value(field_name)]
 
@@ -484,7 +502,20 @@ func _refresh_controls() -> void:
 
 
 func _say_feedback(text: String) -> void:
+	if _hint_tween != null:
+		_hint_tween.kill()
+		_hint_tween = null
+	feedback_label.modulate.a = 1.0
 	feedback_label.text = text
+
+
+## Dica de uso: aparece como qualquer mensagem e some sozinha depois de
+## hint_fade_delay. Uma mensagem nova (dica ou não) cancela o sumiço.
+func _say_hint(text: String) -> void:
+	_say_feedback(text)
+	_hint_tween = create_tween()
+	_hint_tween.tween_interval(hint_fade_delay)
+	_hint_tween.tween_property(feedback_label, "modulate:a", 0.0, HINT_FADE_TIME)
 
 
 func _show_overlay(title: String, body: String, button_text: String, action: Callable) -> void:

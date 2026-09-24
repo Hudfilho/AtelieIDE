@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://yk7t0j3nl2jw"
-path="res://.godot/imported/sign.png-8a4dd5d2311bed7f488f426d4d83f5ce.ctex"
+uid="uid://d1kl7o7bvklri"
+path="res://.godot/imported/ink_pad.png-1b6acbc9e871f82c0e02e3ec147dd70f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/pixel/sign.png"
-dest_files=["res://.godot/imported/sign.png-8a4dd5d2311bed7f488f426d4d83f5ce.ctex"]
+source_file="res://art/pixel/ink_pad.png"
+dest_files=["res://.godot/imported/ink_pad.png-1b6acbc9e871f82c0e02e3ec147dd70f.ctex"]
 
 [params]
 

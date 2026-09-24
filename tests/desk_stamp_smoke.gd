@@ -82,7 +82,7 @@ func _run() -> void:
 
 	# Recusar o Fireball com prova e cliques repetidos: a decisão vale no impacto.
 	desk.get_node("%SignatureField").pressed.emit()
-	desk.get_node("%RulesList").get_node("Rule_signature").pressed.emit()
+	desk.rule_button("signature").pressed.emit()
 	var reputation: int = game_state.reputation
 	for click in 5:
 		reject.pressed.emit()

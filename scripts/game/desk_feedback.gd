@@ -104,7 +104,11 @@ func play_stamp(kind: StringName, source_button: Control, paper: Control) -> voi
 		_finish()
 		return
 	_dress_stamp_head(kind)
+	# Carimbos que sabem onde o sprite repousa (AtelierDeskStamp) dizem de onde
+	# a cabeça sai; senão ela sai do centro do botão.
 	var home := source_button.global_position + (source_button.size - stamp_head.size) * 0.5
+	if source_button.has_method(&"head_origin"):
+		home = source_button.call(&"head_origin", stamp_head.size)
 	var pressed_at := _spot() - stamp_head.size * 0.5
 	var hover := pressed_at + Vector2(0.0, -STAMP_HOVER_HEIGHT)
 	stamp_head.global_position = home
@@ -169,7 +173,7 @@ func _spot() -> Vector2:
 
 func _dress_stamp_head(kind: StringName) -> void:
 	stamp_head.texture = stamp_sprites.get(kind)
-	stamp_head.size = stamp_head.texture.get_size() if stamp_head.texture != null else Vector2(40.0, 46.0)
+	stamp_head.size = stamp_head.texture.get_size() if stamp_head.texture != null else Vector2(46.0, 52.0)
 	stamp_head.pivot_offset = (stamp_head.size * 0.5).round()
 
 

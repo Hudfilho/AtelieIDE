@@ -191,7 +191,7 @@ func _item(desk: Control) -> String:
 
 
 func _rule_button(desk: Control, rule_id: String) -> Button:
-	return desk.get_node("%RulesList").get_node("Rule_" + rule_id) as Button
+	return desk.rule_button(rule_id)
 
 
 func _write(canvas, workbench: Control, runes: Array) -> void:
