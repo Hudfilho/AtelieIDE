@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="AtelierShopDay" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/shop_day.gd" id="1_day"]
+[ext_resource type="Script" path="res://scripts/game/data/shop_rule.gd" id="2_rule"]
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="3_order"]
+[ext_resource type="Resource" path="res://data/orders/pip_party_sparks.tres" id="o0"]
+[ext_resource type="Resource" path="res://data/orders/faelar_quiet_growth.tres" id="o1"]
+[ext_resource type="Resource" path="res://data/orders/brom_doubled_ore.tres" id="o2"]
+[ext_resource type="Resource" path="res://data/orders/oona_vesper_bell.tres" id="o3"]
+
+[sub_resource type="Resource" id="rule_offensive_license"]
+script = ExtResource("2_rule")
+id = "offensive_license"
+text = "Offensive scrolls (fire, lightning, curses) are sold only to licensed Guild members."
+
+[sub_resource type="Resource" id="rule_signature"]
+script = ExtResource("2_rule")
+id = "signature"
+text = "The signature must match the client's name."
+
+[sub_resource type="Resource" id="rule_elf_embargo"]
+script = ExtResource("2_rule")
+id = "elf_embargo"
+text = "ROYAL DECREE: no scrolls may be sold to elves while the embargo lasts."
+
+[resource]
+script = ExtResource("1_day")
+title = "Day 2 - The Embargo"
+intro = "A royal messenger nailed a decree to your door at dawn. New runes arrived from the Guild as well: loops are now within your reach."
+rules = Array[ExtResource("2_rule")]([SubResource("rule_offensive_license"), SubResource("rule_signature"), SubResource("rule_elf_embargo")])
+runes = PackedStringArray("ORB", "TRIANGLE", "READ", "DIAMOND", "CROSS", "TWIN", "CUP", "MOON", "PLUS", "GT", "WARP_ENDPOINT", "JUMP_IF_TRUE")
+orders = Array[ExtResource("3_order")]([ExtResource("o0"), ExtResource("o1"), ExtResource("o2"), ExtResource("o3")])

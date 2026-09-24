@@ -7,19 +7,22 @@ const RuneCatalog = preload("res://scripts/core/rune_catalog.gd")
 const RuneBytecode = preload("res://scripts/core/rune_bytecode.gd")
 
 
-func run(bytecode: PackedByteArray) -> Dictionary:
+## initial_memory semeia a memória antes da execução: é assim que uma
+## encomenda entrega seus parâmetros para READ/LOAD.
+func run(bytecode: PackedByteArray, initial_memory: Dictionary = {}, max_steps := 10000) -> Dictionary:
 	var decoded := RuneBytecode.decode(bytecode)
 	if not decoded["ok"]:
 		return {"ok": false, "errors": decoded["errors"], "output": []}
 
 	var state := create_state()
+	state["memory"] = initial_memory.duplicate()
 	var instructions: Array = decoded["instructions"]
 	configure_program(state, instructions)
 	if bool(state["halted"]):
 		return result_from_state(state)
 	var steps := 0
 	var pc := 0
-	while pc < instructions.size() and steps < 10000:
+	while pc < instructions.size() and steps < max_steps:
 		steps += 1
 		var instruction: Dictionary = instructions[pc]
 		step(instruction, state, pc)
@@ -27,11 +30,13 @@ func run(bytecode: PackedByteArray) -> Dictionary:
 			break
 		var jump_target := int(state["jump_target"])
 		pc = jump_target if jump_target >= 0 else pc + 1
-	if steps >= 10000 and not bool(state["halted"]):
+	if steps >= max_steps and not bool(state["halted"]):
 		var errors: Array = state["errors"]
 		errors.append("Limite de passos excedido.")
 		state["halted"] = true
-	return result_from_state(state)
+	var result := result_from_state(state)
+	result["steps"] = steps
+	return result
 
 
 func create_state() -> Dictionary:

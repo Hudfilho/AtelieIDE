@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+
+[resource]
+script = ExtResource("1_order")
+client_name = "Sister Oona"
+age = "52"
+race = "Human"
+signature = "Sister Oona"
+portrait_color = Color(0.55, 0.5, 0.7, 1)
+greeting = "Peace to your shop. The chapel bell has lost its voice."
+item = "Bell of Vespers"
+details = "At dusk the bell must count down the prayers, one toll each, from the number written in slot 000 down to 1."
+violations = PackedStringArray()
+spec = "READ the count from slot 000 and print a countdown to 1 (for 3: 3 2 1).\nHint: JUMP_IF_TRUE jumps back to the WARP END with the same intensity, and it does not consume the value it checks."
+test_cases = Array[Dictionary]([{"memory": {0: 3}, "output": ["3", "2", "1"]}, {"memory": {0: 5}, "output": ["5", "4", "3", "2", "1"]}, {"memory": {0: 1}, "output": ["1"]}])
+par_runes = 11
+reward = 30

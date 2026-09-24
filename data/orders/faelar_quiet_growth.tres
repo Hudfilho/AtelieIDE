@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+
+[resource]
+script = ExtResource("1_order")
+client_name = "Faelar Ithil"
+age = "212"
+race = "Elf"
+signature = "Faelar Ithil"
+portrait_color = Color(0.6, 0.78, 0.72, 1)
+greeting = "A modest request. My garden is... impatient."
+item = "Scroll of Quiet Growth"
+details = "Doubles the growth of my moonflowers.\nThe current height is in slot 000."
+violations = PackedStringArray("elf_embargo")
+spec = "READ slot 000 and print it doubled."
+test_cases = Array[Dictionary]([{"memory": {0: 4}, "output": ["8"]}, {"memory": {0: 11}, "output": ["22"]}])
+par_runes = 4
+reward = 20
+consequence_news = "CROWN FINES SCROLL SHOPS: inspectors traced an embargoed elven order to your atelier. A fine has been collected."
+consequence_reputation = -2
+consequence_money = -25

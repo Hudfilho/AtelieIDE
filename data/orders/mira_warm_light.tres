@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+
+[resource]
+script = ExtResource("1_order")
+client_name = "Mira Holloway"
+age = "34"
+race = "Human"
+signature = "Mira Holloway"
+portrait_color = Color(0.85, 0.62, 0.38, 1)
+greeting = "Good morning! The bakery lantern died last night and I bake before sunrise."
+item = "Scroll of Warm Light"
+details = "Something bright for the oven corner, please.\nBrightness 3 is plenty, I don't want to wake the cat."
+violations = PackedStringArray()
+spec = "Print a light of brightness 3."
+test_cases = Array[Dictionary]([{"memory": {}, "output": ["3"]}])
+par_runes = 2
+reward = 8

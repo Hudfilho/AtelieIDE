@@ -157,6 +157,17 @@ var col_title_shadow: Color
 
 const PALETTE_SYMBOLS = RuneCatalog.SYMBOLS
 
+## Emitido quando uma execução animada termina (por HALT, erro ou fim do programa).
+signal ritual_finished(result: Dictionary)
+
+## Modo jogo: a bancada do ateliê embutida numa cena do jogo, sem a barra de
+## arquivos. Defina antes de adicionar o nó à árvore.
+@export var game_mode := false
+## Runas mostradas na paleta; o catálogo inteiro quando o modo jogo não restringe.
+var palette_symbols: Array = PALETTE_SYMBOLS
+## Memória inicial da execução animada: as entradas da encomenda que o READ lê.
+var run_memory: Dictionary = {}
+
 var pan := Vector2(340.0, 230.0)
 var zoom := 1.0
 var diagram: AtelierRuneDiagram = RuneDiagram.new()
@@ -344,8 +355,9 @@ func _ready() -> void:
 	_build_star_field()
 	_apply_theme(_load_saved_theme())
 	_create_textured_panel_skins()
-	_create_file_toolbar()
-	_create_file_dialogs()
+	if not game_mode:
+		_create_file_toolbar()
+		_create_file_dialogs()
 	saved_connections_signature = hash(connections)
 	grab_focus()
 	queue_redraw()
@@ -537,17 +549,21 @@ func _capture_panel_cache_after_draw(requested_revision: int) -> void:
 		panel_cache_capture_pending = false
 		return
 	var screenshot_size := screenshot.get_size()
-	var scale := Vector2(float(screenshot_size.x) / size.x, float(screenshot_size.y) / size.y)
+	# A captura é da viewport inteira; no modo jogo o canvas não começa em (0, 0).
+	var visible_size := get_viewport().get_visible_rect().size
+	var scale := Vector2(float(screenshot_size.x) / visible_size.x, float(screenshot_size.y) / visible_size.y)
+	var to_viewport := get_global_transform_with_canvas()
 	var textures := {}
 	var rects := {}
 	for entry in _panel_cache_regions():
 		var logical_rect: Rect2 = entry["rect"]
+		var viewport_rect: Rect2 = to_viewport * logical_rect
 		var pixel_position := Vector2i(
-				clampi(floori(logical_rect.position.x * scale.x), 0, screenshot_size.x),
-				clampi(floori(logical_rect.position.y * scale.y), 0, screenshot_size.y))
+				clampi(floori(viewport_rect.position.x * scale.x), 0, screenshot_size.x),
+				clampi(floori(viewport_rect.position.y * scale.y), 0, screenshot_size.y))
 		var pixel_end := Vector2i(
-				clampi(ceili(logical_rect.end.x * scale.x), 0, screenshot_size.x),
-				clampi(ceili(logical_rect.end.y * scale.y), 0, screenshot_size.y))
+				clampi(ceili(viewport_rect.end.x * scale.x), 0, screenshot_size.x),
+				clampi(ceili(viewport_rect.end.y * scale.y), 0, screenshot_size.y))
 		var pixel_rect := Rect2i(pixel_position, pixel_end - pixel_position)
 		if pixel_rect.size.x <= 0 or pixel_rect.size.y <= 0:
 			continue
@@ -783,6 +799,31 @@ func _apply_opened_ritual(document: Dictionary) -> void:
 	_refresh_file_title()
 	_update_hover()
 	queue_redraw()
+
+
+## ======================== MODO JOGO ========================
+
+func _file_bar_height() -> float:
+	return 0.0 if game_mode else FILE_BAR_HEIGHT
+
+
+## Restringe a paleta às runas liberadas; uma lista vazia mostra o catálogo todo.
+func set_allowed_symbols(kinds: PackedStringArray) -> void:
+	if kinds.is_empty():
+		palette_symbols = PALETTE_SYMBOLS
+	else:
+		palette_symbols = PALETTE_SYMBOLS.filter(func(item: Dictionary) -> bool: return kinds.has(str(item["kind"])))
+	palette_scroll = 0.0
+	palette_scroll_target = 0.0
+	hovered_palette_index = -1
+	animated_hover_palette_index = -1
+	_invalidate_panel_cache()
+	queue_redraw()
+
+
+## Limpa a bancada para uma nova encomenda.
+func load_connections(new_connections: Array, new_pan := Vector2(340.0, 230.0), new_zoom := 1.0) -> void:
+	_apply_opened_ritual({"connections": new_connections, "pan": new_pan, "zoom": new_zoom, "path": ""})
 
 
 func _show_file_error(message: String) -> void:
@@ -1134,7 +1175,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		queue_redraw()
 		get_viewport().set_input_as_handled()
 		return
-	if event.ctrl_pressed and (event.keycode == KEY_S or event.keycode == KEY_O):
+	if not game_mode and event.ctrl_pressed and (event.keycode == KEY_S or event.keycode == KEY_O):
 		_on_file_menu_item_pressed(FILE_MENU_SAVE if event.keycode == KEY_S else FILE_MENU_OPEN)
 		get_viewport().set_input_as_handled()
 		return
@@ -1480,6 +1521,7 @@ func _run_ritual() -> void:
 		execution_instructions.append(animated_instruction)
 	_refresh_execution_intensity_overrides()
 	execution_state = vm.create_state()
+	execution_state["memory"] = run_memory.duplicate()
 	vm.configure_program(execution_state, execution_instructions)
 	if bool(execution_state["halted"]):
 		for error in execution_state["errors"]:
@@ -1562,9 +1604,12 @@ func _step_paused_ritual() -> void:
 
 
 func _finish_ritual() -> void:
+	var was_active := _ritual_is_active()
 	ritual_running = false
 	ritual_paused = false
 	execution_step_elapsed = 0.0
+	if was_active and not execution_state.is_empty():
+		ritual_finished.emit(vm.result_from_state(execution_state))
 
 
 func _stop_ritual() -> void:
@@ -2856,8 +2901,8 @@ func _draw_top_panel() -> void:
 	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 47.0), "Arraste um símbolo até a linha de um feitiço.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
 
 	var palette_viewport := _palette_viewport_rect()
-	for index in range(PALETTE_SYMBOLS.size()):
-		var item: Dictionary = PALETTE_SYMBOLS[index]
+	for index in range(palette_symbols.size()):
+		var item: Dictionary = palette_symbols[index]
 		var tile := _palette_rect(index)
 		if not _palette_tile_is_visible(tile, palette_viewport):
 			continue
@@ -2971,7 +3016,7 @@ func _draw_right_panel() -> void:
 func _draw_palette_tooltip() -> void:
 	if not top_panel_open or hovered_palette_index < 0:
 		return
-	var item: Dictionary = PALETTE_SYMBOLS[hovered_palette_index]
+	var item: Dictionary = palette_symbols[hovered_palette_index]
 	var tile := _palette_rect(hovered_palette_index)
 	var panel := _top_panel_rect()
 	var font: Font = ThemeDB.fallback_font
@@ -3358,7 +3403,7 @@ func _is_canvas_position(screen_position: Vector2) -> bool:
 
 
 func _canvas_rect() -> Rect2:
-	var top := FILE_BAR_HEIGHT + PANEL_GAP * 2.0 + _top_panel_height()
+	var top := _file_bar_height() + PANEL_GAP * 2.0 + _top_panel_height()
 	var bottom := size.y - PANEL_GAP * 2.0 - _bottom_panel_height()
 	return Rect2(_middle_left(), top, _middle_width(), maxf(bottom - top, 0.0))
 
@@ -3373,7 +3418,7 @@ func _middle_width() -> float:
 
 
 func _left_panel_rect() -> Rect2:
-	return Rect2(PANEL_GAP, FILE_BAR_HEIGHT + PANEL_GAP, _left_panel_width(), maxf(size.y - FILE_BAR_HEIGHT - PANEL_GAP * 2.0, 0.0))
+	return Rect2(PANEL_GAP, _file_bar_height() + PANEL_GAP, _left_panel_width(), maxf(size.y - _file_bar_height() - PANEL_GAP * 2.0, 0.0))
 
 
 func _left_panel_width() -> float:
@@ -3393,7 +3438,7 @@ func _bottom_panel_height() -> float:
 
 
 func _top_panel_rect() -> Rect2:
-	return Rect2(_middle_left(), FILE_BAR_HEIGHT + PANEL_GAP, _middle_width(), _top_panel_height())
+	return Rect2(_middle_left(), _file_bar_height() + PANEL_GAP, _middle_width(), _top_panel_height())
 
 
 func _bottom_panel_rect() -> Rect2:
@@ -3403,7 +3448,7 @@ func _bottom_panel_rect() -> Rect2:
 
 func _right_panel_rect() -> Rect2:
 	var panel_width := _right_panel_width()
-	return Rect2(size.x - PANEL_GAP - panel_width, FILE_BAR_HEIGHT + PANEL_GAP, panel_width, maxf(size.y - FILE_BAR_HEIGHT - PANEL_GAP * 2.0, 0.0))
+	return Rect2(size.x - PANEL_GAP - panel_width, _file_bar_height() + PANEL_GAP, panel_width, maxf(size.y - _file_bar_height() - PANEL_GAP * 2.0, 0.0))
 
 
 func _left_toggle_rect() -> Rect2:
@@ -3534,10 +3579,10 @@ func _resize_panel(screen_position: Vector2) -> void:
 			var max_right_width := maxf(MIN_RIGHT_PANEL_WIDTH, size.x - _left_panel_width() - PANEL_GAP * 4.0 - 190.0)
 			right_panel_size = clampf(resize_start_size - (screen_position.x - resize_start_mouse.x), MIN_RIGHT_PANEL_WIDTH, max_right_width)
 		"resize_top":
-			var max_top_height := maxf(MIN_TOP_PANEL_HEIGHT, size.y - FILE_BAR_HEIGHT - _bottom_panel_height() - PANEL_GAP * 4.0 - 120.0)
+			var max_top_height := maxf(MIN_TOP_PANEL_HEIGHT, size.y - _file_bar_height() - _bottom_panel_height() - PANEL_GAP * 4.0 - 120.0)
 			top_panel_size = clampf(resize_start_size + (screen_position.y - resize_start_mouse.y), MIN_TOP_PANEL_HEIGHT, max_top_height)
 		"resize_bottom":
-			var max_bottom_height := maxf(MIN_BOTTOM_PANEL_HEIGHT, size.y - FILE_BAR_HEIGHT - _top_panel_height() - PANEL_GAP * 4.0 - 120.0)
+			var max_bottom_height := maxf(MIN_BOTTOM_PANEL_HEIGHT, size.y - _file_bar_height() - _top_panel_height() - PANEL_GAP * 4.0 - 120.0)
 			bottom_panel_size = clampf(resize_start_size - (screen_position.y - resize_start_mouse.y), MIN_BOTTOM_PANEL_HEIGHT, max_bottom_height)
 	_clamp_palette_scroll()
 	_update_hover()
@@ -4063,7 +4108,7 @@ func _palette_tile_size() -> float:
 
 
 func _palette_columns() -> int:
-	return maxi(1, int(ceil(float(PALETTE_SYMBOLS.size()) / float(_palette_rows()))))
+	return maxi(1, int(ceil(float(palette_symbols.size()) / float(_palette_rows()))))
 
 
 func _palette_content_width() -> float:
@@ -4166,7 +4211,7 @@ func _palette_index_at(screen_position: Vector2) -> int:
 	var viewport := _palette_viewport_rect()
 	if not top_panel_open or not viewport.has_point(screen_position):
 		return -1
-	for index in range(PALETTE_SYMBOLS.size()):
+	for index in range(palette_symbols.size()):
 		var tile := _palette_rect(index)
 		if _palette_tile_is_visible(tile, viewport) and tile.has_point(screen_position):
 			return index
@@ -4176,7 +4221,7 @@ func _palette_index_at(screen_position: Vector2) -> int:
 func _palette_symbol_at(screen_position: Vector2) -> String:
 	var index := _palette_index_at(screen_position)
 	if index >= 0:
-		return str(PALETTE_SYMBOLS[index]["kind"])
+		return str(palette_symbols[index]["kind"])
 	return ""
 
 

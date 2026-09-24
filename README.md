@@ -107,6 +107,32 @@ Os booleanos da linguagem usam `1` para verdadeiro e `0` para falso. `EQ`, `NEQ`
 3. Abra a pasta clonada no Godot.
 4. Aperte `F6` ou use **Run Project**.
 
+## Demo do jogo (branch `game-case`)
+
+O projeto agora abre numa tela inicial com duas opções: **Open the shop**, o demo do jogo, e **Rune sandbox**, a IDE livre de sempre.
+
+No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *Potion Craft* e *Witch Hat Atelier*:
+
+1. Toque o sino para chamar o próximo cliente.
+2. Confira o pedido contra o livro de regras do dia.
+3. Carimbe **REJECT** ou **APPROVE**.
+4. Se aprovar, escreva o pergaminho na bancada, que é o editor de runas em modo jogo, só com as runas liberadas no dia. **Deliver scroll** roda o ritual contra os casos de teste da encomenda.
+5. No fim do dia aparece o livro-caixa. Pedidos ilegais entregues viram notícia, multa e perda de reputação no dia seguinte.
+
+| Pasta | Conteúdo |
+| --- | --- |
+| `scenes/game/` | `Title`, `Desk` (balcão) e `Workbench` (bancada) |
+| `scripts/game/` | Lógica do balcão, da bancada, do `GameState` (autoload) e do `AtelierSpellJudge` |
+| `scripts/game/data/` | Tipos de dados: `AtelierShopDay`, `AtelierScrollOrder`, `AtelierShopRule` |
+| `data/days/`, `data/orders/` | Conteúdo do demo em `.tres`, editável pelo Inspector |
+
+**Para criar um cliente novo:**
+
+1. Duplique um `.tres` em `data/orders/` e edite os campos no Inspector.
+2. Os casos de teste seguem o formato `{"memory": {0: 5}, "output": ["15"]}`. A memória é lida com `READ`.
+3. Adicione a encomenda ao `orders` de um dia.
+4. Coloque a solução de referência em `tests/spell_judge_smoke.gd`. O teste garante que toda encomenda tem solução com as runas do dia.
+
 ## Estrutura
 
 ```text

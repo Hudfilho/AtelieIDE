@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+
+[resource]
+script = ExtResource("1_order")
+client_name = "Anderdingus"
+age = "1 year"
+race = "Goblin"
+signature = "GoOBLiN"
+portrait_color = Color(0.42, 0.62, 0.28, 1)
+greeting = "Hehehe. One fireball please. A big one."
+item = "Fireball"
+details = "I WANT TO THROW FIREBALLS IN THE VILLAGE NEAR MY CAVE!\nTHEY MAKE TOO MUCH NOISE!"
+violations = PackedStringArray("offensive_license", "signature")
+spec = "Print a flame of strength 9."
+test_cases = Array[Dictionary]([{"memory": {}, "output": ["9"]}])
+par_runes = 2
+reward = 25
+consequence_news = "MILLBROOK ABLAZE: half the village's roofs burned last night. Witnesses report a giggling goblin and a scroll bearing YOUR shop's seal."
+consequence_reputation = -4
+consequence_money = -15

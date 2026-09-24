@@ -11,9 +11,13 @@ config_version=5
 [application]
 
 config/name="AtelierIDE"
-run/main_scene="res://scenes/Main.tscn"
+run/main_scene="res://scenes/game/Title.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[autoload]
+
+GameState="*res://scripts/game/game_state.gd"
 
 [display]
 

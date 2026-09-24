@@ -1,0 +1,327 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/game/desk.gd" id="1_desk"]
+[ext_resource type="Theme" path="res://art/theme/shop_theme.tres" id="2_theme"]
+[ext_resource type="Script" path="res://scripts/game/draggable_paper.gd" id="3_paper"]
+[ext_resource type="PackedScene" path="res://scenes/game/Workbench.tscn" id="4_workbench"]
+
+[node name="Desk" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_desk")
+
+[node name="Surface" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.3, 0.19, 0.12, 1)
+
+[node name="Wall" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 250.0
+grow_horizontal = 2
+mouse_filter = 2
+color = Color(0.15, 0.1, 0.075, 1)
+
+[node name="CounterEdge" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 244.0
+offset_bottom = 256.0
+grow_horizontal = 2
+mouse_filter = 2
+color = Color(0.45, 0.3, 0.17, 1)
+
+[node name="HUD" type="PanelContainer" parent="."]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 14.0
+offset_right = 380.0
+offset_bottom = 150.0
+
+[node name="Rows" type="VBoxContainer" parent="HUD"]
+layout_mode = 2
+
+[node name="DayLabel" type="Label" parent="HUD/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Day 1"
+
+[node name="MoneyLabel" type="Label" parent="HUD/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0 coins"
+
+[node name="ReputationLabel" type="Label" parent="HUD/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Reputation 0"
+
+[node name="QueueLabel" type="Label" parent="HUD/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0 waiting outside"
+
+[node name="ClientWindow" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -230.0
+offset_top = 14.0
+offset_right = 230.0
+offset_bottom = 232.0
+grow_horizontal = 2
+
+[node name="Row" type="HBoxContainer" parent="ClientWindow"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Portrait" type="ColorRect" parent="ClientWindow/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(140, 180)
+layout_mode = 2
+color = Color(0.42, 0.62, 0.28, 1)
+
+[node name="PortraitInitial" type="Label" parent="ClientWindow/Row/Portrait"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.1, 0.07, 0.05, 0.75)
+theme_override_font_sizes/font_size = 96
+text = "A"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Talk" type="VBoxContainer" parent="ClientWindow/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ClientName" type="Label" parent="ClientWindow/Row/Talk"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "The window is empty."
+autowrap_mode = 3
+
+[node name="Speech" type="Label" parent="ClientWindow/Row/Talk"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+text = ""
+autowrap_mode = 3
+
+[node name="BellButton" type="Button" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = 250.0
+offset_top = 180.0
+offset_right = 470.0
+offset_bottom = 226.0
+grow_horizontal = 2
+text = "Ring the bell"
+
+[node name="Papers" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Rulebook" type="PanelContainer" parent="Papers"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 276.0
+offset_right = 364.0
+offset_bottom = 560.0
+theme_type_variation = &"Paper"
+script = ExtResource("3_paper")
+
+[node name="Rows" type="VBoxContainer" parent="Papers/Rulebook"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Papers/Rulebook/Rows"]
+layout_mode = 2
+theme_type_variation = &"PaperTitle"
+theme_override_font_sizes/font_size = 22
+text = "Shop Rulebook"
+
+[node name="RulesLabel" type="Label" parent="Papers/Rulebook/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(290, 0)
+layout_mode = 2
+theme_type_variation = &"PaperLabel"
+theme_override_font_sizes/font_size = 15
+text = "- Rules"
+autowrap_mode = 3
+
+[node name="RequestForm" type="PanelContainer" parent="Papers"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 410.0
+offset_top = 270.0
+offset_right = 870.0
+offset_bottom = 700.0
+theme_type_variation = &"Paper"
+script = ExtResource("3_paper")
+
+[node name="Rows" type="VBoxContainer" parent="Papers/RequestForm"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="Label" parent="Papers/RequestForm/Rows"]
+layout_mode = 2
+theme_type_variation = &"PaperLabel"
+text = "Magic Scroll Request:"
+horizontal_alignment = 1
+
+[node name="ItemLabel" type="Label" parent="Papers/RequestForm/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"PaperTitle"
+text = "Fireball"
+horizontal_alignment = 1
+
+[node name="FieldsLabel" type="Label" parent="Papers/RequestForm/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"PaperLabel"
+text = "Name:"
+
+[node name="Line" type="HSeparator" parent="Papers/RequestForm/Rows"]
+layout_mode = 2
+
+[node name="DetailsLabel" type="Label" parent="Papers/RequestForm/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(410, 0)
+layout_mode = 2
+theme_type_variation = &"PaperLabel"
+text = "Details:"
+autowrap_mode = 3
+
+[node name="SpecLabel" type="Label" parent="Papers/RequestForm/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(410, 0)
+layout_mode = 2
+theme_type_variation = &"PaperLabel"
+theme_override_colors/font_color = Color(0.35, 0.22, 0.4, 1)
+theme_override_font_sizes/font_size = 14
+text = "Scroll must:"
+autowrap_mode = 3
+
+[node name="Stamps" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -330.0
+offset_top = 290.0
+offset_right = -40.0
+offset_bottom = 460.0
+grow_horizontal = 0
+theme_override_constants/separation = 22
+
+[node name="ApproveButton" type="Button" parent="Stamps"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"ApproveStamp"
+text = "APPROVE"
+
+[node name="RejectButton" type="Button" parent="Stamps"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"RejectStamp"
+text = "REJECT"
+
+[node name="FeedbackLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -380.0
+offset_top = -220.0
+offset_right = -30.0
+offset_bottom = -24.0
+grow_horizontal = 0
+grow_vertical = 0
+text = ""
+autowrap_mode = 3
+
+[node name="Workbench" parent="." instance=ExtResource("4_workbench")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="Overlay" type="ColorRect" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.03, 0.02, 0.015, 0.82)
+
+[node name="Center" type="CenterContainer" parent="Overlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Card" type="PanelContainer" parent="Overlay/Center"]
+layout_mode = 2
+
+[node name="Rows" type="VBoxContainer" parent="Overlay/Center/Card"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="OverlayTitle" type="Label" parent="Overlay/Center/Card/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+theme_override_font_sizes/font_size = 28
+text = "Day 1"
+horizontal_alignment = 1
+
+[node name="OverlayBody" type="RichTextLabel" parent="Overlay/Center/Card/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(620, 0)
+layout_mode = 2
+theme_override_colors/default_color = Color(0.93, 0.86, 0.7, 1)
+bbcode_enabled = true
+text = ""
+fit_content = true
+
+[node name="OverlayButton" type="Button" parent="Overlay/Center/Card/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Continue"

@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AtelierShopDay" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/shop_day.gd" id="1_day"]
+[ext_resource type="Script" path="res://scripts/game/data/shop_rule.gd" id="2_rule"]
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="3_order"]
+[ext_resource type="Resource" path="res://data/orders/mira_warm_light.tres" id="o0"]
+[ext_resource type="Resource" path="res://data/orders/anderdingus_fireball.tres" id="o1"]
+[ext_resource type="Resource" path="res://data/orders/tomas_warming_charm.tres" id="o2"]
+
+[sub_resource type="Resource" id="rule_offensive_license"]
+script = ExtResource("2_rule")
+id = "offensive_license"
+text = "Offensive scrolls (fire, lightning, curses) are sold only to licensed Guild members."
+
+[sub_resource type="Resource" id="rule_signature"]
+script = ExtResource("2_rule")
+id = "signature"
+text = "The signature must match the client's name."
+
+[resource]
+script = ExtResource("1_day")
+title = "Day 1 - Opening Day"
+intro = "The Guild granted your atelier its license this morning. Serve the townsfolk, follow the rulebook, and keep your seal clean."
+rules = Array[ExtResource("2_rule")]([SubResource("rule_offensive_license"), SubResource("rule_signature")])
+runes = PackedStringArray("ORB", "TRIANGLE", "READ", "DIAMOND", "CROSS")
+orders = Array[ExtResource("3_order")]([ExtResource("o0"), ExtResource("o1"), ExtResource("o2")])

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+
+[resource]
+script = ExtResource("1_order")
+client_name = "Brom Ironvein"
+age = "88"
+race = "Dwarf"
+signature = "Bronn Ironvein"
+portrait_color = Color(0.7, 0.45, 0.35, 1)
+greeting = "Quick now, the mine cart won't fill itself."
+item = "Scroll of Doubled Ore"
+details = "Doubles the ore in a cart. The cart count is in slot 000."
+violations = PackedStringArray("signature")
+spec = "READ slot 000 and print it doubled."
+test_cases = Array[Dictionary]([{"memory": {0: 6}, "output": ["12"]}, {"memory": {0: 40}, "output": ["80"]}])
+par_runes = 4
+reward = 18
+consequence_news = "ORE FRAUD IN THE LOWER MINES: someone used a forged order to empty Brom Ironvein's cart. The guild asks which shop sold the scroll."
+consequence_reputation = -3
+consequence_money = 0
