@@ -7,6 +7,7 @@
 [ext_resource type="Resource" path="res://data/orders/anderdingus_fireball.tres" id="o1"]
 [ext_resource type="Resource" path="res://data/orders/tomas_warming_charm.tres" id="o2"]
 [ext_resource type="Resource" path="res://data/orders/rango_snack_time.tres" id="o3"]
+[ext_resource type="Resource" path="res://data/orders/kothar_doorbell_charm.tres" id="o4"]
 [ext_resource type="Resource" path="res://data/rules/offensive_license.tres" id="rule_offensive_license"]
 [ext_resource type="Resource" path="res://data/rules/signature.tres" id="rule_signature"]
 
@@ -16,4 +17,4 @@ title = "Day 1 - Opening Day"
 intro = "The Guild granted your atelier its license this morning. Serve the townsfolk, follow the rulebook, and keep your seal clean."
 rules = Array[ExtResource("2_rule")]([ExtResource("rule_offensive_license"), ExtResource("rule_signature")])
 runes = PackedStringArray("ORB", "TRIANGLE", "READ", "DIAMOND", "CROSS")
-orders = Array[ExtResource("3_order")]([ExtResource("o0"), ExtResource("o1"), ExtResource("o2"), ExtResource("o3")])
+orders = Array[ExtResource("3_order")]([ExtResource("o0"), ExtResource("o1"), ExtResource("o2"), ExtResource("o3"), ExtResource("o4")])

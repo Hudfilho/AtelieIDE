@@ -43,7 +43,7 @@ func _run() -> void:
 					faces_by_client.get_or_add(order.client_name, {})[order.portrait.resource_path] = true
 	for client in faces_by_client:
 		assert(faces_by_client[client].size() == 1, "%s uses different portraits: %s" % [client, faces_by_client[client].keys()])
-	for client in ["Anderdingus", "Mira Holloway", "Sleego", "Chrono Genesis", "Yuval", "Nemo", "Rango"]:
+	for client in ["Anderdingus", "Mira Holloway", "Sleego", "Chrono Genesis", "Yuval", "Nemo", "Rango", "Elenia Valehart", "Kothar"]:
 		assert(faces_by_client.has(client), "%s should appear with a portrait (%s)" % [client, faces_by_client.keys()])
 
 	# 3. O balcão troca a expressão.

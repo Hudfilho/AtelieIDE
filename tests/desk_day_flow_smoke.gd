@@ -114,6 +114,18 @@ func _run() -> void:
 	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["rango_snack_time"])
 	assert(game_state.outcomes["rango_snack_time"] == "delivered")
 
+	# Cliente 5 (Kothar): o nome parece inofensivo, mas os detalhes pedem um
+	# choque na maçaneta do vizinho. A prova está nos detalhes.
+	bell.pressed.emit()
+	assert(_item(desk) == "Doorbell Charm")
+	desk.get_node("%DetailsField").pressed.emit()
+	_rule_button(desk, "offensive_license").pressed.emit()
+	assert(desk.inspection.evidence.size() == 1 and desk.inspection.mistakes == 0, "The details prove the offensive intent")
+	var reputation_before_kothar: int = game_state.reputation
+	reject.pressed.emit()
+	assert(game_state.outcomes["kothar_doorbell_charm"] == "rejected")
+	assert(game_state.reputation == reputation_before_kothar + 1, "A cited rejection is a correct rejection")
+
 	# Fim do dia 1 → livro-caixa → dia 2.
 	bell.pressed.emit()
 	assert(overlay.visible)
@@ -171,7 +183,7 @@ func _run() -> void:
 	assert(game_state.flag("guild_suspicion") == 1)
 	desk.get_node("%OverlayButton").pressed.emit()
 	var queue_label := desk.get_node("%QueueLabel") as Label
-	assert(queue_label.text == "6" and queue_label.tooltip_text == tr("DESK_HUD_QUEUE") % [6], queue_label.text)
+	assert(queue_label.text == "7" and queue_label.tooltip_text == tr("DESK_HUD_QUEUE") % [7], queue_label.text)
 
 	# Dia 3: o goblin recusado volta com um pedido honesto.
 	bell.pressed.emit()
@@ -179,6 +191,13 @@ func _run() -> void:
 	approve.pressed.emit()
 	assert(canvas.palette_symbols.size() == 15)
 	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["anderdingus_hush"])
+	# Elenia: élfica, mas o embargo caiu ontem à noite; o pedido é honesto.
+	bell.pressed.emit()
+	assert(_item(desk) == "Scroll of Even Bloom")
+	assert(AtelierInspection.discrepancies(desk.current_order, desk._day().rules).is_empty(), "The embargo is over: Elenia's form is clean")
+	approve.pressed.emit()
+	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["elenia_even_bloom"])
+	assert(game_state.outcomes["elenia_even_bloom"] == "delivered")
 	bell.pressed.emit() # Mother Ketterly
 	reject.pressed.emit()
 	# Yuval: arredondar para cima com as runas de divisão do dia 3.
