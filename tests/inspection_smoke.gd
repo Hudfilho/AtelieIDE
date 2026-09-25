@@ -71,7 +71,7 @@ func _run() -> void:
 
 	# Uma regra avalia várias encomendas sem UI.
 	var expectations := {
-		signature: {"anderdingus_fireball": true, "brom_doubled_ore": true, "anderdingus_bigger_fireball": true, "mira_warm_light": false, "anderdingus_hush": false, "guild_inspector_routine": false},
+		signature: {"anderdingus_fireball": true, "brom_doubled_ore": true, "anderdingus_bigger_fireball": true, "mira_warm_light": false, "anderdingus_hush": false, "guild_inspector_routine": false, "reed_endless_feast": true},
 		embargo: {"faelar_quiet_growth": true, "pip_party_sparks": false, "brom_doubled_ore": false},
 		# Meditar não é magia sobre a mente: o pergaminho do Chrono só diz a hora.
 		forbidden: {"osric_gentle_forgetting": true, "ketterly_fair_shares": false, "anderdingus_fireball": false, "chrono_waking_hour": false, "yuval_cleansing_rites": false},

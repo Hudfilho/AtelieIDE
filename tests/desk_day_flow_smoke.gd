@@ -114,6 +114,17 @@ func _run() -> void:
 	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["rango_snack_time"])
 	assert(game_state.outcomes["rango_snack_time"] == "delivered")
 
+	# Cliente 5 (Reed): assinou com o apelido; a prova é a assinatura.
+	bell.pressed.emit()
+	assert(_item(desk) == "Scroll of the Endless Feast")
+	desk.get_node("%SignatureField").pressed.emit()
+	_rule_button(desk, "signature").pressed.emit()
+	assert(desk.inspection.evidence.size() == 1)
+	var reputation_before_reed: int = game_state.reputation
+	reject.pressed.emit()
+	assert(game_state.outcomes["reed_endless_feast"] == "rejected")
+	assert(game_state.reputation == reputation_before_reed + 1, "A cited rejection is a correct rejection")
+
 	# Fim do dia 1 → livro-caixa → dia 2.
 	bell.pressed.emit()
 	assert(overlay.visible)

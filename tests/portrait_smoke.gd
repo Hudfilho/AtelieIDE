@@ -30,7 +30,7 @@ func _run() -> void:
 		for mood in MOODS:
 			_check_pixel_art(face.texture_for(mood), "%s/%s" % [face.character, AtelierPortrait.Mood.keys()[mood]])
 		checked += 1
-	assert(checked >= 9, "Expected the nine character portraits, found %d" % checked)
+	assert(checked >= 10, "Expected the ten character portraits, found %d" % checked)
 	var hooded := load("res://art/pixel/portrait_hooded.png") as Texture2D
 	assert(hooded.get_size() == Vector2(SIZE), "The generic silhouette uses the same canvas as the portraits")
 
@@ -43,7 +43,7 @@ func _run() -> void:
 					faces_by_client.get_or_add(order.client_name, {})[order.portrait.resource_path] = true
 	for client in faces_by_client:
 		assert(faces_by_client[client].size() == 1, "%s uses different portraits: %s" % [client, faces_by_client[client].keys()])
-	for client in ["Anderdingus", "Mira Holloway", "Sleego", "Chrono Genesis", "Yuval", "Nemo", "Rango"]:
+	for client in ["Anderdingus", "Mira Holloway", "Sleego", "Chrono Genesis", "Yuval", "Nemo", "Rango", "Reed Prato Cheio"]:
 		assert(faces_by_client.has(client), "%s should appear with a portrait (%s)" % [client, faces_by_client.keys()])
 
 	# 3. O balcão troca a expressão.

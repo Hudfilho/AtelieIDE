@@ -108,6 +108,13 @@ CHARACTERS = {
         "uneasy": (566, 530, 244),    # Curious
         "upset": (842, 530, 244),     # Concerned
     }),
+    # Ficha única, com oito expressões em painéis menores.
+    "reed": ("reed.webp", {
+        "neutral": (451, 338, 145),   # Neutro
+        "happy": (605, 342, 145),     # Sorridente
+        "uneasy": (605, 566, 145),    # Pensativo
+        "upset": (452, 566, 145),     # Bravo
+    }),
 }
 # Fichas do estilo novo: recorte de cada uma (veja o topo do arquivo). A paleta
 # delas é por k-means em Lab.
@@ -117,6 +124,7 @@ CUTOUTS = {
     "yuval": lambda rgb: cutout_painted(rgb, tolerance=80),
     "nemo": lambda rgb: cutout_sky(rgb),
     "rango": lambda rgb: cutout_inked(rgb),
+    "reed": lambda rgb: cutout_painted(rgb),
 }
 # Quem enche o painel inteiro (o sino do Nemo vai de lado a lado) sai menor na
 # tela de 92x92, apoiado embaixo, para sobrar janela em volta.

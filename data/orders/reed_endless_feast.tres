@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Resource" path="res://data/portraits/reed.tres" id="portrait"]
+[ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
+
+[sub_resource type="Resource" id="on_delivered_0"]
+script = ExtResource("2_consequence")
+delay_days = 1
+headline = "GUILD CLERKS QUERY A SCROLL SOLD UNDER A NICKNAME: 'Little Reed' is not a name on any register."
+ledger_text = "Guild notice: improper signature"
+reputation = -1
+flag_changes = Dictionary[String, int]({"guild_suspicion": 1})
+
+[resource]
+script = ExtResource("1_order")
+id = "reed_endless_feast"
+client_name = "Reed Prato Cheio"
+age = "47"
+race = "Halfling"
+signature = "Little Reed"
+portrait = ExtResource("portrait")
+portrait_color = Color(0.72, 0.32, 0.18, 1)
+greeting = "Name's Reed. Prato Cheio, if you're counting plates. I always am."
+reaction_approved = "Ha! Now that's service. First round's on me."
+reaction_refused = "Over a signature? Everyone calls me Little Reed!"
+item = "Scroll of the Endless Feast"
+details = "A proper feast for a proper halfling! Courses in slot 000, second helpings in slot 001, and always one dessert. How many plates?"
+spec = "Print the plates: courses plus second helpings plus 1 dessert.
+READ the courses from slot 000 and the second helpings from slot 001."
+examples = Array[Dictionary]([{"memory": {0: 3, 1: 2}, "output": ["6"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 5, 1: 4}, "output": ["10"]}, {"memory": {0: 1, 1: 0}, "output": ["2"]}])
+par_runes = 6
+reward = 14
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])

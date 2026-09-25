@@ -13,6 +13,7 @@ const SOLUTIONS := {
 	"anderdingus_fireball": [["ORB", 9], ["TRIANGLE", 128]],
 	"tomas_warming_charm": [["READ", 0], ["ORB", 10], ["DIAMOND", 128], ["TRIANGLE", 128]],
 	"rango_snack_time": [["READ", 0], ["READ", 1], ["DIAMOND", 128], ["TRIANGLE", 128]],
+	"reed_endless_feast": [["READ", 0], ["READ", 1], ["DIAMOND", 128], ["ORB", 1], ["DIAMOND", 128], ["TRIANGLE", 128]],
 	"pip_party_sparks": [["READ", 0], ["TWIN", 128], ["PLUS", 128], ["TRIANGLE", 128]],
 	"faelar_quiet_growth": [["READ", 0], ["TWIN", 128], ["DIAMOND", 128], ["TRIANGLE", 128]],
 	"brom_doubled_ore": [["READ", 0], ["TWIN", 128], ["DIAMOND", 128], ["TRIANGLE", 128]],
@@ -57,6 +58,8 @@ const EXPECTED_BROKEN_RULES := {
 	"anderdingus_bigger_fireball": ["offensive_license", "signature"],
 	"osric_gentle_forgetting": ["forbidden_mind"],
 	"nemo_stinging_tide": ["offensive_license"],
+	# Pedido honesto, mas assinado com o apelido.
+	"reed_endless_feast": ["signature"],
 }
 
 ## A auditoria também aceita o laço (soma com STORE), só não ganha o bônus.
