@@ -21,6 +21,9 @@ func _rule(rule_id: String) -> AtelierShopRule:
 
 
 func _run() -> void:
+	# As preferências salvas do jogador (idioma, estilo do balcão) não entram
+	# no teste: um arquivo que nunca é gravado deixa tudo no padrão.
+	AtelierSettings.path = "user://smoke_defaults.cfg"
 	var day_1 := load("res://data/days/day_01.tres") as AtelierShopDay
 	var signature := _rule("signature")
 	var offensive := _rule("offensive_license")

@@ -35,6 +35,9 @@ func _frames(count := 3) -> void:
 
 
 func _run() -> void:
+	# As preferências salvas do jogador (idioma, estilo do balcão) não entram
+	# no teste: um arquivo que nunca é gravado deixa tudo no padrão.
+	AtelierSettings.path = "user://smoke_defaults.cfg"
 	root.size = Vector2i(1280, 720)
 	var game_state: Node = root.get_node("GameState")
 	game_state.new_game()
@@ -60,14 +63,14 @@ func _run() -> void:
 	for name in ["%Workbench", "%Overlay"]:
 		assert(not viewport.is_ancestor_of(desk.get_node(name)), "%s should stay at full resolution" % name)
 
-	# Contraste dos rótulos dos carimbos (plaquinha de latão) e do sino (achado
-	# do M6): legíveis ligados e desligados, e o desligado visivelmente mais apagado.
+	# Contraste dos rótulos dos carimbos (plaquinha de latão; achado do M6):
+	# legíveis ligados e desligados, e o desligado visivelmente mais apagado.
+	# O sino não tem plaquinha: o jogo o destaca com um brilho (ver abaixo).
 	var theme := load("res://art/pixel/pixel_theme.tres") as Theme
 	var desk_wood := Color8(107, 69, 48)
-	var wall := Color8(61, 38, 32)
-	var plates := {"PixelStamp": ["plate", "plate_disabled"], "PixelBell": ["plate", "plate_disabled"]}
+	var plates := {"PixelStamp": ["plate", "plate_disabled"]}
 	for variation: String in plates:
-		var under := desk_wood if variation == "PixelStamp" else wall
+		var under := desk_wood
 		var enabled_plate := theme.get_stylebox(plates[variation][0], variation) as StyleBoxFlat
 		var disabled_plate := theme.get_stylebox(plates[variation][1], variation) as StyleBoxFlat
 		var enabled := _contrast(theme.get_color("font_color", variation), under.blend(enabled_plate.bg_color))
@@ -191,7 +194,7 @@ func _run() -> void:
 	desk.inspection.link("age", game_state.current_day().rules[0])
 	var worst_link: Dictionary = desk.inspection.link("details", game_state.current_day().rules[0])
 	desk._refresh_inspection_marks()
-	desk._say_feedback(str(worst_link["message"]) + "\n" + desk.tr("DESK_PATIENCE_PENALTY") % [1])
+	desk._say_feedback(desk._verbatim(str(worst_link["message"]) + "\n" + desk.tr("DESK_PATIENCE_PENALTY") % [1]))
 	await _frames()
 	_check(STAGE.encloses(feedback_card.get_global_rect()), "serving: notes leave the screen %s" % feedback_card.get_global_rect())
 	_check(feedback_card.get_global_rect().encloses(feedback_label.get_global_rect()), "serving: feedback text does not fit its note")
@@ -201,19 +204,49 @@ func _run() -> void:
 		var message: String = desk.tr(key)
 		if message.length() > longest.length():
 			longest = message
-	desk._say_feedback(longest.replace("%s", "Anderdingus").replace("%d", "1") + "\n" + desk.tr("DESK_RING_CLOSE"))
+	desk._say_feedback(desk._verbatim(longest.replace("%s", "Anderdingus").replace("%d", "1") + "\n" + desk.tr("DESK_RING_CLOSE")))
 	await _frames()
 	_check(STAGE.encloses(feedback_card.get_global_rect()), "after leaving: notes leave the screen %s" % feedback_card.get_global_rect())
 	_check(feedback_card.get_global_rect().encloses(feedback_label.get_global_rect()), "after leaving: feedback text does not fit its note")
 
+	# O sino é só o objeto, sem plaquinha nem texto (a dica diz o que ele é):
+	# brilha de leve quando é a vez de tocar, mais forte com o mouse em cima,
+	# e apaga enquanto um cliente é atendido.
+	var bell_stamp := desk.get_node("%BellButton") as AtelierDeskStamp
+	_check(bell_stamp.text.is_empty() and not bell_stamp.show_plate, "The bell shows no label")
+	_check(bell_stamp.tooltip_text == "DESK_BELL", "The bell keeps a translated tooltip")
+	# A área de clique é o próprio sino (o mais largo dos estilos cabe nela).
+	for style in AtelierDeskStyles.all():
+		var sprite := style.bell.get_size()
+		_check(bell_stamp.size.x >= sprite.x and bell_stamp.size.y == sprite.y and bell_stamp.size.x - sprite.x <= 2.0,
+				"%s bell sprite %s does not match its click area %s" % [style.id, sprite, bell_stamp.size])
+	# O cartão da manhã (tela cheia) ainda está aberto neste teste: fecha, como o jogador.
+	desk.overlay.hide()
+	desk.phase = desk.Phase.WAITING
+	desk._refresh_controls()
+	var idle_glow := bell_stamp.glow_level()
+	_check(idle_glow >= AtelierDeskStamp.GLOW_IDLE_MIN and idle_glow <= AtelierDeskStamp.GLOW_IDLE_MAX, "The bell glows softly while it can be rung (%.2f)" % idle_glow)
+	var hover := InputEventMouseMotion.new()
+	hover.position = (desk.get_node("%PixelLayer") as AtelierPixelFrame).transform * bell_stamp.get_global_rect().get_center()
+	root.push_input(hover)
+	await _frames()
+	_check(bell_stamp.glow_level() == AtelierDeskStamp.GLOW_HOVER, "The bell glows brighter under the mouse (%.2f)" % bell_stamp.glow_level())
+	desk.phase = desk.Phase.SERVING
+	desk._refresh_controls()
+	_check(bell_stamp.glow_level() == 0.0, "No glow while a customer is served")
+	var away := InputEventMouseMotion.new()
+	away.position = Vector2(4, 4)
+	root.push_input(away)
+	await _frames()
+
 	# Dicas de uso somem da nota sozinhas; resultados e avisos ficam.
 	desk.hint_fade_delay = 0.05
 	var note_text := desk.get_node("%FeedbackLabel") as Label
-	desk._say_hint(desk.tr("DESK_PICK_RULE"))
+	desk._say_hint(desk._translated("DESK_PICK_RULE"))
 	await create_timer(0.1 + desk.HINT_FADE_TIME).timeout
 	_check(note_text.modulate.a == 0.0, "A usage hint should fade out of the note (alpha %.2f)" % note_text.modulate.a)
-	desk._say_hint(desk.tr("DESK_PICK_FIELD"))
-	desk._say_feedback(desk.tr("DESK_PATIENCE_PENALTY") % [1])
+	desk._say_hint(desk._translated("DESK_PICK_FIELD"))
+	desk._say_feedback(desk._translated("DESK_PATIENCE_PENALTY", [1]))
 	await create_timer(0.1 + desk.HINT_FADE_TIME).timeout
 	_check(note_text.modulate.a == 1.0, "A warning must stay in the note (alpha %.2f)" % note_text.modulate.a)
 

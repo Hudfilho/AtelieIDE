@@ -110,10 +110,6 @@ content_margin_right = 4.0
 content_margin_bottom = 2.0
 
 [sub_resource type="StyleBoxEmpty" id="bell_room"]
-content_margin_left = 4.0
-content_margin_top = 36.0
-content_margin_right = 4.0
-content_margin_bottom = 1.0
 
 [sub_resource type="StyleBoxFlat" id="plate"]
 content_margin_left = 3.0
@@ -241,19 +237,10 @@ PixelStamp/styles/plate = SubResource("plate")
 PixelStamp/styles/plate_hover = SubResource("plate_hover")
 PixelStamp/styles/plate_disabled = SubResource("plate_disabled")
 PixelBell/base_type = &"Button"
-PixelBell/colors/font_color = Color(0.96, 0.86, 0.54, 1)
-PixelBell/colors/font_hover_color = Color(1, 0.93, 0.66, 1)
-PixelBell/colors/font_pressed_color = Color(1, 0.93, 0.66, 1)
-PixelBell/colors/font_hover_pressed_color = Color(1, 0.93, 0.66, 1)
-PixelBell/colors/font_focus_color = Color(0.96, 0.86, 0.54, 1)
-PixelBell/colors/font_disabled_color = Color(0.66, 0.58, 0.45, 1)
-PixelBell/colors/icon_disabled_color = Color(0.62, 0.57, 0.52, 0.85)
+PixelBell/colors/icon_disabled_color = Color(1, 1, 1, 1)
 PixelBell/styles/normal = SubResource("bell_room")
 PixelBell/styles/hover = SubResource("bell_room")
 PixelBell/styles/pressed = SubResource("bell_room")
 PixelBell/styles/hover_pressed = SubResource("bell_room")
 PixelBell/styles/disabled = SubResource("bell_room")
 PixelBell/styles/focus = SubResource("bell_room")
-PixelBell/styles/plate = SubResource("plate")
-PixelBell/styles/plate_hover = SubResource("plate_hover")
-PixelBell/styles/plate_disabled = SubResource("plate_disabled")

@@ -19,6 +19,9 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	# As preferências salvas do jogador (idioma, estilo do balcão) não entram
+	# no teste: um arquivo que nunca é gravado deixa tudo no padrão.
+	AtelierSettings.path = "user://smoke_defaults.cfg"
 	# 1. Os arquivos.
 	var checked := 0
 	for file_name in DirAccess.get_files_at(PORTRAITS_DIR):
@@ -43,7 +46,7 @@ func _run() -> void:
 					faces_by_client.get_or_add(order.client_name, {})[order.portrait.resource_path] = true
 	for client in faces_by_client:
 		assert(faces_by_client[client].size() == 1, "%s uses different portraits: %s" % [client, faces_by_client[client].keys()])
-	for client in ["Anderdingus", "Mira Holloway", "Sleego", "Chrono Genesis", "Yuval", "Nemo", "Rango", "Reed Prato Cheio"]:
+	for client in ["Anderdingus", "Mira Holloway", "Sleego", "Chrono Genesis", "Yuval", "Nemo", "Rango", "Elenia Valehart", "Kothar", "Reed Prato Cheio"]:
 		assert(faces_by_client.has(client), "%s should appear with a portrait (%s)" % [client, faces_by_client.keys()])
 
 	# 3. O balcão troca a expressão.
@@ -83,9 +86,9 @@ func _run() -> void:
 					continue
 				var face := order.portrait
 				assert(window.texture == face.neutral and window.self_modulate == Color.WHITE, order.id)
-				desk._react_to_mistake({"patience": AtelierInspection.Patience.UNEASY, "penalty_due": false, "message": ""})
+				desk._react_to_mistake({"patience": AtelierInspection.Patience.UNEASY, "penalty_due": false}, desk._verbatim(""))
 				assert(window.texture == face.texture_for(AtelierPortrait.Mood.UNEASY), "%s: uneasy" % order.id)
-				desk._react_to_mistake({"patience": AtelierInspection.Patience.EXASPERATED, "penalty_due": false, "message": ""})
+				desk._react_to_mistake({"patience": AtelierInspection.Patience.EXASPERATED, "penalty_due": false}, desk._verbatim(""))
 				assert(window.texture == face.texture_for(AtelierPortrait.Mood.UPSET), "%s: exasperated" % order.id)
 				desk._say_reaction(order, true)
 				assert(window.texture == face.texture_for(AtelierPortrait.Mood.HAPPY), "%s: approved" % order.id)

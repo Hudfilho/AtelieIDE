@@ -13,6 +13,12 @@ const SOLUTIONS := {
 	"anderdingus_fireball": [["ORB", 9], ["TRIANGLE", 128]],
 	"tomas_warming_charm": [["READ", 0], ["ORB", 10], ["DIAMOND", 128], ["TRIANGLE", 128]],
 	"rango_snack_time": [["READ", 0], ["READ", 1], ["DIAMOND", 128], ["TRIANGLE", 128]],
+	"kothar_doorbell_charm": [["READ", 0], ["ORB", 5], ["DIAMOND", 128], ["TRIANGLE", 128]],
+	# Média dos três canteiros, arredondada para baixo: soma e divide por 3.
+	"elenia_even_bloom": [
+		["READ", 0], ["READ", 1], ["DIAMOND", 128], ["READ", 2], ["DIAMOND", 128],
+		["ORB", 3], ["SLASH", 128], ["TRIANGLE", 128],
+	],
 	"reed_endless_feast": [["READ", 0], ["READ", 1], ["DIAMOND", 128], ["ORB", 1], ["DIAMOND", 128], ["TRIANGLE", 128]],
 	"pip_party_sparks": [["READ", 0], ["TWIN", 128], ["PLUS", 128], ["TRIANGLE", 128]],
 	"faelar_quiet_growth": [["READ", 0], ["TWIN", 128], ["DIAMOND", 128], ["TRIANGLE", 128]],
@@ -58,6 +64,8 @@ const EXPECTED_BROKEN_RULES := {
 	"anderdingus_bigger_fireball": ["offensive_license", "signature"],
 	"osric_gentle_forgetting": ["forbidden_mind"],
 	"nemo_stinging_tide": ["offensive_license"],
+	# "Doorbell Charm" soa inofensivo; os detalhes pedem um choque na maçaneta.
+	"kothar_doorbell_charm": ["offensive_license"],
 	# Pedido honesto, mas assinado com o apelido.
 	"reed_endless_feast": ["signature"],
 }

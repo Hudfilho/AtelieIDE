@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
+[ext_resource type="Resource" path="res://data/portraits/elenia_valehart.tres" id="portrait"]
+
+[sub_resource type="Resource" id="on_rejected_0"]
+script = ExtResource("2_consequence")
+headline = "ELVEN FLORIST TURNED AWAY: the embargo is over, yet one scroll shop still shut its door on her."
+ledger_text = "Gossip: the elf turned away"
+reputation = -1
+
+[resource]
+script = ExtResource("1_order")
+id = "elenia_even_bloom"
+client_name = "Elenia Valehart"
+age = "164"
+race = "Elf"
+signature = "Elenia Valehart"
+portrait = ExtResource("portrait")
+portrait_color = Color(0.4, 0.55, 0.35, 1)
+greeting = "Good morning! Elves may shop here again, I hope? My lilies need help."
+reaction_approved = "Thank you! The lilies will be so glad."
+reaction_refused = "Still? The herald said the embargo was over..."
+item = "Scroll of Even Bloom"
+details = "My three lily beds grow unevenly. Let them share: each bed should reach the average height of the three."
+spec = "Print the average height of the three beds, rounded down.
+READ the beds from slots 000, 001 and 002."
+examples = Array[Dictionary]([{"memory": {0: 4, 1: 6, 2: 11}, "output": ["7"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 9, 1: 9, 2: 9}, "output": ["9"]}, {"memory": {0: 1, 1: 2, 2: 2}, "output": ["1"]}])
+par_runes = 8
+reward = 22
+on_rejected = Array[ExtResource("2_consequence")]([SubResource("on_rejected_0")])

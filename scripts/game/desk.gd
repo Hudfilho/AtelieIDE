@@ -9,6 +9,9 @@ extends Control
 ## quem decide é a AtelierInspection. Aqui só se repassam os cliques.
 ## Animação e som ficam no AtelierDeskFeedback (%Feedback): o carimbo só vira
 ## decisão no impacto (stamp_impact), e o que vem depois espera o carimbo voltar.
+## As configurações (%Settings, pela engrenagem ou Esc) trocam o idioma e o
+## estilo de arte na hora: cada texto do balcão guarda como se escreve (uma
+## Callable) e é reescrito quando o idioma muda.
 
 enum Phase {
 	DAY_INTRO,
@@ -75,6 +78,7 @@ const HINT_FADE_TIME := 0.6
 @onready var overlay_body: RichTextLabel = %OverlayBody
 @onready var overlay_button: Button = %OverlayButton
 @onready var feedback: AtelierDeskFeedback = %Feedback
+@onready var settings: AtelierSettingsPanel = %Settings
 
 var phase := Phase.DAY_INTRO
 var order_index := -1
@@ -85,11 +89,18 @@ var _selected_field := ""
 var _selected_rule: AtelierShopRule
 var _rule_buttons: Dictionary[AtelierShopRule, Button] = {}
 ## Mensagem do balcão para quando o cliente recusado for embora.
-var _leave_message := ""
+var _leave_text: Callable
 var _hint_tween: Tween
+## Como escrever o texto atual da nota, da fala do cliente e do cartão do
+## dia (título, corpo, botão), para reescrever quando o idioma muda.
+var _note_text: Callable
+var _speech_text: Callable
+var _overlay_text: Callable
 
 
 func _ready() -> void:
+	# Normalmente a tela de título já aplicou; vale também abrindo o balcão direto.
+	AtelierSettings.apply_language()
 	GameState.changed.connect(_refresh_hud)
 	for field_name in field_buttons:
 		field_buttons[field_name].pressed.connect(_on_field_pressed.bind(field_name))
@@ -103,6 +114,8 @@ func _ready() -> void:
 	feedback.stamp_finished.connect(_on_stamp_finished)
 	for paper: Control in [request_form, %Rulebook]:
 		paper.picked_up.connect(feedback.play_sfx.bind(&"paper"))
+	%SettingsButton.pressed.connect(settings.open)
+	settings.desk_style_changed.connect(apply_style)
 	apply_style(desk_style if desk_style != null else AtelierDeskStyles.preferred())
 	workbench.hide()
 	_start_day(PackedStringArray())
@@ -143,6 +156,45 @@ func _day() -> AtelierShopDay:
 	return GameState.current_day()
 
 
+## Esc abre as configurações de qualquer tela do balcão (dia, bancada,
+## livro-caixa); com elas abertas, o próprio painel fecha com Esc.
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed(&"ui_cancel") and not settings.visible:
+		settings.open()
+		get_viewport().set_input_as_handled()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED and is_node_ready():
+		_retranslate()
+
+
+## O idioma mudou: reescreve tudo que o balcão escreveu por código. Textos
+## com chave (botões, rótulos da cena) o Godot traduz sozinho.
+func _retranslate() -> void:
+	_refresh_hud()
+	_refresh_inspection_marks()
+	if current_order == null:
+		client_name_label.text = tr("DESK_WINDOW_EMPTY")
+	if _speech_text.is_valid():
+		speech_label.text = "\"%s\"" % _speech_text.call()
+	if _note_text.is_valid():
+		feedback_label.text = _note_text.call()
+	if overlay.visible and _overlay_text.is_valid():
+		_fill_overlay()
+
+
+## Texto de uma chave (com argumentos), escrito de novo a cada chamada: é o
+## que a nota e a fala guardam para reescrever em outro idioma.
+func _translated(key: String, args: Array = []) -> Callable:
+	return func() -> String: return tr(key) % args if not args.is_empty() else tr(key)
+
+
+## Texto que não se traduz (fala e dados do pedido).
+static func _verbatim(text: String) -> Callable:
+	return func() -> String: return text
+
+
 ## ======================== DIA ========================
 
 func _start_day(headlines: PackedStringArray) -> void:
@@ -156,19 +208,23 @@ func _start_day(headlines: PackedStringArray) -> void:
 		for problem in AtelierContentBudget.check_day(day):
 			push_warning("Invalid content: %s" % problem)
 	_build_rulebook(day)
+	_show_overlay(func() -> Array: return [day.title, _day_intro(day, headlines), tr("DESK_OPEN_SHOP")], _begin_service)
+	_refresh_hud()
+
+
+func _day_intro(day: AtelierShopDay, headlines: PackedStringArray) -> String:
 	var body := day.intro
 	if not headlines.is_empty():
 		body = "[b]%s[/b]\n" % tr("DESK_HERALD_HEADER") + "\n\n".join(headlines) + "\n\n" + body
 	body += "\n\n[b]%s[/b]\n" % tr("DESK_RULEBOOK_HEADER") + "\n\n".join(PackedStringArray(day.rules.map(func(rule: AtelierShopRule) -> String: return "- " + rule.text)))
 	body += "\n\n[b]%s[/b]\n" % tr("DESK_RUNES_HEADER") + ", ".join(_rune_labels(day.runes))
-	_show_overlay(day.title, body, tr("DESK_OPEN_SHOP"), _begin_service)
-	_refresh_hud()
+	return body
 
 
 func _begin_service() -> void:
 	overlay.hide()
 	phase = Phase.WAITING
-	_say_hint(tr("DESK_RING_FIRST"))
+	_say_hint(_translated("DESK_RING_FIRST"))
 	_refresh_controls()
 
 
@@ -186,38 +242,47 @@ func _call_next_client() -> void:
 		current_order = GameState.resolve_customer(_day().orders[order_index])
 	phase = Phase.SERVING
 	_show_client(current_order)
-	_say_hint(tr("DESK_CHECK_REQUEST"))
+	_say_hint(_translated("DESK_CHECK_REQUEST"))
 	_refresh_controls()
 
 
 func _end_day() -> void:
 	phase = Phase.DAY_END
 	_clear_counter()
+	if GameState.has_next_day():
+		var title := _day().title
+		_show_overlay(func() -> Array: return [tr("DESK_LEDGER_TITLE") % [title], _ledger(), tr("DESK_SLEEP")], _go_to_next_day)
+	else:
+		_show_demo_end()
+
+
+## Livro-caixa do dia, no idioma atual.
+func _ledger() -> String:
 	var lines: PackedStringArray = []
 	var earned := 0
 	for entry in GameState.ledger:
 		earned += int(entry["money"])
-		lines.append("%s   [color=#e8c07a]%s[/color]%s" % [entry["text"], _signed(entry["money"], "DESK_SIGNED_COINS"), _reputation_suffix(entry["reputation"])])
+		lines.append("%s   [color=#e8c07a]%s[/color]%s" % [GameState.entry_text(entry), _signed(entry["money"], "DESK_SIGNED_COINS"), _reputation_suffix(entry["reputation"])])
 	var body := "\n".join(lines) if not lines.is_empty() else tr("DESK_QUIET_DAY")
-	body += "\n\n" + tr("DESK_DAY_TOTALS") % [_signed(earned, "DESK_SIGNED_COINS"), GameState.money, GameState.reputation]
-	if GameState.has_next_day():
-		_show_overlay(tr("DESK_LEDGER_TITLE") % [_day().title], body, tr("DESK_SLEEP"), _go_to_next_day)
-	else:
-		_show_demo_end(body)
+	return body + "\n\n" + tr("DESK_DAY_TOTALS") % [_signed(earned, "DESK_SIGNED_COINS"), GameState.money, GameState.reputation]
 
 
 func _go_to_next_day() -> void:
 	_start_day(GameState.begin_next_day())
 
 
-func _show_demo_end(ledger_body: String) -> void:
+func _show_demo_end() -> void:
 	phase = Phase.DEMO_END
-	var body := ledger_body
 	var upcoming := GameState.upcoming_headlines()
+	_show_overlay(func() -> Array: return [tr("DESK_DEMO_END_TITLE"), _demo_end(upcoming), tr("DESK_BACK_TO_TITLE")],
+			func() -> void: get_tree().change_scene_to_file("res://scenes/game/Title.tscn"))
+
+
+func _demo_end(upcoming: PackedStringArray) -> String:
+	var body := _ledger()
 	if not upcoming.is_empty():
 		body += "\n\n[b]%s[/b]\n" % tr("DESK_TOMORROW_HERALD") + "\n\n".join(upcoming)
-	body += "\n\n[i]%s[/i]" % tr("DESK_THANKS")
-	_show_overlay(tr("DESK_DEMO_END_TITLE"), body, tr("DESK_BACK_TO_TITLE"), func() -> void: get_tree().change_scene_to_file("res://scenes/game/Title.tscn"))
+	return body + "\n\n[i]%s[/i]" % tr("DESK_THANKS")
 
 
 ## ======================== CARIMBOS ========================
@@ -250,19 +315,19 @@ func _on_stamp_impact(kind: StringName) -> void:
 	if kind == AtelierDeskFeedback.APPROVE:
 		phase = Phase.CRAFTING
 		_say_reaction(order, true)
-		_say_feedback(tr("DESK_APPROVED"))
+		_say_feedback(_translated("DESK_APPROVED"))
 	else:
 		phase = Phase.LEAVING
 		var cited := inspection.cited_rules()
 		if GameState.reject(order, cited):
 			var titles := PackedStringArray(cited.map(func(rule: AtelierShopRule) -> String: return rule.title))
-			_leave_message = tr("DESK_REFUSED_EVIDENCE") % [", ".join(titles)]
+			_leave_text = _translated("DESK_REFUSED_EVIDENCE", [", ".join(titles)])
 		elif _day().is_legal(order):
-			_leave_message = tr("DESK_REFUSED_HONEST")
+			_leave_text = _translated("DESK_REFUSED_HONEST")
 		else:
-			_leave_message = tr("DESK_REFUSED_NO_CAUSE")
+			_leave_text = _translated("DESK_REFUSED_NO_CAUSE")
 		_say_reaction(order, false)
-		_say_feedback(_leave_message)
+		_say_feedback(_leave_text)
 	_refresh_controls()
 
 
@@ -277,19 +342,19 @@ func _on_stamp_finished(kind: StringName) -> void:
 	elif kind == AtelierDeskFeedback.REJECT and phase == Phase.LEAVING:
 		await feedback.hold(REFUSED_LINGER)
 		if phase == Phase.LEAVING and current_order == order:
-			_client_leaves(_leave_message)
+			_client_leaves(_leave_text)
 
 
 func _say_reaction(order: AtelierScrollOrder, approved: bool) -> void:
 	var line := order.reaction_approved if approved else order.reaction_refused
-	if line.is_empty():
-		if approved:
-			line = tr("DESK_REACTION_APPROVED")
-		elif _day().is_legal(order):
-			line = tr("DESK_REACTION_HONEST")
-		else:
-			line = tr("DESK_REACTION_CAUGHT")
-	speech_label.text = "\"%s\"" % line
+	if not line.is_empty():
+		_say_speech(_verbatim(line))
+	elif approved:
+		_say_speech(_translated("DESK_REACTION_APPROVED"))
+	elif _day().is_legal(order):
+		_say_speech(_translated("DESK_REACTION_HONEST"))
+	else:
+		_say_speech(_translated("DESK_REACTION_CAUGHT"))
 	_show_mood(order, AtelierPortrait.Mood.HAPPY if approved else AtelierPortrait.Mood.UPSET)
 
 
@@ -302,9 +367,9 @@ func _on_scroll_delivered(result: Dictionary) -> void:
 	if paid > 0:
 		feedback.play_sfx(&"coins")
 	if not _day().is_legal(order):
-		_client_leaves(tr("DESK_DELIVERED_ILLEGAL") % [order.client_name])
+		_client_leaves(_translated("DESK_DELIVERED_ILLEGAL", [order.client_name]))
 	else:
-		_client_leaves(tr("DESK_DELIVERED") % [order.client_name, paid])
+		_client_leaves(_translated("DESK_DELIVERED", [order.client_name, paid]))
 
 
 func _on_scroll_abandoned() -> void:
@@ -313,14 +378,15 @@ func _on_scroll_abandoned() -> void:
 	workbench.hide()
 	var order := current_order
 	GameState.abandon(order)
-	_client_leaves(tr("DESK_ABANDONED") % [order.client_name])
+	_client_leaves(_translated("DESK_ABANDONED", [order.client_name]))
 
 
-func _client_leaves(message: String) -> void:
+func _client_leaves(message: Callable) -> void:
 	phase = Phase.WAITING
 	current_order = null
 	_clear_counter()
-	_say_feedback(message + "\n" + tr("DESK_RING_NEXT" if _customers_waiting() > 0 else "DESK_RING_CLOSE"))
+	var ring_key := "DESK_RING_NEXT" if _customers_waiting() > 0 else "DESK_RING_CLOSE"
+	_say_feedback(func() -> String: return message.call() + "\n" + tr(ring_key))
 	_refresh_controls()
 
 
@@ -330,7 +396,7 @@ func _show_client(order: AtelierScrollOrder) -> void:
 	_show_mood(order, AtelierPortrait.Mood.NEUTRAL)
 	# Fala = personalidade, papel = informação: a raça fica só no pedido.
 	client_name_label.text = order.client_name
-	speech_label.text = "\"%s\"" % order.greeting
+	_say_speech(_verbatim(order.greeting))
 	# O balcão mostra só o resumo (primeira linha); a bancada mostra o resto.
 	spec_label.text = order.spec.get_slice("\n", 0)
 	inspection = AtelierInspection.new(order, _day().rules, inspection_mistake_threshold)
@@ -354,6 +420,7 @@ func _show_mood(order: AtelierScrollOrder, mood: AtelierPortrait.Mood) -> void:
 func _clear_counter() -> void:
 	portrait.hide()
 	client_name_label.text = tr("DESK_WINDOW_EMPTY")
+	_speech_text = Callable()
 	speech_label.text = ""
 	request_form.hide()
 	feedback.clear_ink()
@@ -425,39 +492,44 @@ func _try_link() -> void:
 	if _selected_field.is_empty() and _selected_rule == null:
 		return
 	if _selected_rule == null:
-		_say_hint(tr("DESK_PICK_RULE"))
+		_say_hint(_translated("DESK_PICK_RULE"))
 		return
 	if _selected_field.is_empty():
-		_say_hint(tr("DESK_PICK_FIELD"))
+		_say_hint(_translated("DESK_PICK_FIELD"))
 		return
 	var field_name := _selected_field
 	var rule := _selected_rule
 	_selected_field = ""
 	_selected_rule = null
 	var link := inspection.link(field_name, rule)
-	_say_feedback(link["message"])
+	# A mensagem é refeita pela inspeção deste cliente (no idioma da vez).
+	var check := inspection
+	var result: AtelierInspection.Result = link["result"]
+	var message := func() -> String: return check.describe(result, field_name, rule)
+	_say_feedback(message)
 	if link["mistake"]:
 		_flash(field_buttons[field_name])
 		_flash(_rule_buttons[rule])
-		_react_to_mistake(link)
+		_react_to_mistake(link, message)
 
 
 ## Reação do cliente a erros de inspeção, crescendo com a paciência; a
 ## penalidade vem da inspeção (penalty_due) e só acontece uma vez.
-func _react_to_mistake(link: Dictionary) -> void:
+func _react_to_mistake(link: Dictionary, message: Callable) -> void:
 	match link["patience"]:
 		AtelierInspection.Patience.UNEASY:
-			speech_label.text = "\"%s\"" % tr("DESK_PATIENCE_UNEASY")
+			_say_speech(_translated("DESK_PATIENCE_UNEASY"))
 			_show_mood(current_order, AtelierPortrait.Mood.UNEASY)
 		AtelierInspection.Patience.UPSET:
-			speech_label.text = "\"%s\"" % tr("DESK_PATIENCE_UPSET")
+			_say_speech(_translated("DESK_PATIENCE_UPSET"))
 			_show_mood(current_order, AtelierPortrait.Mood.UPSET)
 		AtelierInspection.Patience.EXASPERATED:
-			speech_label.text = "\"%s\"" % tr("DESK_PATIENCE_EXASPERATED")
+			_say_speech(_translated("DESK_PATIENCE_EXASPERATED"))
 			_show_mood(current_order, AtelierPortrait.Mood.UPSET)
 	if link["penalty_due"]:
 		GameState.penalize_inspection(current_order, inspection_mistake_penalty)
-		_say_feedback(str(link["message"]) + "\n" + tr("DESK_PATIENCE_PENALTY") % [inspection_mistake_penalty])
+		var penalty := inspection_mistake_penalty
+		_say_feedback(func() -> String: return message.call() + "\n" + tr("DESK_PATIENCE_PENALTY") % [penalty])
 
 
 func _refresh_inspection_marks() -> void:
@@ -553,32 +625,49 @@ func _refresh_controls() -> void:
 	_refresh_hud()
 
 
-func _say_feedback(text: String) -> void:
+## Mensagem na nota da inspeção. Recebe como escrevê-la (e não o texto
+## pronto) para reescrever no idioma novo se ele mudar.
+func _say_feedback(text: Callable) -> void:
 	if _hint_tween != null:
 		_hint_tween.kill()
 		_hint_tween = null
 	feedback_label.modulate.a = 1.0
-	feedback_label.text = text
+	_note_text = text
+	feedback_label.text = text.call()
 
 
 ## Dica de uso: aparece como qualquer mensagem e some sozinha depois de
 ## hint_fade_delay. Uma mensagem nova (dica ou não) cancela o sumiço.
-func _say_hint(text: String) -> void:
+func _say_hint(text: Callable) -> void:
 	_say_feedback(text)
 	_hint_tween = create_tween()
 	_hint_tween.tween_interval(hint_fade_delay)
 	_hint_tween.tween_property(feedback_label, "modulate:a", 0.0, HINT_FADE_TIME)
 
 
-func _show_overlay(title: String, body: String, button_text: String, action: Callable) -> void:
-	overlay_title.text = title
-	overlay_body.text = body
-	overlay_button.text = button_text
+## Fala do cliente no balão, entre aspas.
+func _say_speech(text: Callable) -> void:
+	_speech_text = text
+	speech_label.text = "\"%s\"" % text.call()
+
+
+## Cartão de tela cheia (manhã, livro-caixa, fim do demo). text devolve
+## [título, corpo, botão] no idioma atual.
+func _show_overlay(text: Callable, action: Callable) -> void:
+	_overlay_text = text
 	_overlay_action = action
 	_refresh_controls()
+	_fill_overlay()
+	overlay.show()
+
+
+func _fill_overlay() -> void:
+	var parts: Array = _overlay_text.call()
+	overlay_title.text = parts[0]
+	overlay_body.text = parts[1]
+	overlay_button.text = parts[2]
 	overlay_body.fit_content = true
 	overlay_body.custom_minimum_size.y = 0.0
-	overlay.show()
 	_cap_overlay_body()
 
 

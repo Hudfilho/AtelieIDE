@@ -72,11 +72,11 @@ func _run() -> void:
 	# Uma regra avalia várias encomendas sem UI.
 	var expectations := {
 		signature: {"anderdingus_fireball": true, "brom_doubled_ore": true, "anderdingus_bigger_fireball": true, "mira_warm_light": false, "anderdingus_hush": false, "guild_inspector_routine": false, "reed_endless_feast": true},
-		embargo: {"faelar_quiet_growth": true, "pip_party_sparks": false, "brom_doubled_ore": false},
+		embargo: {"faelar_quiet_growth": true, "pip_party_sparks": false, "brom_doubled_ore": false, "elenia_even_bloom": true},
 		# Meditar não é magia sobre a mente: o pergaminho do Chrono só diz a hora.
 		forbidden: {"osric_gentle_forgetting": true, "ketterly_fair_shares": false, "anderdingus_fireball": false, "chrono_waking_hour": false, "yuval_cleansing_rites": false},
 		# Ferroar piratas é ataque; purificar um feitiço, não.
-		offensive: {"anderdingus_fireball": true, "anderdingus_bigger_fireball": true, "anderdingus_hush": false, "nemo_stinging_tide": true, "yuval_cleansing_rites": false},
+		offensive: {"anderdingus_fireball": true, "anderdingus_bigger_fireball": true, "anderdingus_hush": false, "nemo_stinging_tide": true, "yuval_cleansing_rites": false, "kothar_doorbell_charm": true},
 	}
 	for rule in expectations:
 		var cases: Dictionary = expectations[rule]
@@ -86,6 +86,11 @@ func _run() -> void:
 	# A legalidade vem das regras do dia: o embargo élfico cai no dia 3.
 	var faelar := _order("faelar_quiet_growth")
 	assert(not _day(2).is_legal(faelar) and _day(3).is_legal(faelar))
+	# A Elenia vem no dia 3: continua élfica, mas o embargo não está mais em vigor.
+	var elenia := _order("elenia_even_bloom")
+	assert(not _day(2).is_legal(elenia) and _day(3).is_legal(elenia))
+	var elenia_check := AtelierInspection.new(elenia, _day(3).rules)
+	assert(elenia_check.link("race", embargo)["result"] == AtelierInspection.Result.NOT_IN_FORCE, "Citing the lifted embargo is not evidence")
 
 	# Recusa: só é correta com prova válida; sem prova custa reputação mesmo com pedido ilegal.
 	var game_state: Node = root.get_node("GameState")

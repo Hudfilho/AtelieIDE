@@ -344,6 +344,58 @@ def bubble_tail():
     save(img, "bubble_tail.png")
 
 
+def gear():
+    """Engrenagem de latão das configurações (18x18): oito dentes, furo no
+    meio, luz no alto à esquerda. A versão do mouse em cima é mais clara e tem
+    contorno de latão claro, como os carimbos erguidos."""
+    import math
+    size, center = 18, 8.5
+    for name, body, light, dark, rim in (("gear", "brass1", "brass2", "brass0", "void"), ("gear_hover", "brass2", "brass3", "brass1", "brass3")):
+        img = new(size, size)
+        px = img.load()
+        for y in range(size):
+            for x in range(size):
+                dx, dy = x - center, y - center
+                r = math.hypot(dx, dy)
+                angle = math.atan2(dy, dx) % (2 * math.pi)
+                tooth = (angle / (2 * math.pi) * 8 + 0.25) % 1.0 < 0.5
+                outer = 7.6 if tooth else 5.8
+                if 2.3 < r <= outer:
+                    color = body
+                    if r > outer - 1.2 and dx + dy < -1:
+                        color = light
+                    elif r > outer - 1.2 and dx + dy > 2:
+                        color = dark
+                    elif r < 3.4:
+                        color = dark
+                    px[x, y] = rgba(color)
+        outline(img, rim)
+        save(img, name + ".png")
+
+
+def bell_glow():
+    """Halo quente do sino (56x44): elipse em três anéis de alfa, com
+    pontilhado ordenado entre eles para a borda não virar degrau. O balcão
+    varia a transparência do sprite inteiro (pulso e hover)."""
+    import math
+    bayer = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
+    w, h = 56, 44
+    img = new(w, h)
+    px = img.load()
+    rings = [(0.45, 150, "lamp2"), (0.75, 95, "lamp"), (1.0, 45, "lamp")]
+    for y in range(h):
+        for x in range(w):
+            d = math.hypot((x + 0.5 - w / 2) / (w / 2), (y + 0.5 - h / 2) / (h / 2))
+            if d >= 1.0:
+                continue
+            t = bayer[y % 4][x % 4] / 16 * 0.18
+            for edge, alpha, color in rings:
+                if d + t < edge:
+                    px[x, y] = rgba(color, alpha)
+                    break
+    save(img, "bell_glow.png")
+
+
 if __name__ == "__main__":
     glyphs = all_glyphs()
     write_font(glyphs, 1, "pixel_font", "Atelier Pixel")
@@ -352,5 +404,5 @@ if __name__ == "__main__":
     tiny = tiny_glyphs()
     write_font(tiny, 1, "pixel_font_tiny", "Atelier Pixel Tiny", cell=8, line=9, base=7)
     silhouette()
-    bubble_9(); stamp_box(); bubble_tail()
+    bubble_9(); stamp_box(); bubble_tail(); gear(); bell_glow()
     print("pixel art written to", OUT, "-", len(glyphs), "glyphs,", len(tiny), "tiny glyphs")
