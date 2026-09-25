@@ -6,23 +6,23 @@
 [ext_resource type="PackedScene" path="res://scenes/game/Workbench.tscn" id="4_workbench"]
 [ext_resource type="Script" path="res://scripts/game/desk_feedback.gd" id="5_feedback"]
 [ext_resource type="Theme" path="res://art/pixel/pixel_theme.tres" id="6_pixel_theme"]
-[ext_resource type="Texture2D" path="res://art/pixel/backdrop.png" id="7_backdrop"]
-[ext_resource type="Texture2D" path="res://art/pixel/day_card.png" id="8_day_card"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/backdrop.png" id="7_backdrop"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/day_card.png" id="8_day_card"]
 [ext_resource type="Texture2D" path="res://art/pixel/portrait_hooded.png" id="12_hooded"]
-[ext_resource type="Texture2D" path="res://art/pixel/candle.png" id="13_candle"]
-[ext_resource type="Texture2D" path="res://art/pixel/bell.png" id="14_bell"]
-[ext_resource type="Texture2D" path="res://art/pixel/bell_lift.png" id="14_bell_lift"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/candle.png" id="13_candle"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/bell.png" id="14_bell"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/bell_lift.png" id="14_bell_lift"]
 [ext_resource type="Texture2D" path="res://art/pixel/bubble_tail.png" id="15_tail"]
-[ext_resource type="Texture2D" path="res://art/pixel/stamp_approve.png" id="16_stamp_approve"]
-[ext_resource type="Texture2D" path="res://art/pixel/stamp_reject.png" id="17_stamp_reject"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_approve.png" id="16_stamp_approve"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_reject.png" id="17_stamp_reject"]
 [ext_resource type="FontFile" path="res://art/pixel/pixel_font_big.fnt" id="18_font_big"]
 [ext_resource type="Script" path="res://scripts/game/pixel_frame.gd" id="19_frame"]
-[ext_resource type="Texture2D" path="res://art/pixel/stamp_approve_lift.png" id="20_approve_lift"]
-[ext_resource type="Texture2D" path="res://art/pixel/stamp_reject_lift.png" id="21_reject_lift"]
-[ext_resource type="Texture2D" path="res://art/pixel/stamp_approve_head.png" id="22_approve_head"]
-[ext_resource type="Texture2D" path="res://art/pixel/stamp_reject_head.png" id="23_reject_head"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_approve_lift.png" id="20_approve_lift"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_reject_lift.png" id="21_reject_lift"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_approve_head.png" id="22_approve_head"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_reject_head.png" id="23_reject_head"]
 [ext_resource type="Script" path="res://scripts/game/desk_stamp.gd" id="24_stamp"]
-[ext_resource type="Texture2D" path="res://art/pixel/stamp_tray.png" id="25_tray"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_tray.png" id="25_tray"]
 
 [node name="Desk" type="Control"]
 layout_mode = 3
@@ -79,6 +79,7 @@ grow_vertical = 2
 theme = ExtResource("6_pixel_theme")
 
 [node name="Backdrop" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World"]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -177,6 +178,7 @@ mouse_filter = 2
 stretch_mode = 3
 
 [node name="Candle" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+unique_name_in_owner = true
 layout_mode = 0
 offset_left = 224.0
 offset_top = 94.0
@@ -414,6 +416,7 @@ theme_override_font_sizes/font_size = 22
 text = ""
 
 [node name="StampTray" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+unique_name_in_owner = true
 layout_mode = 0
 offset_left = 465.0
 offset_top = 174.0

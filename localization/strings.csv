@@ -4,6 +4,7 @@ TITLE_TAGLINE,A scroll shop where every spell is drawn by hand.  -  Demo,Uma loj
 TITLE_PLAY,Open the shop,Abrir a loja
 TITLE_SANDBOX,Rune sandbox (Atelier IDE),Ateliê livre (Atelier IDE)
 TITLE_QUIT,Quit,Sair
+TITLE_DESK_STYLE,Desk style:,Estilo do balcão:
 DESK_BELL,Ring the bell,Tocar o sino
 DESK_RULEBOOK_TITLE,Today's rules,Regras de hoje
 DESK_REQUIRED_EFFECT,Required effect,Efeito exigido
@@ -46,6 +47,8 @@ DESK_HUD_DAY,Day %d,Dia %d
 DESK_HUD_MONEY,%d coins,%d moedas
 DESK_HUD_REPUTATION,Reputation %d,Reputação %d
 DESK_HUD_QUEUE,%d waiting outside,%d esperando lá fora
+DESK_STYLE_ARCANE,Arcane,Arcano
+DESK_STYLE_APOTHECARY,Apothecary,Botica
 DESK_SIGNED_COINS,%s coins,%s moedas
 DESK_SIGNED_REP,%s rep,%s rep.
 DESK_PATIENCE_UNEASY,Hm? Is something wrong with my form?,Hum? Tem algo errado com meu formulário?

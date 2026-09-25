@@ -39,6 +39,8 @@ const HINT_FADE_TIME := 0.6
 
 ## Silhueta usada por clientes sem retrato próprio (tingida com portrait_color).
 @export var generic_portrait: Texture2D
+## Estilo de arte do balcão; vazio usa o preferido (AtelierDeskStyles).
+@export var desk_style: AtelierDeskStyle
 ## Ligações erradas com um cliente até ele perder a paciência (mínimo 2).
 @export var inspection_mistake_threshold := AtelierInspection.DEFAULT_MISTAKE_THRESHOLD
 ## Reputação perdida, uma única vez por cliente, ao atingir o limite.
@@ -53,7 +55,7 @@ const HINT_FADE_TIME := 0.6
 @onready var portrait: TextureRect = %Portrait
 @onready var client_name_label: Label = %ClientName
 @onready var speech_label: Label = %Speech
-@onready var bell_button: Button = %BellButton
+@onready var bell_button: AtelierDeskStamp = %BellButton
 ## Páginas do livro de regras aberto (a divisão vem de AtelierContentBudget.rule_pages).
 @onready var rule_pages: Array[VBoxContainer] = [%RulesLeft, %RulesRight]
 @onready var request_form: Control = %RequestForm
@@ -63,8 +65,8 @@ const HINT_FADE_TIME := 0.6
 	"race": %RaceField, "signature": %SignatureField, "details": %DetailsField,
 }
 @onready var spec_label: Label = %SpecLabel
-@onready var approve_button: Button = %ApproveButton
-@onready var reject_button: Button = %RejectButton
+@onready var approve_button: AtelierDeskStamp = %ApproveButton
+@onready var reject_button: AtelierDeskStamp = %RejectButton
 @onready var evidence_label: Label = %EvidenceLabel
 @onready var feedback_label: Label = %FeedbackLabel
 @onready var workbench = %Workbench
@@ -101,8 +103,40 @@ func _ready() -> void:
 	feedback.stamp_finished.connect(_on_stamp_finished)
 	for paper: Control in [request_form, %Rulebook]:
 		paper.picked_up.connect(feedback.play_sfx.bind(&"paper"))
+	apply_style(desk_style if desk_style != null else AtelierDeskStyles.preferred())
 	workbench.hide()
 	_start_day(PackedStringArray())
+
+
+## Troca a arte do balcão. Só texturas e as posições do retrato e da vela:
+## o layout e os tamanhos dos papéis são os mesmos em todos os estilos.
+func apply_style(style: AtelierDeskStyle) -> void:
+	desk_style = style
+	(%Backdrop as TextureRect).texture = style.backdrop
+	(%DayCard as TextureRect).texture = style.day_card
+	(%Candle as TextureRect).texture = style.candle
+	(%Candle as Control).position = style.candle_position
+	portrait.position = style.portrait_position - portrait.get_parent().position
+	(%StampTray as TextureRect).texture = style.stamp_tray
+	bell_button.rest_texture = style.bell
+	bell_button.lifted_texture = style.bell_lift
+	approve_button.rest_texture = style.stamp_approve
+	approve_button.lifted_texture = style.stamp_approve_lift
+	reject_button.rest_texture = style.stamp_reject
+	reject_button.lifted_texture = style.stamp_reject_lift
+	feedback.stamp_sprites = {AtelierDeskFeedback.APPROVE: style.stamp_approve_head, AtelierDeskFeedback.REJECT: style.stamp_reject_head}
+	_dress_paper(%Rulebook, style.rulebook)
+	_dress_paper(request_form, style.request)
+	_dress_paper(%InspectionNote, style.note)
+
+
+## O papel continua com as margens do tema (o texto não muda de lugar); só a
+## textura é a do estilo.
+static func _dress_paper(paper: Control, texture: Texture2D) -> void:
+	paper.remove_theme_stylebox_override(&"panel")
+	var box := paper.get_theme_stylebox(&"panel").duplicate() as StyleBoxTexture
+	box.texture = texture
+	paper.add_theme_stylebox_override(&"panel", box)
 
 
 func _day() -> AtelierShopDay:

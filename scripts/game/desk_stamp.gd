@@ -10,9 +10,16 @@ extends Button
 ## Folga acima do corpo no sprite em repouso (é para onde ele sobe no hover).
 const HEAD_TOP := 4.0
 
-## Sprite em repouso (com sombra) e erguido (hover).
-@export var rest_texture: Texture2D
-@export var lifted_texture: Texture2D
+## Sprite em repouso (com sombra) e erguido (hover). Trocar redesenha (o
+## estilo do balcão troca os sprites em jogo).
+@export var rest_texture: Texture2D:
+	set(value):
+		rest_texture = value
+		queue_redraw()
+@export var lifted_texture: Texture2D:
+	set(value):
+		lifted_texture = value
+		queue_redraw()
 
 var _plate: Control
 

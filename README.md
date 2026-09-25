@@ -141,12 +141,17 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 - **Cores com significado:** vermelho é discrepância e recusa, verde é aprovado, roxo é o efeito exigido e dourado é interação (seleção, sino). Nenhuma delas aparece como enfeite.
 - **Seleção:** o campo ou a regra escolhida ganha uma barra dourada na margem e um sublinhado, sem pintar a linha inteira. As provas continuam em tinta vermelha com `»`.
 - **Dicas da nota:** mensagens do tipo "clique num campo" somem sozinhas depois de alguns segundos (`hint_fade_delay`). Resultados, avisos e penalidades ficam.
-- **Arte de produção:** fundo, livro, pedido, nota, carimbos com a bandeja, sino, vela e cartão do dia vêm dos assets em `art/concepts/desk/` (a pasta tem `.gdignore`), convertidos por `tools/pixel_art/import_desk_art.py` para a grade de 640x360:
-  - o fundo é reduzido por área, o que recupera a grade de pixels dele;
-  - os objetos soltos são recortados do fundo liso;
-  - os papéis com texto são remontados em fatias. Cantos, moldura e beirada rasgada ficam em escala uniforme, e o miolo, limpo das linhas pautadas, é esticado até o tamanho que o orçamento de texto pede. As molduras finas do livro são redesenhadas a 1 px.
+- **Estilos de arte do balcão:** há dois, escolhidos na tela de título. A escolha fica salva em `user://settings.cfg` (`AtelierDeskStyles`).
+  - **Arcano** (`arcane`): janela em arco, tapeçaria da lua e bandeja de carimbos.
+  - **Botica** (`apothecary`): parede de tábuas com ervas, janela retangular, carimbos com almofadas de tinta.
 
-  Os tamanhos e posições do script têm de bater com `Desk.tscn`. A janela do cliente é a do fundo; o retrato fica na frente das grades, apoiado no peitoril. O fundo traz uma bandeja de carimbos pintada: a frente da bandeja do asset cobre essa bandeja, e os pegadores pintados atrás dela são cobertos com a gaveta de cima.
+  Cada estilo é um `AtelierDeskStyle` em `data/desk_styles/`, com as texturas e as posições do retrato e da vela. O layout, os tamanhos dos papéis e o orçamento de texto são os mesmos nos dois; o balcão só troca a arte (`apply_style`).
+- **Arte de produção:** os assets pintados ficam em `art/concepts/desk/<estilo>/` (a pasta tem `.gdignore`). `tools/pixel_art/import_desk_art.py [estilo]` converte para a grade de 640x360 em `art/desk/<estilo>/`, com um módulo por estilo (`desk_arcane.py`, `desk_apothecary.py`) e funções comuns em `desk_art_common.py`:
+  - o fundo é reduzido por área, o que recupera a grade de pixels dele. No Botica, a parede sobe 23 px para o peitoril cair onde os retratos se apoiam, e as tábuas do balcão se repetem até o pé da tela;
+  - os objetos soltos são recortados (do fundo liso no Arcano, pelo alfa no Botica);
+  - os papéis com texto são remontados em fatias. Cantos, moldura e beirada rasgada ficam em escala uniforme, e o miolo, limpo das linhas pautadas, é esticado até o tamanho que o orçamento de texto pede. As molduras finas são redesenhadas a 1 px.
+
+  Os tamanhos e posições dos scripts têm de bater com `Desk.tscn`; `tests/desk_style_smoke.gd` confere isso para todo estilo. O asset da janela avulsa não é usado: os dois fundos já trazem a janela.
 - `tools/pixel_art/generate_pixel_art.py` continua gerando o que é desenhado por código: as quatro fontes bitmap, a silhueta genérica, o balão de fala e a área tracejada do carimbo.
 - **Retratos:** clientes com retrato (`portrait` na encomenda, um `AtelierPortrait` em `data/portraits/`) mudam de expressão na janela:
   - neutra ao chegar;

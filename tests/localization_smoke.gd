@@ -104,6 +104,11 @@ func _run() -> void:
 				if is_display and not not_text and key_regex.search(text.trim_prefix("\"").trim_suffix("\"")) == null:
 					assert(lowercase_word.search(format_noise.sub(text, "", true)) == null, "%s shows a hard-coded text instead of a key: %s" % [where, text])
 
+	# Recursos de dados que citam chaves: os nomes dos estilos do balcão.
+	for style in AtelierDeskStyles.all():
+		assert(table.has(style.title_key), "Desk style %s uses unknown key %s" % [style.id, style.title_key])
+		used_keys[style.title_key] = true
+
 	# Tabela enxuta: nenhuma chave sem uso.
 	for key in table:
 		assert(used_keys.has(key), "%s is in the table but nothing uses it" % key)

@@ -3,9 +3,9 @@
 [ext_resource type="FontFile" path="res://art/pixel/pixel_font.fnt" id="1_font"]
 [ext_resource type="FontFile" path="res://art/pixel/pixel_font_title.fnt" id="2_font_title"]
 [ext_resource type="FontFile" path="res://art/pixel/pixel_font_tiny.fnt" id="3_font_tiny"]
-[ext_resource type="Texture2D" path="res://art/pixel/parchment.png" id="4_parchment"]
-[ext_resource type="Texture2D" path="res://art/pixel/book_spread.png" id="5_book"]
-[ext_resource type="Texture2D" path="res://art/pixel/note.png" id="6_note"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/parchment.png" id="4_parchment"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/book_spread.png" id="5_book"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/note.png" id="6_note"]
 [ext_resource type="Texture2D" path="res://art/pixel/bubble.png" id="8_bubble"]
 [ext_resource type="Texture2D" path="res://art/pixel/stamp_box.png" id="9_stamp_box"]
 

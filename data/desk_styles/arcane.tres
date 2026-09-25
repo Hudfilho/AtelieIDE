@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="AtelierDeskStyle" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/desk_style.gd" id="1_style"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/backdrop.png" id="backdrop"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/candle.png" id="candle"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/book_spread.png" id="rulebook"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/parchment.png" id="request"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/note.png" id="note"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/day_card.png" id="day_card"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/bell.png" id="bell"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/bell_lift.png" id="bell_lift"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_approve.png" id="stamp_approve"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_approve_lift.png" id="stamp_approve_lift"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_approve_head.png" id="stamp_approve_head"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_reject.png" id="stamp_reject"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_reject_lift.png" id="stamp_reject_lift"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_reject_head.png" id="stamp_reject_head"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_tray.png" id="stamp_tray"]
+
+[resource]
+script = ExtResource("1_style")
+id = "arcane"
+title_key = "DESK_STYLE_ARCANE"
+portrait_position = Vector2(279, 38)
+candle_position = Vector2(224, 94)
+backdrop = ExtResource("backdrop")
+candle = ExtResource("candle")
+rulebook = ExtResource("rulebook")
+request = ExtResource("request")
+note = ExtResource("note")
+day_card = ExtResource("day_card")
+bell = ExtResource("bell")
+bell_lift = ExtResource("bell_lift")
+stamp_approve = ExtResource("stamp_approve")
+stamp_approve_lift = ExtResource("stamp_approve_lift")
+stamp_approve_head = ExtResource("stamp_approve_head")
+stamp_reject = ExtResource("stamp_reject")
+stamp_reject_lift = ExtResource("stamp_reject_lift")
+stamp_reject_head = ExtResource("stamp_reject_head")
+stamp_tray = ExtResource("stamp_tray")
