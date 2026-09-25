@@ -126,6 +126,18 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 | `scripts/game/data/` | Tipos de dados: `AtelierShopDay`, `AtelierScrollOrder`, `AtelierShopRule`, `AtelierConsequence`, `AtelierFlagCondition` |
 | `data/days/`, `data/orders/`, `data/rules/` | Conteúdo do demo em `.tres`, editável pelo Inspector |
 
+**Tela de título:** a ilustração em `art/concepts/title/title.webp` vira o fundo com o logotipo pintado (o nome "Atelier" é o mesmo nos dois idiomas).
+- A frase e os botões pintados em inglês saem. Entram botões de verdade, traduzidos, com as molduras recortadas da própria ilustração: a verde com ramos para "Abrir a loja" e as escuras com filete dourado para as outras opções. As molduras são texturas de 9 fatias, com as pontas inteiras e o meio esticando conforme o texto.
+- `tools/title_art/import_title_art.py` gera o fundo limpo e as molduras (normal, mouse em cima e clique) em `art/title/`.
+- Fundo e botões ficam num palco de 1280x720 (`Title.tscn`) que escala junto para cobrir a janela sem distorcer, então os botões continuam nos lugares dos pintados. Em telas mais largas que 16:9 o corte sai mais da mesa do que do logotipo.
+- O foco de teclado acende a moldura dourada do botão, e o seletor de estilo do balcão fica logo abaixo de "Sair".
+- A fonte é a [Cormorant Garamond](https://github.com/CatharsisFonts/Cormorant) (licença SIL OFL 1.1, em `art/fonts/cormorant_garamond/OFL.txt`), usada como fonte variável com peso 500 e renderizada por MSDF para ficar nítida em qualquer escala. Os acentos altos e finos (ê, ô) são do desenho da fonte.
+- `tests/title_smoke.gd` confere:
+  - a cobertura em 16:9, 16:10, 21:9 e 4:3;
+  - o logotipo e todos os botões inteiros na tela, sem se sobrepor;
+  - os textos cabendo nos botões;
+  - os caracteres da fonte nos dois idiomas.
+
 **Balcão em pixel art (protótipo):** o balcão é desenhado num `SubViewport` de 640x360, com filtro nearest e pixels alinhados. A bancada de runas e os cartões do dia continuam em resolução cheia.
 
 - **Grade inteira:** `AtelierPixelFrame` (`scripts/game/pixel_frame.gd`) mostra o balcão com a maior escala inteira que cabe na janela, centralizado, e pinta tarjas no espaço que sobra. Por exemplo: 2x em 1280x720, 3x em 1920x1080, 4x em 2560x1440, e 2x com tarjas de 43/24 px em 1366x768. Nunca há escala fracionária. O balcão fica numa `CanvasLayer` abaixo da interface, porque a posição de um `Control` é arredondada para o pixel lógico e, com a janela esticada, isso desalinha o balcão em 1 px.
