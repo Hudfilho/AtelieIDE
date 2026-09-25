@@ -107,6 +107,13 @@ func _run() -> void:
 	assert(not workbench.visible)
 	assert(game_state.reputation == 6)
 
+	# Cliente 4 (Rango): duas entradas somadas; o pedido é honesto.
+	bell.pressed.emit()
+	assert(_item(desk) == "Scroll of Snack Time")
+	approve.pressed.emit()
+	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["rango_snack_time"])
+	assert(game_state.outcomes["rango_snack_time"] == "delivered")
+
 	# Fim do dia 1 → livro-caixa → dia 2.
 	bell.pressed.emit()
 	assert(overlay.visible)
@@ -142,6 +149,16 @@ func _run() -> void:
 	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["sleego_gentle_rain"])
 	assert(not workbench.visible and game_state.outcomes["sleego_gentle_rain"] == "delivered")
 	assert(game_state.money > money_before_sleego, "Sleego pays for the rain")
+	# Nemo: ferroar piratas é magia ofensiva; recusar com prova vale reputação.
+	bell.pressed.emit()
+	assert(_item(desk) == "Scroll of the Stinging Tide")
+	desk.get_node("%ItemField").pressed.emit()
+	_rule_button(desk, "offensive_license").pressed.emit()
+	assert(desk.inspection.evidence.size() == 1)
+	var reputation_before_nemo: int = game_state.reputation
+	reject.pressed.emit()
+	assert(game_state.outcomes["nemo_stinging_tide"] == "rejected")
+	assert(game_state.reputation == reputation_before_nemo + 1, "A cited rejection is a correct rejection")
 
 	# Fim do dia 2 → manhã do dia 3 traz o jornal, a multa e a suspeita.
 	bell.pressed.emit()
@@ -154,7 +171,7 @@ func _run() -> void:
 	assert(game_state.flag("guild_suspicion") == 1)
 	desk.get_node("%OverlayButton").pressed.emit()
 	var queue_label := desk.get_node("%QueueLabel") as Label
-	assert(queue_label.text == "4" and queue_label.tooltip_text == tr("DESK_HUD_QUEUE") % [4], queue_label.text)
+	assert(queue_label.text == "6" and queue_label.tooltip_text == tr("DESK_HUD_QUEUE") % [6], queue_label.text)
 
 	# Dia 3: o goblin recusado volta com um pedido honesto.
 	bell.pressed.emit()
@@ -164,12 +181,28 @@ func _run() -> void:
 	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["anderdingus_hush"])
 	bell.pressed.emit() # Mother Ketterly
 	reject.pressed.emit()
+	# Yuval: arredondar para cima com as runas de divisão do dia 3.
+	bell.pressed.emit()
+	assert(_item(desk) == "Scroll of Cleansing Rites")
+	approve.pressed.emit()
+	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["yuval_cleansing_rites"])
+	assert(game_state.outcomes["yuval_cleansing_rites"] == "delivered")
 	# Magia proibida entregue: a suspeita sobe na hora e o inspetor vira auditoria.
 	bell.pressed.emit()
 	assert(_item(desk) == "Scroll of Gentle Forgetting")
 	approve.pressed.emit()
 	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["osric_gentle_forgetting"])
 	assert(game_state.flag("guild_suspicion") == 3)
+	# Chrono Genesis fala de meditação logo depois da magia proibida, mas o
+	# pergaminho só diz a hora: o pedido é honesto e atender paga.
+	bell.pressed.emit()
+	assert(_item(desk) == "Scroll of the Waking Hour")
+	assert(AtelierInspection.discrepancies(desk.current_order, desk._day().rules).is_empty(), "Chrono's form is clean")
+	var money_before_chrono: int = game_state.money
+	approve.pressed.emit()
+	_write(canvas, workbench, SpellJudgeSmoke.SOLUTIONS["chrono_waking_hour"])
+	assert(game_state.outcomes["chrono_waking_hour"] == "delivered")
+	assert(game_state.money > money_before_chrono, "Chrono pays for the hour")
 	bell.pressed.emit()
 	assert(_item(desk) == "Audit Tally")
 	approve.pressed.emit()

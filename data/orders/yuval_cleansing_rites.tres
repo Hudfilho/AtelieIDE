@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Resource" path="res://data/portraits/yuval.tres" id="portrait"]
+
+[resource]
+script = ExtResource("1_order")
+id = "yuval_cleansing_rites"
+client_name = "Yuval"
+age = "41"
+race = "Human"
+signature = "Yuval"
+portrait = ExtResource("portrait")
+portrait_color = Color(0.5, 0.36, 0.3, 1)
+greeting = "Easy, scribe. I hunt curses, not scribes. Unless you give me reason."
+reaction_approved = "Clean work. The innocent sleep safer tonight."
+reaction_refused = "Refusing a hunter his tools. I will remember this shop."
+item = "Scroll of Cleansing Rites"
+details = "A hex festers in the old mill. Each rite cleanses part of it. Tell me how many rites I need; half a rite cleanses nothing."
+spec = "Print how many rites the hex needs, rounding up.
+READ the hex's strength from slot 000 and how much one rite cleanses from slot 001. A partial rite still counts as a whole one."
+examples = Array[Dictionary]([{"memory": {0: 10, 1: 3}, "output": ["4"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 9, 1: 3}, "output": ["3"]}, {"memory": {0: 1, 1: 5}, "output": ["1"]}, {"memory": {0: 20, 1: 1}, "output": ["20"]}])
+par_runes = 8
+reward = 20

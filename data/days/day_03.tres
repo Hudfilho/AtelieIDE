@@ -5,8 +5,10 @@
 [ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="3_order"]
 [ext_resource type="Resource" path="res://data/orders/anderdingus_hush.tres" id="o0"]
 [ext_resource type="Resource" path="res://data/orders/ketterly_fair_shares.tres" id="o1"]
-[ext_resource type="Resource" path="res://data/orders/osric_gentle_forgetting.tres" id="o2"]
-[ext_resource type="Resource" path="res://data/orders/guild_inspector_routine.tres" id="o3"]
+[ext_resource type="Resource" path="res://data/orders/yuval_cleansing_rites.tres" id="o2"]
+[ext_resource type="Resource" path="res://data/orders/osric_gentle_forgetting.tres" id="o3"]
+[ext_resource type="Resource" path="res://data/orders/chrono_waking_hour.tres" id="o4"]
+[ext_resource type="Resource" path="res://data/orders/guild_inspector_routine.tres" id="o5"]
 [ext_resource type="Resource" path="res://data/rules/offensive_license.tres" id="rule_offensive_license"]
 [ext_resource type="Resource" path="res://data/rules/signature.tres" id="rule_signature"]
 [ext_resource type="Resource" path="res://data/rules/forbidden_mind.tres" id="rule_forbidden_mind"]
@@ -17,4 +19,4 @@ title = "Day 3 - The Inspection"
 intro = "The royal embargo was lifted overnight, but a Guild decree arrived with the dawn: some magic must never be written. Word is that a Guild inspector will visit the shops today.\n\nNew runes arrived as well: division, remainders, and a way to store values in memory."
 rules = Array[ExtResource("2_rule")]([ExtResource("rule_offensive_license"), ExtResource("rule_signature"), ExtResource("rule_forbidden_mind")])
 runes = PackedStringArray("ORB", "TRIANGLE", "READ", "DIAMOND", "CROSS", "TWIN", "CUP", "MOON", "PLUS", "GT", "WARP_ENDPOINT", "JUMP_IF_TRUE", "SLASH", "SPIRAL", "SQUARE")
-orders = Array[ExtResource("3_order")]([ExtResource("o0"), ExtResource("o1"), ExtResource("o2"), ExtResource("o3")])
+orders = Array[ExtResource("3_order")]([ExtResource("o0"), ExtResource("o1"), ExtResource("o2"), ExtResource("o3"), ExtResource("o4"), ExtResource("o5")])

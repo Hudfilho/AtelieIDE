@@ -12,6 +12,7 @@ const SOLUTIONS := {
 	"mira_warm_light": [["ORB", 3], ["TRIANGLE", 128]],
 	"anderdingus_fireball": [["ORB", 9], ["TRIANGLE", 128]],
 	"tomas_warming_charm": [["READ", 0], ["ORB", 10], ["DIAMOND", 128], ["TRIANGLE", 128]],
+	"rango_snack_time": [["READ", 0], ["READ", 1], ["DIAMOND", 128], ["TRIANGLE", 128]],
 	"pip_party_sparks": [["READ", 0], ["TWIN", 128], ["PLUS", 128], ["TRIANGLE", 128]],
 	"faelar_quiet_growth": [["READ", 0], ["TWIN", 128], ["DIAMOND", 128], ["TRIANGLE", 128]],
 	"brom_doubled_ore": [["READ", 0], ["TWIN", 128], ["DIAMOND", 128], ["TRIANGLE", 128]],
@@ -23,13 +24,21 @@ const SOLUTIONS := {
 	],
 	# Sede do solo menos a chuva que já caiu (SUB estreia no dia 2).
 	"sleego_gentle_rain": [["READ", 0], ["READ", 1], ["MOON", 128], ["TRIANGLE", 128]],
+	"nemo_stinging_tide": [["READ", 0], ["ORB", 3], ["PLUS", 128], ["TRIANGLE", 128]],
 	"anderdingus_hush": [["READ", 0], ["ORB", 3], ["SLASH", 128], ["TRIANGLE", 128]],
 	"anderdingus_bigger_fireball": [["READ", 0], ["TWIN", 128], ["PLUS", 128], ["TRIANGLE", 128]],
 	"ketterly_fair_shares": [
 		["READ", 0], ["READ", 1], ["SLASH", 128], ["TRIANGLE", 128],
 		["READ", 0], ["READ", 1], ["SPIRAL", 128], ["TRIANGLE", 128],
 	],
+	# Divisão arredondada para cima: (força + cada rito - 1) / cada rito.
+	"yuval_cleansing_rites": [
+		["READ", 0], ["READ", 1], ["DIAMOND", 128], ["ORB", 1],
+		["MOON", 128], ["READ", 1], ["SLASH", 128], ["TRIANGLE", 128],
+	],
 	"osric_gentle_forgetting": [["READ", 0], ["ORB", 10], ["SLASH", 128], ["TRIANGLE", 128]],
+	# Relógio de 24 horas: o MOD dá a volta, mesmo depois de dias de meditação.
+	"chrono_waking_hour": [["READ", 0], ["READ", 1], ["DIAMOND", 128], ["ORB", 24], ["SPIRAL", 128], ["TRIANGLE", 128]],
 	"guild_inspector_routine": [["READ", 0], ["READ", 1], ["PLUS", 128], ["TRIANGLE", 128]],
 	# n * (n + 1) / 2: a fórmula que alcança o bônus de elegância.
 	"guild_inspector_audit": [
@@ -47,6 +56,7 @@ const EXPECTED_BROKEN_RULES := {
 	"brom_doubled_ore": ["signature"],
 	"anderdingus_bigger_fireball": ["offensive_license", "signature"],
 	"osric_gentle_forgetting": ["forbidden_mind"],
+	"nemo_stinging_tide": ["offensive_license"],
 }
 
 ## A auditoria também aceita o laço (soma com STORE), só não ganha o bônus.

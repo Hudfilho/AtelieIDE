@@ -65,7 +65,7 @@ func _run() -> void:
 			for order in AtelierShopDay.versions_of(slot):
 				var found := AtelierInspection.discrepancies(order, day.rules)
 				assert(found.is_empty() == day.is_legal(order), "%s: discrepancies disagree with legality" % order.id)
-	for legal_id in ["mira_warm_light", "tomas_warming_charm", "pip_party_sparks", "oona_vesper_bell", "anderdingus_hush", "ketterly_fair_shares", "guild_inspector_routine", "guild_inspector_audit"]:
+	for legal_id in ["mira_warm_light", "tomas_warming_charm", "pip_party_sparks", "oona_vesper_bell", "anderdingus_hush", "ketterly_fair_shares", "chrono_waking_hour", "rango_snack_time", "yuval_cleansing_rites", "guild_inspector_routine", "guild_inspector_audit"]:
 		for number in [1, 2, 3]:
 			assert(AtelierInspection.discrepancies(_order(legal_id), _day(number).rules).is_empty(), "%s should be legal on day %d" % [legal_id, number])
 
@@ -73,8 +73,10 @@ func _run() -> void:
 	var expectations := {
 		signature: {"anderdingus_fireball": true, "brom_doubled_ore": true, "anderdingus_bigger_fireball": true, "mira_warm_light": false, "anderdingus_hush": false, "guild_inspector_routine": false},
 		embargo: {"faelar_quiet_growth": true, "pip_party_sparks": false, "brom_doubled_ore": false},
-		forbidden: {"osric_gentle_forgetting": true, "ketterly_fair_shares": false, "anderdingus_fireball": false},
-		offensive: {"anderdingus_fireball": true, "anderdingus_bigger_fireball": true, "anderdingus_hush": false},
+		# Meditar não é magia sobre a mente: o pergaminho do Chrono só diz a hora.
+		forbidden: {"osric_gentle_forgetting": true, "ketterly_fair_shares": false, "anderdingus_fireball": false, "chrono_waking_hour": false, "yuval_cleansing_rites": false},
+		# Ferroar piratas é ataque; purificar um feitiço, não.
+		offensive: {"anderdingus_fireball": true, "anderdingus_bigger_fireball": true, "anderdingus_hush": false, "nemo_stinging_tide": true, "yuval_cleansing_rites": false},
 	}
 	for rule in expectations:
 		var cases: Dictionary = expectations[rule]
