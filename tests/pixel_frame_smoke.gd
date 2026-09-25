@@ -12,6 +12,9 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	# As preferências salvas do jogador (idioma, estilo do balcão) não entram
+	# no teste: um arquivo que nunca é gravado deixa tudo no padrão.
+	AtelierSettings.path = "user://smoke_defaults.cfg"
 	# Escalas esperadas nas resoluções comuns.
 	var expected := {
 		Vector2i(1280, 720): [2, Rect2i(0, 0, 1280, 720)],

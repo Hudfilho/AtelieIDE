@@ -28,7 +28,7 @@ func _frames(count := 3) -> void:
 
 
 func _run() -> void:
-	AtelierDeskStyles.settings_path = TEST_SETTINGS
+	AtelierSettings.path = TEST_SETTINGS
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SETTINGS))
 	var styles := AtelierDeskStyles.all()
 	assert(styles.size() >= 2, "Expected at least two desk styles")
@@ -56,16 +56,20 @@ func _run() -> void:
 	AtelierDeskStyles.remember(styles[1])
 	assert(AtelierDeskStyles.preferred().id == styles[1].id, "The chosen style is remembered")
 
-	# 3. A tela de título lista os estilos e salva a escolha.
+	# 3. As configurações (abertas pela tela de título) listam os estilos e
+	# salvam a escolha.
 	var title = load("res://scenes/game/Title.tscn").instantiate()
 	root.add_child(title)
 	await process_frame
-	var option := title.get_node("%StyleOption") as OptionButton
+	var settings := title.get_node("%Settings") as AtelierSettingsPanel
+	(title.get_node("%SettingsButton") as Button).pressed.emit()
+	assert(settings.visible, "The settings button opens the settings")
+	var option := settings.get_node("%StyleOption") as OptionButton
 	assert(option.item_count == styles.size())
-	assert(option.selected == 1, "The title shows the remembered style")
+	assert(option.selected == 1, "The settings show the remembered style")
 	option.select(0)
 	option.item_selected.emit(0)
-	assert(AtelierDeskStyles.preferred().id == styles[0].id, "Picking a style on the title saves it")
+	assert(AtelierDeskStyles.preferred().id == styles[0].id, "Picking a style in the settings saves it")
 	title.queue_free()
 	await process_frame
 

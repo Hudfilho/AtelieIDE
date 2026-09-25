@@ -20,6 +20,8 @@ var money := STARTING_MONEY
 var reputation := STARTING_REPUTATION
 var day_index := 0
 ## Linhas do livro-caixa do dia: {"text": String, "money": int, "reputation": int}.
+## Linhas que vêm de uma chave guardam também "key" e "args", para o livro-caixa
+## ser mostrado no idioma da vez (entry_text).
 var ledger: Array[Dictionary] = []
 ## Estado do mundo que as condições dos clientes consultam. Ausente = 0.
 var flags: Dictionary[String, int] = {}
@@ -56,11 +58,25 @@ func begin_next_day() -> PackedStringArray:
 	return apply_due_consequences()
 
 
-func record(text: String, money_delta := 0, reputation_delta := 0) -> void:
+func record(text: String, money_delta := 0, reputation_delta := 0, key := "", args: Array = []) -> void:
 	money += money_delta
 	reputation += reputation_delta
-	ledger.append({"text": text, "money": money_delta, "reputation": reputation_delta})
+	ledger.append({"text": text, "key": key, "args": args, "money": money_delta, "reputation": reputation_delta})
 	changed.emit()
+
+
+## Linha do livro-caixa a partir de uma chave de tradução.
+func _record_key(key: String, args: Array, money_delta := 0, reputation_delta := 0) -> void:
+	record(tr(key) % args if not args.is_empty() else tr(key), money_delta, reputation_delta, key, args)
+
+
+## Texto de uma linha do livro-caixa no idioma atual.
+func entry_text(entry: Dictionary) -> String:
+	var key: String = entry.get("key", "")
+	if key.is_empty():
+		return str(entry["text"])
+	var args: Array = entry.get("args", [])
+	return tr(key) % args if not args.is_empty() else tr(key)
 
 
 func flag(flag_name: String) -> int:
@@ -82,7 +98,7 @@ func resolve_customer(slot: AtelierScrollOrder) -> AtelierScrollOrder:
 ## Entrega um pergaminho aprovado e aceito pelo juiz; devolve quanto foi pago.
 func deliver(order: AtelierScrollOrder, elegant: bool) -> int:
 	var paid := order.reward + (ELEGANT_BONUS if elegant else 0)
-	record(tr("LEDGER_SOLD_ELEGANT" if elegant else "LEDGER_SOLD") % [order.item, order.client_name], paid, 1 if current_day().is_legal(order) else 0)
+	_record_key("LEDGER_SOLD_ELEGANT" if elegant else "LEDGER_SOLD", [order.item, order.client_name], paid, 1 if current_day().is_legal(order) else 0)
 	_decide(order, "delivered", order.on_delivered)
 	return paid
 
@@ -97,10 +113,10 @@ func reject(order: AtelierScrollOrder, cited_rules: Array[AtelierShopRule] = [])
 		if current_day().rules.has(rule) and rule.violated_by(order) and not justified.has(rule):
 			justified.append(rule)
 	if justified.is_empty():
-		record(tr("LEDGER_REFUSED_NO_CAUSE") % [order.client_name], 0, -1)
+		_record_key("LEDGER_REFUSED_NO_CAUSE", [order.client_name], 0, -1)
 	else:
 		var titles := PackedStringArray(justified.map(func(rule: AtelierShopRule) -> String: return rule.title))
-		record(tr("LEDGER_REFUSED") % [order.client_name, order.item, ", ".join(titles)], 0, 1)
+		_record_key("LEDGER_REFUSED", [order.client_name, order.item, ", ".join(titles)], 0, 1)
 	_decide(order, "rejected", order.on_rejected)
 	return not justified.is_empty()
 
@@ -108,11 +124,11 @@ func reject(order: AtelierScrollOrder, cited_rules: Array[AtelierShopRule] = [])
 ## Penalidade por inspeção confusa (ligações erradas demais com um cliente).
 ## Quem garante que acontece uma vez por cliente é a AtelierInspection.
 func penalize_inspection(order: AtelierScrollOrder, amount: int) -> void:
-	record(tr("LEDGER_INSPECTION_PENALTY") % [order.client_name], 0, -amount)
+	_record_key("LEDGER_INSPECTION_PENALTY", [order.client_name], 0, -amount)
 
 
 func abandon(order: AtelierScrollOrder) -> void:
-	record(tr("LEDGER_ABANDONED") % [order.item, order.client_name], 0, -1)
+	_record_key("LEDGER_ABANDONED", [order.item, order.client_name], 0, -1)
 	_decide(order, "abandoned", order.on_abandoned)
 
 
@@ -162,6 +178,9 @@ func _apply(consequence: AtelierConsequence) -> void:
 	for flag_name in consequence.flag_changes:
 		flags[flag_name] = flag(flag_name) + consequence.flag_changes[flag_name]
 	if consequence.money != 0 or consequence.reputation != 0 or not consequence.ledger_text.is_empty():
-		record(consequence.ledger_text if not consequence.ledger_text.is_empty() else tr("LEDGER_CONSEQUENCE"), consequence.money, consequence.reputation)
+		if consequence.ledger_text.is_empty():
+			_record_key("LEDGER_CONSEQUENCE", [], consequence.money, consequence.reputation)
+		else:
+			record(consequence.ledger_text, consequence.money, consequence.reputation)
 	else:
 		changed.emit()

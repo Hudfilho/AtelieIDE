@@ -53,6 +53,8 @@ const SHAKE_STEPS := 6
 @export var sounds: Dictionary[StringName, AudioStream] = {}
 
 var _active_kind := &""
+## Tipo da marca de tinta à vista (para reescrever se o idioma mudar).
+var _ink_kind := &""
 var _impacted := false
 var _stamp_tween: Tween
 var _shake_tween: Tween
@@ -197,6 +199,7 @@ func show_ink(kind: StringName) -> void:
 	frame.content_margin_bottom = 0.0
 	ink_mark.add_theme_stylebox_override("normal", frame)
 	ink_mark.add_theme_color_override("font_color", ink)
+	_ink_kind = kind
 	ink_mark.text = tr("DESK_INK_APPROVED" if kind == APPROVE else "DESK_INK_REFUSED")
 	ink_mark.pivot_offset = (ink_mark.get_combined_minimum_size() * 0.5).round()
 	ink_mark.show()
@@ -212,9 +215,15 @@ func show_ink(kind: StringName) -> void:
 
 
 func clear_ink() -> void:
+	_ink_kind = &""
 	if ink_mark != null:
 		ink_mark.hide()
 		ink_mark.text = ""
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED and ink_mark != null and not _ink_kind.is_empty():
+		ink_mark.text = tr("DESK_INK_APPROVED" if _ink_kind == APPROVE else "DESK_INK_REFUSED")
 
 
 ## ======================== TREMIDA ========================

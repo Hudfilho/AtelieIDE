@@ -130,7 +130,7 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 - A frase e os botões pintados em inglês saem. Entram botões de verdade, traduzidos, com as molduras recortadas da própria ilustração: a verde com ramos para "Abrir a loja" e as escuras com filete dourado para as outras opções. As molduras são texturas de 9 fatias, com as pontas inteiras e o meio esticando conforme o texto.
 - `tools/title_art/import_title_art.py` gera o fundo limpo e as molduras (normal, mouse em cima e clique) em `art/title/`.
 - Fundo e botões ficam num palco de 1280x720 (`Title.tscn`) que escala junto para cobrir a janela sem distorcer, então os botões continuam nos lugares dos pintados. Em telas mais largas que 16:9 o corte sai mais da mesa do que do logotipo.
-- O foco de teclado acende a moldura dourada do botão, e o seletor de estilo do balcão fica logo abaixo de "Sair".
+- O foco de teclado acende a moldura dourada do botão. O botão "Configurações" fica entre a IDE livre e "Sair".
 - A fonte é a [Cormorant Garamond](https://github.com/CatharsisFonts/Cormorant) (licença SIL OFL 1.1, em `art/fonts/cormorant_garamond/OFL.txt`), usada como fonte variável com peso 500 e renderizada por MSDF para ficar nítida em qualquer escala. Os acentos altos e finos (ê, ô) são do desenho da fonte.
 - `tests/title_smoke.gd` confere:
   - a cobertura em 16:9, 16:10, 21:9 e 4:3;
@@ -145,7 +145,7 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 - **Balcão físico (M8):** em vez de painéis, o jogador vê objetos sobre a mesa. Em cima ficam a janela com o cliente, o balão de fala (só o nome e a fala; a raça fica no pedido) e a vela e o sino no peitoril. Na mesa ficam:
   - o livro de regras aberto, com duas páginas e regras numeradas (`AtelierContentBudget.rule_pages` divide as regras entre as páginas);
   - o pedido no centro, o papel mais claro da cena;
-  - os carimbos em pé na bandeja de tinta (`AtelierDeskStamp`, que também serve para o sino): sobem 2 px no hover e têm o nome numa plaquinha de latão;
+  - os carimbos em pé na bandeja de tinta (`AtelierDeskStamp`): sobem 2 px no hover e têm o nome numa plaquinha de latão;
   - uma única nota da inspeção, presa com tacha.
 
   Na parede fica o cartão do dia: número do dia, moedas, reputação e fila ao lado dos ícones pintados, com o texto completo na dica de cada número.
@@ -153,7 +153,13 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
 - **Cores com significado:** vermelho é discrepância e recusa, verde é aprovado, roxo é o efeito exigido e dourado é interação (seleção, sino). Nenhuma delas aparece como enfeite.
 - **Seleção:** o campo ou a regra escolhida ganha uma barra dourada na margem e um sublinhado, sem pintar a linha inteira. As provas continuam em tinta vermelha com `»`.
 - **Dicas da nota:** mensagens do tipo "clique num campo" somem sozinhas depois de alguns segundos (`hint_fade_delay`). Resultados, avisos e penalidades ficam.
-- **Estilos de arte do balcão:** há dois, escolhidos na tela de título. A escolha fica salva em `user://settings.cfg` (`AtelierDeskStyles`).
+- **Sino:** é só o objeto, sem plaquinha (o nome aparece na dica do mouse). Brilha de leve, pulsando, quando tocar é a próxima ação; brilha mais forte e sobe 2 px com o mouse em cima; apaga enquanto um cliente é atendido. O halo (`bell_glow.png`) sai de `generate_pixel_art.py`.
+- **Configurações:** a engrenagem no canto do balcão, a tecla Esc (em qualquer tela do balcão) ou o botão da tela de título abrem o painel (`scenes/game/Settings.tscn`, `AtelierSettingsPanel`), com:
+  - **idioma:** automático (o do sistema), inglês ou português. Troca na hora, sem reiniciar: o balcão, a bancada, o livro-caixa e a marca do carimbo guardam como escrever cada texto e reescrevem quando o idioma muda;
+  - **estilo de arte do balcão:** troca na hora.
+
+  As escolhas ficam salvas em `user://settings.cfg` (`AtelierSettings`). Os testes usam um arquivo próprio, para as preferências do jogador não mudarem o resultado.
+- **Estilos de arte do balcão:** há dois (`AtelierDeskStyles`).
   - **Arcano** (`arcane`): janela em arco, tapeçaria da lua e bandeja de carimbos.
   - **Botica** (`apothecary`): parede de tábuas com ervas, janela retangular, carimbos com almofadas de tinta.
 
@@ -174,7 +180,7 @@ No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *
   Hoje há retratos de Mira Holloway, Anderdingus, Elenia Valehart, Sleego, Kothar, Chrono Genesis, Yuval, Nemo e Rango. Os outros clientes usam uma silhueta tingida com `portrait_color`.
 - Os PNGs dos retratos (92x92, em `art/portraits/`) saem de `tools/pixel_art/make_portraits.py`. O script recorta os painéis de expressão das fichas em `art/concepts/portraits/`, separa o personagem do fundo, reduz para pixel art com uma paleta de 32 cores por personagem e contorna a silhueta. As fichas do estilo novo entram em `CUTOUTS`, com o recorte do tipo de fundo: pergaminho com enfeites pintados (`cutout_painted`, um GrabCut semeado pela massa do corpo), traço de nanquim com o corpo da cor do papel (`cutout_inked`) ou painel pintado até a borda (`cutout_sky`, só o céu dos cantos sai). A paleta delas é um k-means em Lab, que guarda acentos como o azul das tatuagens, e quem enche o painel inteiro sai menor na tela (`FIT`). As fichas são só a fonte visual: raça, idade e nome continuam vindo das encomendas. A pasta `art/concepts/` tem `.gdignore`, então o Godot não importa as fichas. `tests/portrait_smoke.gd` confere o formato dos PNGs e a troca de expressões.
 - A marca APPROVED/REFUSED cai numa área reservada do pergaminho (`StampBox`), sem cobrir texto.
-- As plaquinhas dos carimbos e o "tocar o sino" são escuras com borda de latão, com contraste de pelo menos 4.5:1 mesmo quando desligados.
+- As plaquinhas dos carimbos são escuras com borda de latão, com contraste de pelo menos 4.5:1 mesmo quando desligadas.
 - `tests/pixel_desk_smoke.gd` monta o balcão para todo cliente de todos os dias. Ele confere que:
   - nada sai da tela;
   - cada página do livro fica do seu lado do vinco;

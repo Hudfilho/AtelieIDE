@@ -23,6 +23,10 @@
 [ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_reject_head.png" id="23_reject_head"]
 [ext_resource type="Script" path="res://scripts/game/desk_stamp.gd" id="24_stamp"]
 [ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_tray.png" id="25_tray"]
+[ext_resource type="Texture2D" path="res://art/pixel/gear.png" id="26_gear"]
+[ext_resource type="Texture2D" path="res://art/pixel/bell_glow.png" id="29_bell_glow"]
+[ext_resource type="Texture2D" path="res://art/pixel/gear_hover.png" id="27_gear_hover"]
+[ext_resource type="PackedScene" path="res://scenes/game/Settings.tscn" id="28_settings"]
 
 [node name="Desk" type="Control"]
 layout_mode = 3
@@ -159,6 +163,19 @@ mouse_filter = 1
 theme_type_variation = &"CardLabel"
 text = ""
 
+[node name="SettingsButton" type="TextureButton" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 100.0
+offset_top = 8.0
+offset_right = 118.0
+offset_bottom = 26.0
+tooltip_text = "DESK_SETTINGS_TOOLTIP"
+mouse_default_cursor_shape = 2
+texture_normal = ExtResource("26_gear")
+texture_hover = ExtResource("27_gear_hover")
+texture_focused = ExtResource("27_gear_hover")
+
 [node name="Window" type="Control" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 layout_mode = 0
 offset_left = 215.0
@@ -190,15 +207,18 @@ texture = ExtResource("13_candle")
 [node name="BellButton" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 372.0
+offset_left = 395.0
 offset_top = 94.0
-offset_right = 452.0
-offset_bottom = 145.0
+offset_right = 429.0
+offset_bottom = 128.0
+tooltip_text = "DESK_BELL"
+mouse_default_cursor_shape = 2
 theme_type_variation = &"PixelBell"
-text = "DESK_BELL"
 script = ExtResource("24_stamp")
 rest_texture = ExtResource("14_bell")
 lifted_texture = ExtResource("14_bell_lift")
+show_plate = false
+glow_texture = ExtResource("29_bell_glow")
 
 [node name="BubbleTail" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
 layout_mode = 0
@@ -566,3 +586,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 4
 text = ""
+
+[node name="Settings" parent="." instance=ExtResource("28_settings")]
+unique_name_in_owner = true
+layout_mode = 1

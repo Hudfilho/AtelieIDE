@@ -12,7 +12,7 @@ const LOGO := Rect2(551, 61, 184, 230)
 ## Tamanhos lógicos da janela (stretch canvas_items + expand): 16:9, 16:10,
 ## 21:9 e 4:3.
 const WINDOWS: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1200), Vector2i(2560, 1080), Vector2i(1024, 768)]
-const TEXT_KEYS: Array[String] = ["TITLE_TAGLINE", "TITLE_PLAY", "TITLE_SANDBOX", "TITLE_QUIT", "TITLE_DESK_STYLE"]
+const TEXT_KEYS: Array[String] = ["TITLE_TAGLINE", "TITLE_PLAY", "TITLE_SANDBOX", "TITLE_QUIT", "SETTINGS_TITLE", "SETTINGS_LANGUAGE", "SETTINGS_LANGUAGE_AUTO", "SETTINGS_LANGUAGE_EN", "SETTINGS_LANGUAGE_PT_BR", "SETTINGS_DESK_STYLE", "SETTINGS_CLOSE"]
 
 
 func _initialize() -> void:
@@ -25,12 +25,12 @@ func _frames(count := 3) -> void:
 
 
 func _run() -> void:
-	AtelierDeskStyles.settings_path = "user://title_smoke_settings.cfg"
+	AtelierSettings.path = "user://title_smoke_settings.cfg"
 	var title = load("res://scenes/game/Title.tscn").instantiate()
 	root.add_child(title)
 	await _frames()
 	var stage := title.get_node("%Stage") as Control
-	var buttons: Array[Control] = [title.get_node("%PlayButton"), title.get_node("%SandboxButton"), title.get_node("%QuitButton"), title.get_node("%StyleOption")]
+	var buttons: Array[Control] = [title.get_node("%PlayButton"), title.get_node("%SandboxButton"), title.get_node("%SettingsButton"), title.get_node("%QuitButton")]
 	assert((title.get_node("%PlayButton") as Control).has_focus(), "The first button starts focused")
 
 	for window in WINDOWS:

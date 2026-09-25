@@ -6,15 +6,15 @@ extends SceneTree
 ## Não depende do idioma ativo: roda igual num sistema en ou pt_BR.
 
 const CSV_PATH := "res://localization/strings.csv"
-const SCENES: Array[String] = ["res://scenes/game/Title.tscn", "res://scenes/game/Desk.tscn", "res://scenes/game/Workbench.tscn"]
+const SCENES: Array[String] = ["res://scenes/game/Title.tscn", "res://scenes/game/Desk.tscn", "res://scenes/game/Workbench.tscn", "res://scenes/game/Settings.tscn"]
 const KEY_PATTERN := "^[A-Z][A-Z0-9_]+$"
 ## Prefixos das chaves; um literal com um deles no código tem de existir na tabela.
-const CODE_KEY_PATTERN := "\"((?:TITLE|DESK|BENCH|IDE|COMPILER|VM|FILE|JUDGE|INSPECT|LEDGER|FIELD|RUNE)_[A-Z0-9_]+)\""
+const CODE_KEY_PATTERN := "\"((?:TITLE|DESK|BENCH|IDE|COMPILER|VM|FILE|JUDGE|INSPECT|LEDGER|FIELD|RUNE|SETTINGS)_[A-Z0-9_]+)\""
 const PORTUGUESE_LETTERS := "[ãõçáéíóúâêôÃÕÇÁÉÍÓÚÂÊÔ]"
 ## Chamadas que mostram texto ao jogador. Um literal nelas só pode ter formato
 ## (%s, BBCode, pontuação) ou siglas; palavras precisam vir de uma chave.
 ## Linhas marcadas "# dev-only" (diagnóstico de desenvolvimento) ficam de fora.
-const DISPLAY_CALL := "(_say\\(|_say_feedback\\(|_client_leaves\\(|_show_overlay\\(|\\.text \\+?= |\\brecord\\(|draw_string\\(|draw_multiline_string\\(|_draw_panel_title\\(|add_item\\(|errors\\.append\\(|warnings\\.append\\(|\\.title = |\\.dialog_text = |\\bbody \\+?= |\\bline = |_leave_message = |\"error\": \")"
+const DISPLAY_CALL := "(_say\\(|_say_feedback\\(|_client_leaves\\(|_show_overlay\\(|\\.text \\+?= |\\brecord\\(|draw_string\\(|draw_multiline_string\\(|_draw_panel_title\\(|add_item\\(|errors\\.append\\(|warnings\\.append\\(|\\.title = |\\.dialog_text = |\\bbody \\+?= |\\bline = |_leave_text = |\"error\": \")"
 const FORMAT_NOISE := "\\[/?[a-z]+(=[^\\]]*)?\\]|%[-+0-9.]*[a-zA-Z]|\\\\[nt\"]"
 
 
@@ -63,7 +63,7 @@ func _run() -> void:
 		var state := (load(scene_path) as PackedScene).get_state()
 		for node_index in state.get_node_count():
 			for property_index in state.get_node_property_count(node_index):
-				if state.get_node_property_name(node_index, property_index) != &"text":
+				if not state.get_node_property_name(node_index, property_index) in [&"text", &"tooltip_text"]:
 					continue
 				var text := str(state.get_node_property_value(node_index, property_index))
 				if text.is_empty():

@@ -11,6 +11,9 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	# As preferências salvas do jogador (idioma, estilo do balcão) não entram
+	# no teste: um arquivo que nunca é gravado deixa tudo no padrão.
+	AtelierSettings.path = "user://smoke_defaults.cfg"
 	root.size = Vector2i(1280, 720)
 	var game_state: Node = root.get_node("GameState")
 	game_state.new_game()
@@ -238,7 +241,7 @@ func _run() -> void:
 
 	# Um jornal enorme rola dentro do cartão: o botão continua na tela.
 	var long_news := "\n\n".join(PackedStringArray(range(14).map(func(index: int) -> String: return "HEADLINE %d: a very long story about the shop." % index)))
-	desk.call("_show_overlay", "Stress test", long_news, "Continue", func() -> void: pass)
+	desk.call("_show_overlay", func() -> Array: return ["Stress test", long_news, "Continue"], func() -> void: pass)
 	for frame in 3:
 		await process_frame
 	var button_rect := (desk.get_node("%OverlayButton") as Button).get_global_rect()

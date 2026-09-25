@@ -17,6 +17,9 @@ func _frames(count := 3) -> void:
 
 
 func _run() -> void:
+	# As preferências salvas do jogador (idioma, estilo do balcão) não entram
+	# no teste: um arquivo que nunca é gravado deixa tudo no padrão.
+	AtelierSettings.path = "user://smoke_defaults.cfg"
 	# 1. A medição do orçamento é a mesma do desenho do balcão.
 	root.size = Vector2i(1280, 720)
 	var game_state: Node = root.get_node("GameState")

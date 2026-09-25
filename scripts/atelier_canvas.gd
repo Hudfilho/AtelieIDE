@@ -455,6 +455,14 @@ func _sync_textured_panel_skins() -> void:
 			skin.size = panel.size
 
 
+## Os painéis desenham textos traduzidos (e guardam uma imagem deles): refaz
+## tudo quando o idioma muda.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED and is_node_ready():
+		_invalidate_panel_cache()
+		queue_redraw()
+
+
 func _invalidate_panel_cache() -> void:
 	panel_cache_revision += 1
 	panel_cache_valid = false

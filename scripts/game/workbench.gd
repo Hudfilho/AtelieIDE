@@ -2,7 +2,8 @@ extends Control
 
 ## Bancada: o editor de runas em modo jogo, com a encomenda no topo. A bancada
 ## mostra só os exemplos; entregar confere também os testes ocultos com o
-## AtelierSpellJudge. Desistir devolve o cliente.
+## AtelierSpellJudge. Desistir devolve o cliente. Os textos escritos por código
+## são refeitos quando o idioma muda (configurações).
 
 signal delivered(result: Dictionary)
 signal abandoned
@@ -23,6 +24,8 @@ const PASS_COLOR := Color(0.62, 0.9, 0.55)
 
 var order: AtelierScrollOrder
 var judge := SpellJudge.new()
+## Como escrever a mensagem atual da bancada (para reescrever em outro idioma).
+var _result_text: Callable
 
 
 func _ready() -> void:
@@ -32,17 +35,21 @@ func _ready() -> void:
 	canvas.ritual_finished.connect(_on_preview_finished)
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED and is_node_ready() and order != null:
+		_show_order_texts()
+		if _result_text.is_valid():
+			result_label.text = _result_text.call()
+
+
 func open_order(new_order: AtelierScrollOrder, runes: PackedStringArray) -> void:
 	order = new_order
-	order_title.text = tr("BENCH_ORDER_TITLE") % [order.item, order.client_name]
-	spec_label.text = order.spec
-	cases_label.text = _describe_cases()
-	_say(tr("BENCH_START_HINT"), Color.WHITE)
+	_show_order_texts()
+	_say(_translated("BENCH_START_HINT"), Color.WHITE)
 	canvas.load_connections(order.starting_ritual)
 	canvas.set_allowed_symbols(runes)
 	# O ▶ da bancada usa as entradas do primeiro exemplo, para o READ ter o que ler.
 	canvas.run_memory = order.preview_memory()
-	reset_button.text = tr("BENCH_RESET_DRAFT" if not order.starting_ritual.is_empty() else "BENCH_CLEAR")
 	canvas.top_panel_open = true
 	# O Oráculo abre sozinho ao apertar ▶; fechado, sobra espaço para desenhar.
 	canvas.bottom_panel_open = false
@@ -56,6 +63,14 @@ func open_order(new_order: AtelierScrollOrder, runes: PackedStringArray) -> void
 func _frame_after_layout() -> void:
 	await get_tree().process_frame
 	canvas.frame_connections()
+
+
+## Cabeçalho da encomenda e botão de reiniciar, no idioma atual.
+func _show_order_texts() -> void:
+	order_title.text = tr("BENCH_ORDER_TITLE") % [order.item, order.client_name]
+	spec_label.text = order.spec
+	cases_label.text = _describe_cases()
+	reset_button.text = tr("BENCH_RESET_DRAFT" if not order.starting_ritual.is_empty() else "BENCH_CLEAR")
 
 
 func _describe_cases() -> String:
@@ -78,7 +93,7 @@ func _describe_cases() -> String:
 func _on_reset_pressed() -> void:
 	canvas.replace_connections(order.starting_ritual)
 	canvas.frame_connections()
-	_say(tr("BENCH_RESET_DONE"), Color.WHITE)
+	_say(_translated("BENCH_RESET_DONE"), Color.WHITE)
 	canvas.grab_focus()
 
 
@@ -90,21 +105,27 @@ func _on_preview_finished(result: Dictionary) -> void:
 	var actual := judge.describe_output(result.get("output", []))
 	var errors: Array = result.get("errors", [])
 	if not errors.is_empty():
-		_say(tr("BENCH_PREVIEW_BROKE") % [str(errors[0])], FAIL_COLOR)
+		_say(_translated("BENCH_PREVIEW_BROKE", [str(errors[0])]), FAIL_COLOR)
 	elif actual == expected:
-		_say(tr("BENCH_PREVIEW_MATCH") % [actual], PASS_COLOR)
+		_say(_translated("BENCH_PREVIEW_MATCH", [actual]), PASS_COLOR)
 	else:
-		_say(tr("BENCH_PREVIEW_MISMATCH") % [actual, expected], FAIL_COLOR)
+		_say(_translated("BENCH_PREVIEW_MISMATCH", [actual, expected]), FAIL_COLOR)
 
 
-func _say(text: String, color: Color) -> void:
-	result_label.text = text
+## Mensagem da bancada; recebe como escrevê-la (ver _result_text).
+func _say(text: Callable, color: Color) -> void:
+	_result_text = text
+	result_label.text = text.call()
 	result_label.modulate = color
+
+
+func _translated(key: String, args: Array = []) -> Callable:
+	return func() -> String: return tr(key) % args if not args.is_empty() else tr(key)
 
 
 func _on_deliver_pressed() -> void:
 	var result := judge.judge(canvas.connections, order)
 	if not result["passed"]:
-		_say(judge.describe_failure(result), FAIL_COLOR)
+		_say(func() -> String: return judge.describe_failure(result), FAIL_COLOR)
 		return
 	delivered.emit(result)
