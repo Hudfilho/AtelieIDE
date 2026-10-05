@@ -34,6 +34,20 @@ const OPCODE_PRINTLETTER := 0x1c
 const OPCODE_JUMP_IF_TRUE := 0x1d
 const OPCODE_READ := 0x1e
 
+const BINARY_OPCODES := [
+	OPCODE_ADD, OPCODE_SUB, OPCODE_MUL, OPCODE_DIV, OPCODE_MOD,
+	OPCODE_EQ, OPCODE_NEQ, OPCODE_LT, OPCODE_GT, OPCODE_LTE, OPCODE_GTE,
+	OPCODE_AND, OPCODE_OR,
+]
+const INTENSITY_OPERATIONS := [
+	OPCODE_ADD, OPCODE_SUB, OPCODE_MUL, OPCODE_DIV, OPCODE_MOD, OPCODE_NEG,
+]
+const STACK_READ_OPCODES := [
+	OPCODE_DROP, OPCODE_DUP, OPCODE_NEG, OPCODE_NOT, OPCODE_PRINT,
+	OPCODE_STORE, OPCODE_JUMP_IF_TRUE,
+]
+const STACK_PUSH_OPCODES := [OPCODE_PUSH, OPCODE_DUP, OPCODE_LOAD, OPCODE_READ]
+
 const SYMBOLS := [
 	{"kind": "ORB", "label": "PUSH", "description": "Coloca a intensidade na pilha.", "extra": "valor", "opcode": OPCODE_PUSH, "takes_operand": true, "result_type": "int"},
 	{"kind": "CUP", "label": "DROP", "description": "Descarta o valor no topo da pilha.", "extra": "pilha: −1", "opcode": OPCODE_DROP, "takes_operand": false},
@@ -67,35 +81,66 @@ const SYMBOLS := [
 	{"kind": "READ", "label": "READ", "description": "Empilha a memória no endereço indicado pela intensidade.", "extra": "memória", "opcode": OPCODE_READ, "takes_operand": true, "result_type": "int"}
 ]
 
+static var _symbols_by_kind: Dictionary = {}
+static var _symbols_by_opcode: Dictionary = {}
+
+
+static func _ensure_indexes() -> void:
+	if not _symbols_by_opcode.is_empty():
+		return
+	for symbol in SYMBOLS:
+		_symbols_by_kind[str(symbol["kind"])] = symbol
+		_symbols_by_opcode[int(symbol["opcode"])] = symbol
+
 
 static func symbol_data(kind: String) -> Dictionary:
-	for raw_symbol in SYMBOLS:
-		var symbol: Dictionary = raw_symbol
-		if str(symbol["kind"]) == kind:
-			return symbol.duplicate(true)
+	_ensure_indexes()
+	if _symbols_by_kind.has(kind):
+		return (_symbols_by_kind[kind] as Dictionary).duplicate(true)
 	return {"kind": kind, "label": kind, "description": "Símbolo desconhecido.", "extra": "", "opcode": -1, "takes_operand": false, "result_type": ""}
 
 
 static func symbol_for_opcode(opcode: int) -> Dictionary:
-	for raw_symbol in SYMBOLS:
-		var symbol: Dictionary = raw_symbol
-		if int(symbol["opcode"]) == opcode:
-			return symbol.duplicate(true)
-	return {}
+	return _opcode_metadata(opcode).duplicate(true)
+
+
+static func _opcode_metadata(opcode: int) -> Dictionary:
+	_ensure_indexes()
+	return _symbols_by_opcode.get(opcode, {})
 
 
 static func opcode_for_kind(kind: String) -> int:
-	return int(symbol_data(kind).get("opcode", -1))
+	_ensure_indexes()
+	return int((_symbols_by_kind.get(kind, {}) as Dictionary).get("opcode", -1))
 
 
 static func takes_operand(opcode: int) -> bool:
-	return bool(symbol_for_opcode(opcode).get("takes_operand", false))
+	return bool(_opcode_metadata(opcode).get("takes_operand", false))
 
 
 ## Metadado extensível: runas futuras só precisam declarar result_type: "int".
 static func produces_value_type(opcode: int, value_type: String) -> bool:
-	return str(symbol_for_opcode(opcode).get("result_type", "")) == value_type
+	return str(_opcode_metadata(opcode).get("result_type", "")) == value_type
 
 
 static func name_for_opcode(opcode: int) -> String:
-	return str(symbol_for_opcode(opcode).get("label", "UNKNOWN"))
+	return str(_opcode_metadata(opcode).get("label", "UNKNOWN"))
+
+
+static func is_known_opcode(opcode: int) -> bool:
+	_ensure_indexes()
+	return _symbols_by_opcode.has(opcode)
+
+
+static func required_stack_depth(opcode: int) -> int:
+	if opcode == OPCODE_SWAP or opcode in BINARY_OPCODES:
+		return 2
+	return 1 if opcode in STACK_READ_OPCODES else 0
+
+
+static func stack_delta(opcode: int) -> int:
+	if opcode in STACK_PUSH_OPCODES:
+		return 1
+	if opcode in [OPCODE_DROP, OPCODE_STORE] or opcode in BINARY_OPCODES:
+		return -1
+	return 0

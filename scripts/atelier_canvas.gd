@@ -10,9 +10,15 @@ const RuneCatalog = preload("res://scripts/core/rune_catalog.gd")
 const Palette = preload("res://scripts/core/atelier_palette.gd")
 const RuneDiagram = preload("res://scripts/core/rune_diagram.gd")
 const RuneCompiler = preload("res://scripts/core/rune_compiler.gd")
+const RuneNasmExporter = preload("res://scripts/core/rune_nasm_exporter.gd")
 const RuneBytecode = preload("res://scripts/core/rune_bytecode.gd")
 const RuneVM = preload("res://scripts/core/rune_vm.gd")
+const RitualFile = preload("res://scripts/core/atelier_ritual_file.gd")
 
+const FILE_BAR_HEIGHT := 40.0
+const FILE_MENU_SAVE := 1
+const FILE_MENU_OPEN := 2
+const FILE_MENU_ASSEMBLY := 3
 const PANEL_TAB_SIZE := 42.0
 const DEFAULT_LEFT_PANEL_WIDTH := 304.0
 const DEFAULT_RIGHT_PANEL_WIDTH := 236.0
@@ -77,12 +83,14 @@ const RUNE_ATLAS_INDEX := {
 const TEXTURED_PANEL_SKINS := true
 const PANEL_SKIN_EXTENT := 64
 const PANEL_SKIN_MARGIN := 12
+const PANEL_RASTER_CACHE_ENABLED := true
 const CLIPBOARD_RITUAL_PREFIX := "ATELIER_IDE_CELLS_V1"
 const THEME_SETTINGS_PATH := "user://atelier_theme.cfg"
 
 const PANEL_GAP := 12.0
-const FRAME_RADIUS := 10.0
-const CARD_RADIUS := 7.0
+const RESIZABLE_PANELS := ["left", "right", "top", "bottom"]
+const FRAME_RADIUS := 0.0
+const CARD_RADIUS := 0.0
 const CARD_TEXTURE_WIDTH := 256
 const CARD_MARGIN := 6
 const TITLE_TRACKING := 1.9
@@ -159,6 +167,7 @@ var vm: AtelierRuneVM = RuneVM.new()
 var execution_output: String = ""
 var execution_errors: Array[String] = []
 var execution_warnings: Array[String] = []
+var invalid_connection_indices: Dictionary = {}
 var last_bytecode := PackedByteArray()
 var connections: Array[Dictionary]:
 	get:
@@ -227,9 +236,10 @@ var anchor_move_source := Vector2.ZERO
 var anchor_move_target := Vector2.ZERO
 var anchor_move_snap_target := Vector2.ZERO
 var anchor_move_snap_target_valid := false
-var anchor_move_is_terminal := false
 var anchor_move_snap_started_at := 0.0
 var anchor_move_press_screen := Vector2.ZERO
+var terminal_move_point := Vector2.ZERO
+var terminal_move_connection_index := -1
 var anchor_move_settle_active := false
 var anchor_move_settle_from := Vector2.ZERO
 var anchor_move_settle_to := Vector2.ZERO
@@ -268,6 +278,24 @@ var diagnostic_static_layer_visible := true
 var atlas_baking_mode := false
 var panel_skin_texture: Texture2D
 var panel_skin_nodes: Dictionary = {}
+var panel_raster_cache_enabled := PANEL_RASTER_CACHE_ENABLED
+var panel_cache_textures: Dictionary = {}
+var panel_cache_rects: Dictionary = {}
+var panel_cache_valid := false
+var panel_cache_capture_pending := false
+var panel_cache_revision := 0
+var panel_cache_state_signature := 0
+var file_toolbar: Panel
+var file_menu_button: MenuButton
+var file_title_label: Label
+var save_file_dialog: FileDialog
+var open_file_dialog: FileDialog
+var assembly_file_dialog: FileDialog
+var file_error_dialog: AcceptDialog
+var assembly_result_dialog: AcceptDialog
+var open_confirmation: ConfirmationDialog
+var current_ritual_path := ""
+var saved_connections_signature := 0
 var grid_dot_textures := {}
 var filled_circle_texture: Texture2D
 var ring_textures := {}
@@ -307,6 +335,8 @@ func _ready() -> void:
 	focus_mode = Control.FOCUS_ALL
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	resized.connect(_invalidate_panel_cache)
+	resized.connect(_layout_file_toolbar)
 	filled_circle_texture = _create_filled_circle_texture()
 	# Texturas neutras: sao desenhadas em branco e tingidas na hora, por isso
 	# sobrevivem a troca de tema sem precisar ser refeitas.
@@ -318,6 +348,9 @@ func _ready() -> void:
 	_build_star_field()
 	_apply_theme(_load_saved_theme())
 	_create_textured_panel_skins()
+	_create_file_toolbar()
+	_create_file_dialogs()
+	saved_connections_signature = hash(connections)
 	grab_focus()
 	queue_redraw()
 
@@ -331,6 +364,8 @@ func _apply_theme(theme_name: String) -> void:
 		set("col_%s" % key, table[key])
 	_build_theme_resources()
 	_refresh_panel_skin_texture()
+	_refresh_file_toolbar_theme()
+	_invalidate_panel_cache()
 	queue_redraw()
 
 
@@ -360,7 +395,7 @@ func _refresh_panel_skin_texture() -> void:
 		return
 	var image := Image.create(PANEL_SKIN_EXTENT, PANEL_SKIN_EXTENT, false, Image.FORMAT_RGBA8)
 	var extent := float(PANEL_SKIN_EXTENT)
-	var radius := 11.0
+	var radius := FRAME_RADIUS
 	for y in range(PANEL_SKIN_EXTENT):
 		for x in range(PANEL_SKIN_EXTENT):
 			var point := Vector2(float(x) + 0.5, float(y) + 0.5)
@@ -404,10 +439,132 @@ func _sync_textured_panel_skins() -> void:
 		var panel: Rect2 = panel_rects.get(skin_name, Rect2())
 		if skin == null:
 			continue
-		skin.visible = diagnostic_static_layer_visible and panel.size.x > 0.0 and panel.size.y > 0.0
+		var live_during_ritual: bool = ritual_running and (skin_name == "left" or skin_name == "bottom" or skin_name == "right")
+		skin.visible = diagnostic_static_layer_visible and (not _panel_cache_can_draw() or live_during_ritual) and panel.size.x > 0.0 and panel.size.y > 0.0
 		if skin.visible:
 			skin.position = panel.position
 			skin.size = panel.size
+
+
+func _invalidate_panel_cache() -> void:
+	panel_cache_revision += 1
+	panel_cache_valid = false
+	panel_cache_textures.clear()
+	panel_cache_rects.clear()
+
+
+# O diagrama pode redesenhar a cada movimento do mouse. Só uma alteração do
+# conteúdo dos painéis exige uma nova captura.
+func _panel_cache_signature() -> int:
+	# Durante a execução, saída/pilha são desenhadas ao vivo; mudanças nelas não
+	# devem refazer a captura da paleta a cada instrução.
+	var stack: Array = [] if ritual_running else execution_state.get("stack", [])
+	var output := "" if ritual_running else execution_output
+	var errors: Array = [] if ritual_running else execution_errors
+	var warnings: Array = [] if ritual_running else execution_warnings
+	var selected_intensity := -1
+	var selected_kind := ""
+	if _has_selected_connection():
+		selected_intensity = _connection_intensity(connections[selected_connection])
+		selected_kind = str(connections[selected_connection].get("symbol", ""))
+	return hash([
+		size, active_theme,
+		left_panel_open, right_panel_open, top_panel_open, bottom_panel_open,
+		left_panel_size, right_panel_size, top_panel_size, bottom_panel_size,
+		left_command_scroll, palette_scroll, execution_speed_rps,
+		ritual_running, ritual_paused,
+		selected_connection, selected_symbol_connection, selected_connections,
+		selected_intensity, selected_kind, editing_intensity_text, intensity_text,
+		output, errors, warnings, stack,
+	])
+
+
+func _panel_cache_is_volatile() -> bool:
+	if panel_cache_capture_pending or performance_overlay_visible:
+		return true
+	if editing_intensity_text or _left_scroll_is_moving() or _palette_scroll_is_moving():
+		return true
+	if drag_mode == "intensity" or drag_mode == "left_scroll" or drag_mode == "left_scroll_pending" or drag_mode == "palette_scroll" or drag_mode == "execution_speed" or drag_mode.begins_with("resize_"):
+		return true
+	return top_panel_open and (hovered_palette_index >= 0 or animated_hover_palette_index >= 0)
+
+
+func _panel_cache_can_draw() -> bool:
+	return panel_raster_cache_enabled and diagnostic_static_layer_visible and panel_cache_valid and not _panel_cache_is_volatile()
+
+
+func _panel_cache_can_capture() -> bool:
+	return panel_raster_cache_enabled and diagnostic_static_layer_visible and not panel_cache_valid and not _panel_cache_is_volatile()
+
+
+func _panel_cache_regions() -> Array[Dictionary]:
+	var regions: Array[Dictionary] = [
+		{"name": "left", "rect": _left_panel_rect()},
+		{"name": "top", "rect": _top_panel_rect()},
+		{"name": "bottom", "rect": _bottom_panel_rect()},
+		{"name": "right", "rect": _right_panel_rect()},
+	]
+	var inspector := _intensity_inspector_rect()
+	if inspector.size.x > 0.0 and inspector.size.y > 0.0:
+		regions.append({"name": "inspector", "rect": inspector})
+	return regions
+
+
+func _draw_cached_panel_regions(static_only: bool) -> void:
+	for cache_name in ["left", "top", "bottom", "right", "inspector"]:
+		if static_only and cache_name in ["left", "bottom", "right"]:
+			continue
+		var texture := panel_cache_textures.get(cache_name) as Texture2D
+		var rect: Rect2 = panel_cache_rects.get(cache_name, Rect2())
+		if texture != null and rect.size.x > 0.0 and rect.size.y > 0.0:
+			draw_texture_rect(texture, rect, false, Color.WHITE)
+
+
+func _request_panel_cache_capture() -> void:
+	if not _panel_cache_can_capture():
+		return
+	panel_cache_capture_pending = true
+	call_deferred("_capture_panel_cache_after_draw", panel_cache_revision)
+
+
+func _capture_panel_cache_after_draw(requested_revision: int) -> void:
+	await RenderingServer.frame_post_draw
+	if requested_revision != panel_cache_revision:
+		panel_cache_capture_pending = false
+		return
+	var viewport_texture := get_viewport().get_texture()
+	if viewport_texture == null or size.x <= 0.0 or size.y <= 0.0:
+		panel_cache_capture_pending = false
+		return
+	var screenshot := viewport_texture.get_image()
+	if screenshot == null or screenshot.is_empty():
+		panel_cache_capture_pending = false
+		return
+	var screenshot_size := screenshot.get_size()
+	var scale := Vector2(float(screenshot_size.x) / size.x, float(screenshot_size.y) / size.y)
+	var textures := {}
+	var rects := {}
+	for entry in _panel_cache_regions():
+		var logical_rect: Rect2 = entry["rect"]
+		var pixel_position := Vector2i(
+				clampi(floori(logical_rect.position.x * scale.x), 0, screenshot_size.x),
+				clampi(floori(logical_rect.position.y * scale.y), 0, screenshot_size.y))
+		var pixel_end := Vector2i(
+				clampi(ceili(logical_rect.end.x * scale.x), 0, screenshot_size.x),
+				clampi(ceili(logical_rect.end.y * scale.y), 0, screenshot_size.y))
+		var pixel_rect := Rect2i(pixel_position, pixel_end - pixel_position)
+		if pixel_rect.size.x <= 0 or pixel_rect.size.y <= 0:
+			continue
+		var image := screenshot.get_region(pixel_rect)
+		var cache_name := str(entry["name"])
+		textures[cache_name] = ImageTexture.create_from_image(image)
+		rects[cache_name] = logical_rect
+	if requested_revision == panel_cache_revision and not textures.is_empty():
+		panel_cache_textures = textures
+		panel_cache_rects = rects
+		panel_cache_valid = true
+	panel_cache_capture_pending = false
+	queue_redraw()
 
 
 func _toggle_theme() -> void:
@@ -426,6 +583,250 @@ func _save_theme() -> void:
 	var config := ConfigFile.new()
 	config.set_value("atelier", "theme", active_theme)
 	config.save(THEME_SETTINGS_PATH)
+
+
+func _create_file_toolbar() -> void:
+	file_toolbar = Panel.new()
+	file_toolbar.name = "FileToolbar"
+	file_toolbar.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(file_toolbar)
+
+	file_menu_button = MenuButton.new()
+	file_menu_button.name = "FileMenu"
+	file_menu_button.text = "File"
+	file_menu_button.flat = false
+	file_menu_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	file_menu_button.focus_mode = Control.FOCUS_ALL
+	file_toolbar.add_child(file_menu_button)
+	var menu := file_menu_button.get_popup()
+	menu.add_item("Salvar runa...", FILE_MENU_SAVE)
+	menu.add_item("Abrir runa...", FILE_MENU_OPEN)
+	menu.add_separator()
+	menu.add_item("Exportar Assembly NASM (protótipo)...", FILE_MENU_ASSEMBLY)
+	menu.id_pressed.connect(_on_file_menu_item_pressed)
+
+	file_title_label = Label.new()
+	file_title_label.name = "FileTitle"
+	file_title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	file_toolbar.add_child(file_title_label)
+	_layout_file_toolbar()
+	_refresh_file_toolbar_theme()
+	_refresh_file_title()
+
+
+func _layout_file_toolbar() -> void:
+	if file_toolbar == null:
+		return
+	file_toolbar.position = Vector2.ZERO
+	file_toolbar.size = Vector2(size.x, FILE_BAR_HEIGHT)
+	file_menu_button.position = Vector2(12.0, 5.0)
+	file_menu_button.size = Vector2(80.0, 30.0)
+	file_title_label.position = Vector2(112.0, 5.0)
+	file_title_label.size = Vector2(maxf(size.x - 126.0, 0.0), 30.0)
+
+
+func _refresh_file_toolbar_theme() -> void:
+	if file_toolbar == null:
+		return
+	var bar_style := StyleBoxFlat.new()
+	bar_style.bg_color = col_frame_top
+	bar_style.border_color = col_brass
+	bar_style.set_border_width(SIDE_BOTTOM, 1)
+	file_toolbar.add_theme_stylebox_override("panel", bar_style)
+	var button_style := StyleBoxFlat.new()
+	button_style.bg_color = col_frame_bottom
+	button_style.border_color = col_brass
+	button_style.set_border_width_all(1)
+	button_style.set_corner_radius_all(5)
+	var hover_style := button_style.duplicate() as StyleBoxFlat
+	hover_style.bg_color = col_leather_light
+	file_menu_button.add_theme_stylebox_override("normal", button_style)
+	file_menu_button.add_theme_stylebox_override("hover", hover_style)
+	file_menu_button.add_theme_stylebox_override("pressed", hover_style)
+	file_menu_button.add_theme_color_override("font_color", col_gold_bright)
+	file_menu_button.add_theme_color_override("font_hover_color", col_gold_glow)
+	file_menu_button.add_theme_color_override("font_pressed_color", col_gold_glow)
+	file_menu_button.add_theme_font_size_override("font_size", 14)
+	var popup_style := StyleBoxFlat.new()
+	popup_style.bg_color = col_frame_top
+	popup_style.border_color = col_brass
+	popup_style.set_border_width_all(1)
+	popup_style.set_corner_radius_all(6)
+	var popup := file_menu_button.get_popup()
+	popup.add_theme_stylebox_override("panel", popup_style)
+	popup.add_theme_color_override("font_color", col_text)
+	popup.add_theme_color_override("font_disabled_color", col_text_faint)
+	file_title_label.add_theme_color_override("font_color", col_text_faint)
+	file_title_label.add_theme_font_size_override("font_size", 12)
+
+
+func _refresh_file_title() -> void:
+	if file_title_label == null:
+		return
+	file_title_label.text = "ATELIER IDE   /   %s" % ("SEM TÍTULO" if current_ritual_path.is_empty() else current_ritual_path.get_file())
+
+
+func _create_file_dialogs() -> void:
+	var documents_dir := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
+	save_file_dialog = FileDialog.new()
+	save_file_dialog.name = "SaveRitualDialog"
+	save_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	save_file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	save_file_dialog.use_native_dialog = true
+	save_file_dialog.mode_overrides_title = false
+	save_file_dialog.title = "Salvar runa"
+	if not documents_dir.is_empty():
+		save_file_dialog.current_dir = documents_dir
+	save_file_dialog.add_filter("*.atelier", "Runas do Ateliê")
+	save_file_dialog.file_selected.connect(_on_save_file_selected)
+	add_child(save_file_dialog)
+
+	open_file_dialog = FileDialog.new()
+	open_file_dialog.name = "OpenRitualDialog"
+	open_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	open_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	open_file_dialog.use_native_dialog = true
+	open_file_dialog.mode_overrides_title = false
+	open_file_dialog.title = "Abrir runa"
+	if not documents_dir.is_empty():
+		open_file_dialog.current_dir = documents_dir
+	open_file_dialog.add_filter("*.atelier", "Runas do Ateliê")
+	open_file_dialog.file_selected.connect(_on_open_file_selected)
+	add_child(open_file_dialog)
+	assembly_file_dialog = FileDialog.new()
+	assembly_file_dialog.name = "AssemblyExportDialog"
+	assembly_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	assembly_file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	assembly_file_dialog.use_native_dialog = true
+	assembly_file_dialog.mode_overrides_title = false
+	assembly_file_dialog.title = "Exportar Assembly NASM"
+	if not documents_dir.is_empty():
+		assembly_file_dialog.current_dir = documents_dir
+	assembly_file_dialog.add_filter("*.asm", "Assembly NASM")
+	assembly_file_dialog.file_selected.connect(_on_assembly_file_selected)
+	add_child(assembly_file_dialog)
+
+	file_error_dialog = AcceptDialog.new()
+	file_error_dialog.title = "Arquivo de runa"
+	add_child(file_error_dialog)
+	assembly_result_dialog = AcceptDialog.new()
+	assembly_result_dialog.title = "Assembly exportado"
+	add_child(assembly_result_dialog)
+	open_confirmation = ConfirmationDialog.new()
+	open_confirmation.title = "Abrir outra runa?"
+	open_confirmation.dialog_text = "O ritual atual tem alterações não salvas. Abrir outra runa vai descartá-las."
+	open_confirmation.confirmed.connect(_show_open_file_dialog)
+	add_child(open_confirmation)
+
+
+func _on_file_menu_item_pressed(id: int) -> void:
+	if editing_intensity_text:
+		_commit_intensity_text()
+	_cancel_drag()
+	queue_redraw()
+	match id:
+		FILE_MENU_SAVE:
+			_show_save_file_dialog()
+		FILE_MENU_OPEN:
+			if hash(connections) != saved_connections_signature:
+				open_confirmation.popup_centered()
+			else:
+				_show_open_file_dialog()
+		FILE_MENU_ASSEMBLY:
+			_show_assembly_file_dialog()
+
+
+func _show_save_file_dialog() -> void:
+	if not current_ritual_path.is_empty():
+		save_file_dialog.current_dir = current_ritual_path.get_base_dir()
+		save_file_dialog.current_file = current_ritual_path.get_file()
+	else:
+		save_file_dialog.current_file = "runa.atelier"
+	save_file_dialog.popup_centered(Vector2i(900, 600))
+
+
+func _show_open_file_dialog() -> void:
+	if not current_ritual_path.is_empty():
+		open_file_dialog.current_dir = current_ritual_path.get_base_dir()
+	open_file_dialog.popup_centered(Vector2i(900, 600))
+
+
+func _show_assembly_file_dialog() -> void:
+	if not current_ritual_path.is_empty():
+		assembly_file_dialog.current_dir = current_ritual_path.get_base_dir()
+		assembly_file_dialog.current_file = current_ritual_path.get_file().get_basename() + ".asm"
+	else:
+		assembly_file_dialog.current_file = "runa.asm"
+	assembly_file_dialog.popup_centered(Vector2i(900, 600))
+
+
+func _on_save_file_selected(path: String) -> void:
+	var result: Dictionary = RitualFile.save_file(path, connections, pan, zoom)
+	if not result.get("ok", false):
+		_show_file_error(str(result.get("error", "Falha ao salvar a runa.")))
+		return
+	current_ritual_path = str(result["path"])
+	saved_connections_signature = hash(connections)
+	_refresh_file_title()
+
+
+func _on_open_file_selected(path: String) -> void:
+	var result: Dictionary = RitualFile.load_file(path)
+	if not result.get("ok", false):
+		_show_file_error(str(result.get("error", "Falha ao abrir a runa.")))
+		return
+	_apply_opened_ritual(result)
+
+
+func _on_assembly_file_selected(path: String) -> void:
+	var result: Dictionary = RuneNasmExporter.new().export_file(connections, path)
+	if not bool(result.get("ok", false)):
+		var messages: Array = result.get("errors", [])
+		_show_file_error("\n".join(messages) if not messages.is_empty() else "Falha ao exportar Assembly.")
+		return
+	assembly_result_dialog.dialog_text = "Arquivo NASM salvo em:\n%s" % str(result["path"])
+	assembly_result_dialog.popup_centered()
+
+
+func _apply_opened_ritual(document: Dictionary) -> void:
+	ritual_running = false
+	ritual_paused = false
+	execution_output = ""
+	execution_errors.clear()
+	execution_warnings.clear()
+	invalid_connection_indices.clear()
+	execution_instructions.clear()
+	execution_state.clear()
+	execution_intensity_overrides.clear()
+	execution_instruction_cursor = 0
+	execution_connection = -1
+	execution_highlight_ends_at = animation_clock
+	execution_step_elapsed = 0.0
+	last_bytecode.clear()
+	_reset_drag()
+	_deselect_connection()
+	_clear_diagram_animations()
+	diagram.restore(document["connections"])
+	terminal_move_connection_index = -1
+	terminal_move_point = Vector2.ZERO
+	diagram.undo_history.clear()
+	diagram.redo_history.clear()
+	pan = document["pan"]
+	zoom = document["zoom"]
+	left_command_scroll = 0.0
+	left_command_scroll_target = 0.0
+	_invalidate_symbol_connection_indices()
+	_invalidate_sequence_side_multiplier_cache()
+	current_ritual_path = str(document["path"])
+	saved_connections_signature = hash(connections)
+	_refresh_file_title()
+	_update_hover()
+	queue_redraw()
+
+
+func _show_file_error(message: String) -> void:
+	file_error_dialog.dialog_text = message
+	file_error_dialog.popup_centered()
 
 
 ## Recursos que carregam cor propria e por isso sao refeitos a cada tema.
@@ -450,8 +851,7 @@ func _build_theme_resources() -> void:
 	edge_stylebox.set_corner_radius_all(int(FRAME_RADIUS))
 	edge_stylebox.anti_aliasing = true
 
-	# As duas faixas que recortam a lista do grimorio acompanham a curva da
-	# moldura, para o painel nao ganhar quinas quadradas ao rolar.
+	# As faixas de scroll acompanham os cantos retos da moldura.
 	var leather := col_frame_top.lerp(col_frame_bottom, 0.5)
 	mask_top_stylebox = StyleBoxFlat.new()
 	mask_top_stylebox.bg_color = leather
@@ -479,7 +879,7 @@ func _build_theme_resources() -> void:
 	frame_inner_stylebox.draw_center = false
 	frame_inner_stylebox.border_color = col_frame_inner
 	frame_inner_stylebox.set_border_width_all(1)
-	frame_inner_stylebox.set_corner_radius_all(int(FRAME_RADIUS) - 4)
+	frame_inner_stylebox.set_corner_radius_all(maxi(int(FRAME_RADIUS) - 4, 0))
 	frame_inner_stylebox.anti_aliasing = true
 
 	card_stylebox = StyleBoxFlat.new()
@@ -567,6 +967,8 @@ func _create_sparkle_texture() -> Texture2D:
 ## quatro pontas arredondadas da mesa.
 func _create_corner_mask_texture() -> Texture2D:
 	var extent := int(FRAME_RADIUS)
+	if extent <= 0:
+		return null
 	var image := Image.create(extent, extent, false, Image.FORMAT_RGBA8)
 	for y in range(extent):
 		for x in range(extent):
@@ -582,17 +984,8 @@ func _rounded_distance(point: Vector2, bounds: Vector2, radius: float) -> float:
 	return Vector2(maxf(q.x, 0.0), maxf(q.y, 0.0)).length() + minf(maxf(q.x, q.y), 0.0) - radius
 
 
-## Carta de pergaminho do grimorio: gradiente vertical, cantos arredondados,
-## borda de tinta e o tracejado interno do desenho original. Assada uma vez e
-## esticada na horizontal, onde nao existe gradiente para distorcer.
-## Carta de pergaminho do grimorio: gradiente vertical, cantos arredondados,
-## borda de tinta e o tracejado interno do desenho original.
-##
-## A peca e assada uma vez por altura e guardada. Assar dentro de _draw a cada
-## quadro nao so custa caro: a textura recem-criada ainda nao subiu para a
-## placa quando o quadro e montado, e a carta sai branca.
-## Carta de pergaminho do grimorio: gradiente vertical, cantos arredondados,
-## borda de tinta, o tracejado interno e a sombra, tudo numa peca so.
+## Carta de pergaminho: gradiente vertical, cantos retos, borda e sombra.
+## Assada uma vez por altura e esticada na horizontal, sem distorcer o gradiente.
 ##
 ## A peca e assada uma vez por altura e guardada. Assar dentro de _draw a cada
 ## quadro nao so custa caro: a textura recem-criada ainda nao subiu para a
@@ -745,8 +1138,6 @@ func _process(delta: float) -> void:
 	_update_palette_scroll(delta)
 	if anchor_snap_active and animation_clock - anchor_snap_started_at >= ANCHOR_SNAP_DURATION:
 		_complete_anchor_snap()
-	if drag_mode == "move_anchor" and anchor_move_is_terminal and anchor_move_snap_target_valid and animation_clock - anchor_move_snap_started_at >= ANCHOR_SNAP_DURATION:
-		_continue_terminal_anchor_move()
 	if anchor_move_settle_active and animation_clock - anchor_move_settle_started_at >= ANCHOR_SNAP_DURATION:
 		_complete_anchor_move_settle()
 	if ritual_running:
@@ -762,9 +1153,20 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		queue_redraw()
 		get_viewport().set_input_as_handled()
 		return
+	if event.keycode == KEY_F6:
+		panel_raster_cache_enabled = not panel_raster_cache_enabled
+		_invalidate_panel_cache()
+		queue_redraw()
+		get_viewport().set_input_as_handled()
+		return
 	if event.keycode == KEY_F7:
 		diagnostic_static_layer_visible = not diagnostic_static_layer_visible
+		_invalidate_panel_cache()
 		queue_redraw()
+		get_viewport().set_input_as_handled()
+		return
+	if event.ctrl_pressed and (event.keycode == KEY_S or event.keycode == KEY_O):
+		_on_file_menu_item_pressed(FILE_MENU_SAVE if event.keycode == KEY_S else FILE_MENU_OPEN)
 		get_viewport().set_input_as_handled()
 		return
 	if editing_intensity_text:
@@ -810,6 +1212,11 @@ func _gui_input(event: InputEvent) -> void:
 					var target: Vector2 = candidate["point"]
 					if not target.is_equal_approx(line_start_world):
 						_begin_anchor_snap(target)
+		elif drag_mode == "extend_terminal":
+			var candidate := _grid_point_at(pointer_screen)
+			if candidate.has("point"):
+				var target: Vector2 = candidate["point"]
+				_trace_to_point(target)
 		elif drag_mode == "move_anchor":
 			_update_anchor_move_target()
 		elif drag_mode == "selection_pending":
@@ -846,7 +1253,7 @@ func _gui_input(event: InputEvent) -> void:
 			_update_execution_speed(pointer_screen)
 		elif drag_mode.begins_with("resize_"):
 			_resize_panel(pointer_screen)
-		var redraw_for_drag := drag_mode == "pan" or drag_mode == "connect" or drag_mode == "move_anchor" or drag_mode == "selection" or drag_mode == "selection_move" or drag_mode == "left_scroll" or drag_mode == "palette_scroll" or drag_mode == "symbol" or drag_mode == "intensity" or drag_mode == "execution_speed" or drag_mode.begins_with("resize_")
+		var redraw_for_drag := drag_mode == "pan" or drag_mode == "connect" or drag_mode == "extend_terminal" or drag_mode == "move_anchor" or drag_mode == "selection" or drag_mode == "selection_move" or drag_mode == "left_scroll" or drag_mode == "palette_scroll" or drag_mode == "symbol" or drag_mode == "intensity" or drag_mode == "execution_speed" or drag_mode.begins_with("resize_")
 		if hover_changed or redraw_for_drag:
 			queue_redraw()
 		accept_event()
@@ -996,10 +1403,16 @@ func _gui_input(event: InputEvent) -> void:
 				var start_candidate := _grid_point_at(pointer_screen)
 				if start_candidate.has("point"):
 					var start_point: Vector2 = start_candidate["point"]
-					if selected_connections.size() > 1 and _selected_connection_uses_anchor(start_point) and not event.ctrl_pressed:
-						_begin_selection_move()
-					elif _connection_point_uses(start_point) > 0:
+					if event.double_click and _is_terminal_point(start_point):
+						_toggle_terminal_move_mode(start_point)
+					elif _terminal_move_armed_at(start_point):
 						_begin_anchor_move(start_point)
+					elif selected_connections.size() > 1 and _selected_connection_uses_anchor(start_point) and not event.ctrl_pressed:
+						_begin_selection_move()
+					elif _connection_point_uses(start_point) > 1:
+						_begin_anchor_move(start_point) # Move a junção; não cria outra célula.
+					elif _is_terminal_point(start_point):
+						_begin_terminal_extension(start_point)
 					else:
 						_deselect_connection()
 						drag_mode = "connect"
@@ -1015,15 +1428,19 @@ func _gui_input(event: InputEvent) -> void:
 					else:
 						_begin_rectangle_selection(event.ctrl_pressed)
 	else:
-		if drag_mode == "connect":
+		if drag_mode == "extend_terminal":
+			var end_candidate := _grid_point_at(pointer_screen)
+			if end_candidate.has("point"):
+				var end_point: Vector2 = end_candidate["point"]
+				_trace_to_point(end_point)
+		elif drag_mode == "connect":
 			if anchor_snap_active:
 				_complete_anchor_snap()
 			else:
 				var end_candidate := _grid_point_at(pointer_screen)
 				if end_candidate.has("point"):
 					var end_point: Vector2 = end_candidate["point"]
-					if not end_point.is_equal_approx(line_start_world):
-						_add_connection(line_start_world, end_point)
+					_trace_to_point(end_point)
 		elif drag_mode == "move_anchor":
 			_complete_anchor_move()
 		elif drag_mode == "symbol":
@@ -1052,6 +1469,7 @@ func _run_ritual() -> void:
 	execution_output = ""
 	execution_errors.clear()
 	execution_warnings.clear()
+	invalid_connection_indices.clear()
 	execution_instructions.clear()
 	execution_state = {}
 	execution_instruction_cursor = 0
@@ -1065,6 +1483,10 @@ func _run_ritual() -> void:
 	if not compilation["ok"]:
 		for error in compilation.get("errors", []):
 			execution_errors.append(str(error))
+		for diagnostic in compilation.get("diagnostics", []):
+			var connection_index := int(diagnostic.get("connection_index", -1))
+			if connection_index >= 0 and connection_index < connections.size():
+				invalid_connection_indices[connection_index] = true
 		bottom_panel_open = true
 		return
 
@@ -1129,6 +1551,8 @@ func _execute_next_ritual_step() -> void:
 		execution_output += str(output[output_index])
 	for error_index in range(error_count, errors.size()):
 		execution_errors.append(str(errors[error_index]))
+		if execution_connection >= 0:
+			invalid_connection_indices[execution_connection] = true
 	var jump_target := int(execution_state["jump_target"])
 	if jump_target >= 0:
 		execution_instruction_cursor = jump_target
@@ -1220,6 +1644,10 @@ func _draw() -> void:
 	if atlas_baking_mode:
 		_draw_rune_atlas()
 		return
+	var current_panel_signature := _panel_cache_signature()
+	if current_panel_signature != panel_cache_state_signature:
+		panel_cache_state_signature = current_panel_signature
+		_invalidate_panel_cache()
 	_sync_textured_panel_skins()
 	var draw_started_us: int = Time.get_ticks_usec()
 	performance_visible_connections = 0
@@ -1241,6 +1669,7 @@ func _draw() -> void:
 	_draw_connections(canvas_rect, point_counts)
 	_draw_selection_move_preview()
 	_draw_connection_preview()
+	_draw_terminal_move_marker()
 	_draw_selection_rectangle()
 	_draw_dragged_symbol()
 	_draw_settling_symbol()
@@ -1252,11 +1681,23 @@ func _draw() -> void:
 		_draw_canvas_corners(canvas_rect)
 		_draw_canvas_edge(canvas_rect)
 	stage_started_us = Time.get_ticks_usec()
+	var drawing_cached_panels := diagnostic_static_layer_visible and _panel_cache_can_draw()
 	if diagnostic_static_layer_visible:
-		_draw_intensity_inspector()
-		_draw_interface_panels()
+		if drawing_cached_panels:
+			if ritual_running:
+				_draw_left_panel()
+				_draw_bottom_panel()
+				_draw_right_panel()
+			_draw_resize_handles()
+			_draw_vignette()
+			_draw_cached_panel_regions(ritual_running)
+		else:
+			_draw_intensity_inspector()
+			_draw_interface_panels()
+			if _panel_cache_can_capture():
+				_request_panel_cache_capture()
 	performance_panels_ms = float(Time.get_ticks_usec() - stage_started_us) / 1000.0
-	if diagnostic_static_layer_visible:
+	if diagnostic_static_layer_visible and not drawing_cached_panels:
 		_draw_vignette()
 	if performance_overlay_visible:
 		_draw_performance_overlay()
@@ -1411,6 +1852,8 @@ func _draw_compass(canvas_rect: Rect2) -> void:
 
 ## As quinas arredondadas do canvas voltam a mostrar a sala.
 func _draw_canvas_corners(canvas_rect: Rect2) -> void:
+	if corner_mask_texture == null:
+		return
 	var extent := FRAME_RADIUS
 	if canvas_rect.size.x <= extent * 2.0 or canvas_rect.size.y <= extent * 2.0:
 		return
@@ -1654,6 +2097,9 @@ func _draw_connections(canvas_rect: Rect2, point_counts: Dictionary) -> void:
 		var to_screen := _world_to_screen(to_point)
 		var has_symbol := not str(connection.get("symbol", "")).is_empty()
 		var intensity := _display_connection_intensity(index, connection)
+		var has_error := invalid_connection_indices.has(index)
+		if has_error:
+			_draw_invalid_connection_cell(from_screen, to_screen)
 		var execution_alpha := _execution_highlight_alpha() if index == execution_connection else 0.0
 		if execution_alpha > 0.0:
 			_draw_execution_connection_glow(from_screen, to_screen, execution_alpha)
@@ -1674,6 +2120,8 @@ func _draw_connections(canvas_rect: Rect2, point_counts: Dictionary) -> void:
 			var symbol_position := _symbol_position(connection, index)
 			var kind := str(connection["symbol"])
 			var rune_color := _intensity_color(intensity)
+			if has_error:
+				rune_color = rune_color.lerp(col_error, 0.85)
 			if index == animated_hover_symbol:
 				_draw_symbol_hover_glow(kind, symbol_position, rune_color, _symbol_hover_alpha())
 			if _is_connection_selected(index):
@@ -1682,6 +2130,20 @@ func _draw_connections(canvas_rect: Rect2, point_counts: Dictionary) -> void:
 				_draw_execution_symbol_glow(kind, symbol_position, rune_color, execution_alpha)
 				rune_color = rune_color.lerp(col_ember, 0.72 * execution_alpha)
 			_draw_rune(kind, symbol_position, zoom, rune_color)
+
+
+func _draw_invalid_connection_cell(from_screen: Vector2, to_screen: Vector2) -> void:
+	# Um único traço curto no centro evita a sobreposição com os pontos da grade.
+	var direction := to_screen - from_screen
+	var length := direction.length()
+	if length < 0.001:
+		return
+	var middle := (from_screen + to_screen) * 0.5
+	var half_length := minf(11.0 * zoom, length * 0.28)
+	var offset := direction / length * half_length
+	var marker := col_error
+	marker.a = 0.78
+	draw_line(middle - offset, middle + offset, marker, 7.0 * zoom, true)
 
 
 func _draw_line_joins_and_caps(points: Dictionary, color: Color, radius: float) -> void:
@@ -1699,15 +2161,36 @@ func _draw_terminal_markers(indices: Array[int], point_counts: Dictionary, line_
 		var connection: Dictionary = connections[index]
 		var from_point: Vector2 = connection["from"]
 		var to_point: Vector2 = connection["to"]
-		if int(point_counts.get(from_point, 0)) == 1:
+		if int(point_counts.get(from_point, 0)) == 1 and not _terminal_move_armed_at(from_point):
 			_draw_terminal_marker(_world_to_screen(from_point), line_shadow)
-		if int(point_counts.get(to_point, 0)) == 1:
+		if int(point_counts.get(to_point, 0)) == 1 and not _terminal_move_armed_at(to_point):
 			_draw_terminal_marker(_world_to_screen(to_point), line_shadow)
 
 
 func _draw_terminal_marker(screen_position: Vector2, line_shadow: Color) -> void:
 	_draw_filled_circle(screen_position, 4.4 * zoom, line_shadow)
 	_draw_filled_circle(screen_position, 3.0 * zoom, col_rune_line)
+
+
+func _draw_terminal_move_marker() -> void:
+	if terminal_move_connection_index < 0 or terminal_move_connection_index >= connections.size():
+		return
+	var connection: Dictionary = connections[terminal_move_connection_index]
+	var other_point: Vector2 = connection["to"] if Vector2(connection["from"]).is_equal_approx(terminal_move_point) else connection["from"]
+	var marker_point := terminal_move_point
+	if drag_mode == "move_anchor" and anchor_move_source.is_equal_approx(terminal_move_point):
+		marker_point = anchor_move_target
+	elif anchor_move_settle_active and anchor_move_source.is_equal_approx(terminal_move_point):
+		var progress := clampf((animation_clock - anchor_move_settle_started_at) / ANCHOR_SNAP_DURATION, 0.0, 1.0)
+		marker_point = anchor_move_settle_from.lerp(anchor_move_settle_to, _elastic_settle_ease(progress))
+	var center := _world_to_screen(marker_point)
+	if not _canvas_rect().grow(12.0).has_point(center):
+		return
+	var segment := _world_to_screen(other_point) - center
+	if segment.length_squared() < 0.001:
+		return
+	var normal := Vector2(-segment.y, segment.x).normalized() * (9.0 * zoom)
+	draw_line(center - normal, center + normal, col_gold_glow, 3.0 * zoom, true)
 
 
 func _draw_performance_overlay() -> void:
@@ -1848,6 +2331,8 @@ func _ensure_sequence_side_multiplier_cache() -> void:
 func _invalidate_sequence_side_multiplier_cache() -> void:
 	sequence_side_multiplier_dirty = true
 	connection_hit_buckets_dirty = true
+	_refresh_terminal_move_mode()
+	_clear_rune_diagnostics()
 
 
 func _world_point_key(point: Vector2) -> String:
@@ -1862,7 +2347,13 @@ func _preferred_screen_side(normal: Vector2) -> Vector2:
 
 
 func _draw_connection_preview() -> void:
-	if drag_mode == "connect":
+	if drag_mode == "extend_terminal":
+		var target_screen := pointer_screen
+		var candidate := _grid_point_at(pointer_screen)
+		if candidate.has("point"):
+			target_screen = _world_to_screen(candidate["point"])
+		draw_line(_world_to_screen(line_start_world), target_screen, col_gold_glow, 3.0 * zoom, true)
+	elif drag_mode == "connect":
 		var start_screen := _world_to_screen(line_start_world)
 		draw_line(start_screen, _anchor_snap_endpoint(), col_gold_glow, 3.0 * zoom, true)
 	elif drag_mode == "move_anchor" or anchor_move_settle_active:
@@ -1922,7 +2413,8 @@ func _draw_anchor_move_preview() -> void:
 		if not symbol.is_empty():
 			var symbol_position := _symbol_position(connection) + (preview_middle - original_middle)
 			_draw_rune(symbol, symbol_position, zoom, _intensity_color(_connection_intensity(connection)))
-	_draw_filled_circle(_world_to_screen(preview_target), 4.2 * zoom, preview_color)
+	if not _terminal_move_armed_at(anchor_move_source):
+		_draw_filled_circle(_world_to_screen(preview_target), 4.2 * zoom, preview_color)
 	if anchor_move_snap_target_valid and not anchor_move_settle_active:
 		var snap_color := col_gold_glow
 		snap_color.a = 0.42
@@ -1961,10 +2453,72 @@ func _complete_anchor_snap() -> void:
 		return
 	var target := anchor_snap_target
 	anchor_snap_active = false
-	if not target.is_equal_approx(line_start_world):
-		_add_connection(line_start_world, target)
-		line_start_world = target
+	_trace_to_point(target)
 	hovered_connection = -1
+
+
+func _trace_to_point(target: Vector2) -> void:
+	if target.is_equal_approx(line_start_world):
+		return
+	var terminal_index := _terminal_connection_index(line_start_world)
+	if terminal_index >= 0:
+		var connection: Dictionary = connections[terminal_index]
+		var previous_point: Vector2 = connection["to"] if Vector2(connection["from"]).is_equal_approx(line_start_world) else connection["from"]
+		if previous_point.is_equal_approx(target):
+			var indices: Array[int] = [terminal_index]
+			if diagram.remove_connections(indices):
+				line_start_world = target
+				_invalidate_symbol_connection_indices()
+				_invalidate_sequence_side_multiplier_cache()
+				_clear_diagram_animations()
+			return
+	if _add_connection(line_start_world, target):
+		line_start_world = target
+
+
+func _begin_terminal_extension(source: Vector2) -> void:
+	_deselect_connection()
+	drag_mode = "extend_terminal"
+	line_start_world = source
+	hovered_connection = -1
+
+
+func _toggle_terminal_move_mode(point: Vector2) -> void:
+	if _terminal_move_armed_at(point):
+		terminal_move_connection_index = -1
+		terminal_move_point = Vector2.ZERO
+		_reset_drag()
+		return
+	var connection_index := _terminal_connection_index(point)
+	if connection_index < 0:
+		return
+	terminal_move_point = point
+	terminal_move_connection_index = connection_index
+	# Também permite segurar o segundo clique e já mover a ponta.
+	_begin_anchor_move(point)
+
+
+func _terminal_connection_index(point: Vector2) -> int:
+	var found_index := -1
+	for index in range(connections.size()):
+		var connection: Dictionary = connections[index]
+		if Vector2(connection["from"]).is_equal_approx(point) or Vector2(connection["to"]).is_equal_approx(point):
+			if found_index >= 0:
+				return -1
+			found_index = index
+	return found_index
+
+
+func _terminal_move_armed_at(point: Vector2) -> bool:
+	return terminal_move_connection_index >= 0 and terminal_move_point.is_equal_approx(point)
+
+
+func _refresh_terminal_move_mode() -> void:
+	if terminal_move_connection_index < 0:
+		return
+	terminal_move_connection_index = _terminal_connection_index(terminal_move_point)
+	if terminal_move_connection_index < 0:
+		terminal_move_point = Vector2.ZERO
 
 
 func _begin_anchor_move(source: Vector2) -> void:
@@ -1974,7 +2528,6 @@ func _begin_anchor_move(source: Vector2) -> void:
 	anchor_move_target = source
 	anchor_move_snap_target = source
 	anchor_move_snap_target_valid = false
-	anchor_move_is_terminal = _is_terminal_point(source)
 	anchor_move_snap_started_at = 0.0
 	anchor_move_press_screen = pointer_screen
 	hovered_connection = -1
@@ -1996,35 +2549,12 @@ func _update_anchor_move_target() -> void:
 	var target: Vector2 = candidate["point"]
 	if target.is_equal_approx(anchor_move_source):
 		return
+	if _connection_point_uses(target) > 0:
+		return
 	anchor_move_snap_target = target
 	anchor_move_snap_target_valid = true
 	if not had_valid_snap or not target.is_equal_approx(had_snap_target):
 		anchor_move_snap_started_at = animation_clock
-
-
-func _continue_terminal_anchor_move() -> void:
-	if not anchor_move_is_terminal or not anchor_move_snap_target_valid:
-		return
-	var source := anchor_move_source
-	var target := anchor_move_snap_target
-	if source.is_equal_approx(target):
-		return
-	# Segurar o terminal sobre outro ponto inicia uma nova célula a partir do
-	# terminal original. Antes o ponto era movido para frente, esticando a célula
-	# anterior e deixando um "buraco" na sequência reta.
-	_add_connection(source, target)
-	_clear_diagram_animations()
-	anchor_move_source = Vector2.ZERO
-	anchor_move_target = Vector2.ZERO
-	anchor_move_snap_target = Vector2.ZERO
-	anchor_move_snap_target_valid = false
-	anchor_move_is_terminal = false
-	anchor_move_snap_started_at = 0.0
-	anchor_move_press_screen = Vector2.ZERO
-	drag_mode = "connect"
-	line_start_world = target
-	hovered_connection = -1
-	_update_hover()
 
 
 func _complete_anchor_move() -> void:
@@ -2045,13 +2575,14 @@ func _complete_anchor_move_settle() -> void:
 	var should_move := not anchor_move_source.is_equal_approx(anchor_move_settle_to)
 	anchor_move_settle_active = false
 	if should_move and diagram.move_anchor(anchor_move_source, anchor_move_settle_to):
+		if _terminal_move_armed_at(anchor_move_source):
+			terminal_move_point = anchor_move_settle_to
 		_invalidate_sequence_side_multiplier_cache()
 		_clear_diagram_animations()
 	anchor_move_source = Vector2.ZERO
 	anchor_move_target = Vector2.ZERO
 	anchor_move_snap_target = Vector2.ZERO
 	anchor_move_snap_target_valid = false
-	anchor_move_is_terminal = false
 	anchor_move_snap_started_at = 0.0
 	anchor_move_press_screen = Vector2.ZERO
 	_update_hover()
@@ -2207,7 +2738,6 @@ func _draw_left_panel() -> void:
 		draw_string(ThemeDB.fallback_font, panel.position + Vector2(29.0, 192.0), "Ainda não há símbolos no ritual.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 
 
-## Uma carta de pergaminho do grimorio, com sombra e o selo de escolha.
 ## Uma carta de pergaminho do grimorio, com o selo de escolha por cima.
 func _draw_spell_card(row: Rect2, selected: bool) -> void:
 	var texture := _spell_card_texture(int(roundf(row.size.y)))
@@ -2242,7 +2772,7 @@ func _left_command_list_rect() -> Rect2:
 
 func _draw_left_scroll_masks(panel: Rect2, list_rect: Rect2) -> void:
 	# As mascaras recortam a lista sem impedir o scroll continuo de mostrar
-	# entradas partindo da borda. Elas seguem a curva da moldura, e o cromo do
+	# entradas partindo da borda. Elas seguem os cantos da moldura, e o cromo do
 	# painel volta por cima.
 	var top_band := Rect2(panel.position, Vector2(panel.size.x, list_rect.position.y - panel.position.y))
 	var bottom_band := Rect2(Vector2(panel.position.x, list_rect.end.y), Vector2(panel.size.x, panel.end.y - list_rect.end.y))
@@ -2290,6 +2820,13 @@ func _symbol_connection_indices() -> Array[int]:
 
 func _invalidate_symbol_connection_indices() -> void:
 	symbol_connection_indices_dirty = true
+	_clear_rune_diagnostics()
+	_invalidate_panel_cache()
+
+
+func _clear_rune_diagnostics() -> void:
+	invalid_connection_indices.clear()
+	execution_errors.clear()
 
 
 func _left_command_max_scroll() -> float:
@@ -2375,10 +2912,10 @@ func _draw_bottom_panel() -> void:
 	_draw_oracle_orb(panel.position + Vector2(38.0, 36.0), 30.0)
 	_draw_panel_title(panel.position + Vector2(62.0, 32.0), "ORÁCULO", 16)
 	draw_string(ThemeDB.fallback_font, panel.position + Vector2(62.0, 53.0), "A saída e os erros do ritual aparecerão aqui.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
-	var divider_x := panel.position.x + panel.size.x * 0.7
+	var divider_x := panel.position.x + panel.size.x * 0.58
 	draw_line(Vector2(divider_x, panel.position.y + 72.0), Vector2(divider_x, panel.end.y - 16.0), col_spellstrip, 1.0, true)
 	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 24.0, panel.position.y + 93.0), "SAÍDA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_gold)
-	draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, panel.position.y + 93.0), "ERROS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_gold)
+	draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, panel.position.y + 93.0), "ERROS (%d)" % execution_errors.size(), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_gold)
 	var output_position := Vector2(panel.position.x + 24.0, panel.position.y + 118.0)
 	var output_width := divider_x - panel.position.x - 42.0
 	var output_font: Font = ThemeDB.fallback_font
@@ -2394,9 +2931,15 @@ func _draw_bottom_panel() -> void:
 		draw_multiline_string(output_font, Vector2(panel.position.x + 24.0, warning_y), warning_text, HORIZONTAL_ALIGNMENT_LEFT, output_width, 12, -1, col_warning)
 		warning_y += warning_size.y + 5.0
 	var error_y := panel.position.y + 118.0
-	for error in execution_errors:
-		draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, error_y), "! " + error, HORIZONTAL_ALIGNMENT_LEFT, panel.end.x - divider_x - 40.0, 13, col_error)
-		error_y += 20.0
+	var error_width := maxf(panel.end.x - divider_x - 40.0, 60.0)
+	for error_index in range(execution_errors.size()):
+		var error_text := "! " + execution_errors[error_index]
+		var error_size := output_font.get_multiline_string_size(error_text, HORIZONTAL_ALIGNMENT_LEFT, error_width, 13)
+		if error_y + error_size.y > panel.end.y - 10.0:
+			draw_string(output_font, Vector2(divider_x + 20.0, minf(error_y, panel.end.y - 12.0)), "+%d erro(s); aumente o Oráculo" % (execution_errors.size() - error_index), HORIZONTAL_ALIGNMENT_LEFT, error_width, 11, col_error)
+			break
+		draw_multiline_string(output_font, Vector2(divider_x + 20.0, error_y), error_text, HORIZONTAL_ALIGNMENT_LEFT, error_width, 13, -1, col_error)
+		error_y += error_size.y + 6.0
 	if execution_output.is_empty() and execution_errors.is_empty() and execution_warnings.is_empty():
 		draw_string(ThemeDB.fallback_font, output_position, "cada linha traçada é um encadeamento de intenções.", HORIZONTAL_ALIGNMENT_LEFT, output_width, 13, col_text_faint)
 
@@ -2634,9 +3177,9 @@ func _draw_execution_speed_control() -> void:
 
 func _draw_resize_handles() -> void:
 	if left_panel_open:
-		_draw_resize_grip(Vector2(_left_panel_rect().end.x + PANEL_GAP * 0.5, size.y * 0.5), true)
+		_draw_resize_grip(Vector2(_left_panel_rect().end.x + PANEL_GAP * 0.5, _left_panel_rect().get_center().y), true)
 	if right_panel_open:
-		_draw_resize_grip(Vector2(_right_panel_rect().position.x - PANEL_GAP * 0.5, size.y * 0.5), true)
+		_draw_resize_grip(Vector2(_right_panel_rect().position.x - PANEL_GAP * 0.5, _right_panel_rect().get_center().y), true)
 	var middle := _top_panel_rect()
 	if top_panel_open:
 		_draw_resize_grip(Vector2(middle.get_center().x, middle.end.y + PANEL_GAP * 0.5), false)
@@ -2847,7 +3390,7 @@ func _is_canvas_position(screen_position: Vector2) -> bool:
 
 
 func _canvas_rect() -> Rect2:
-	var top := PANEL_GAP * 2.0 + _top_panel_height()
+	var top := FILE_BAR_HEIGHT + PANEL_GAP * 2.0 + _top_panel_height()
 	var bottom := size.y - PANEL_GAP * 2.0 - _bottom_panel_height()
 	return Rect2(_middle_left(), top, _middle_width(), maxf(bottom - top, 0.0))
 
@@ -2862,7 +3405,7 @@ func _middle_width() -> float:
 
 
 func _left_panel_rect() -> Rect2:
-	return Rect2(PANEL_GAP, PANEL_GAP, _left_panel_width(), maxf(size.y - PANEL_GAP * 2.0, 0.0))
+	return Rect2(PANEL_GAP, FILE_BAR_HEIGHT + PANEL_GAP, _left_panel_width(), maxf(size.y - FILE_BAR_HEIGHT - PANEL_GAP * 2.0, 0.0))
 
 
 func _left_panel_width() -> float:
@@ -2882,7 +3425,7 @@ func _bottom_panel_height() -> float:
 
 
 func _top_panel_rect() -> Rect2:
-	return Rect2(_middle_left(), PANEL_GAP, _middle_width(), _top_panel_height())
+	return Rect2(_middle_left(), FILE_BAR_HEIGHT + PANEL_GAP, _middle_width(), _top_panel_height())
 
 
 func _bottom_panel_rect() -> Rect2:
@@ -2892,14 +3435,14 @@ func _bottom_panel_rect() -> Rect2:
 
 func _right_panel_rect() -> Rect2:
 	var panel_width := _right_panel_width()
-	return Rect2(size.x - PANEL_GAP - panel_width, PANEL_GAP, panel_width, maxf(size.y - PANEL_GAP * 2.0, 0.0))
+	return Rect2(size.x - PANEL_GAP - panel_width, FILE_BAR_HEIGHT + PANEL_GAP, panel_width, maxf(size.y - FILE_BAR_HEIGHT - PANEL_GAP * 2.0, 0.0))
 
 
 func _left_toggle_rect() -> Rect2:
 	var panel := _left_panel_rect()
 	if left_panel_open:
 		return Rect2(panel.end.x - 38.0, panel.position.y + 8.0, 30.0, 30.0)
-	return Rect2(panel.position.x + 6.0, size.y * 0.5 - 15.0, 30.0, 30.0)
+	return Rect2(panel.position.x + 6.0, panel.get_center().y - 15.0, 30.0, 30.0)
 
 
 func _top_toggle_rect() -> Rect2:
@@ -2916,7 +3459,7 @@ func _right_toggle_rect() -> Rect2:
 	var panel := _right_panel_rect()
 	if right_panel_open:
 		return Rect2(panel.position.x + 8.0, panel.position.y + 8.0, 30.0, 30.0)
-	return Rect2(panel.position.x + 6.0, size.y * 0.5 - 15.0, 30.0, 30.0)
+	return Rect2(panel.position.x + 6.0, panel.get_center().y - 15.0, 30.0, 30.0)
 
 
 func _panel_toggle_at(screen_position: Vector2) -> String:
@@ -2987,17 +3530,34 @@ func _update_execution_speed(screen_position: Vector2) -> void:
 
 
 func _resize_handle_at(screen_position: Vector2) -> String:
-	if left_panel_open and absf(screen_position.x - _left_panel_rect().end.x) <= PANEL_GAP * 0.5:
-		return "left"
-	if right_panel_open and absf(screen_position.x - _right_panel_rect().position.x) <= PANEL_GAP * 0.5:
-		return "right"
-	var middle := _top_panel_rect()
-	if top_panel_open and screen_position.x >= middle.position.x and screen_position.x <= middle.end.x and absf(screen_position.y - middle.end.y) <= PANEL_GAP * 0.5:
-		return "top"
-	var bottom_edge := _bottom_panel_rect().position.y
-	if bottom_panel_open and screen_position.x >= middle.position.x and screen_position.x <= middle.end.x and absf(screen_position.y - bottom_edge) <= PANEL_GAP * 0.5:
-		return "bottom"
+	for panel in RESIZABLE_PANELS:
+		if _resize_handle_rect(panel).has_point(screen_position):
+			return panel
 	return ""
+
+
+func _resize_handle_rect(panel_name: String) -> Rect2:
+	# Toda a lateral e a folga externa sao arrastaveis, nao so os tres pontos.
+	# Antes a hitbox terminava no centro do grip, deixando metade dele de fora.
+	var padding := PANEL_GAP * 0.5
+	match panel_name:
+		"left":
+			if left_panel_open:
+				var panel := _left_panel_rect()
+				return Rect2(panel.end.x - padding, panel.position.y, PANEL_GAP + padding, panel.size.y)
+		"right":
+			if right_panel_open:
+				var panel := _right_panel_rect()
+				return Rect2(panel.position.x - PANEL_GAP, panel.position.y, PANEL_GAP + padding, panel.size.y)
+		"top":
+			if top_panel_open:
+				var panel := _top_panel_rect()
+				return Rect2(panel.position.x, panel.end.y - padding, panel.size.x, PANEL_GAP)
+		"bottom":
+			if bottom_panel_open:
+				var panel := _bottom_panel_rect()
+				return Rect2(panel.position.x, panel.position.y - padding, panel.size.x, PANEL_GAP)
+	return Rect2()
 
 
 func _begin_resize(panel: String) -> void:
@@ -3023,10 +3583,10 @@ func _resize_panel(screen_position: Vector2) -> void:
 			var max_right_width := maxf(MIN_RIGHT_PANEL_WIDTH, size.x - _left_panel_width() - PANEL_GAP * 4.0 - 190.0)
 			right_panel_size = clampf(resize_start_size - (screen_position.x - resize_start_mouse.x), MIN_RIGHT_PANEL_WIDTH, max_right_width)
 		"resize_top":
-			var max_top_height := maxf(MIN_TOP_PANEL_HEIGHT, size.y - _bottom_panel_height() - PANEL_GAP * 4.0 - 120.0)
+			var max_top_height := maxf(MIN_TOP_PANEL_HEIGHT, size.y - FILE_BAR_HEIGHT - _bottom_panel_height() - PANEL_GAP * 4.0 - 120.0)
 			top_panel_size = clampf(resize_start_size + (screen_position.y - resize_start_mouse.y), MIN_TOP_PANEL_HEIGHT, max_top_height)
 		"resize_bottom":
-			var max_bottom_height := maxf(MIN_BOTTOM_PANEL_HEIGHT, size.y - _top_panel_height() - PANEL_GAP * 4.0 - 120.0)
+			var max_bottom_height := maxf(MIN_BOTTOM_PANEL_HEIGHT, size.y - FILE_BAR_HEIGHT - _top_panel_height() - PANEL_GAP * 4.0 - 120.0)
 			bottom_panel_size = clampf(resize_start_size - (screen_position.y - resize_start_mouse.y), MIN_BOTTOM_PANEL_HEIGHT, max_bottom_height)
 	_clamp_palette_scroll()
 	_update_hover()
@@ -3444,13 +4004,13 @@ func _update_hover() -> bool:
 		hover_world = candidate["point"]
 	var is_rectangle_selecting := drag_mode == "selection" or drag_mode == "selection_pending"
 	var is_moving_anchor := drag_mode == "move_anchor" or anchor_move_settle_active
-	if _is_canvas_position(pointer_screen) and drag_mode != "connect" and not is_moving_anchor and not is_rectangle_selecting:
+	if _is_canvas_position(pointer_screen) and drag_mode != "connect" and drag_mode != "extend_terminal" and not is_moving_anchor and not is_rectangle_selecting:
 		hovered_symbol = _symbol_at(pointer_screen)
 	else:
 		hovered_symbol = -1
 	# Durante a criação, a linha embaixo do cursor não deve competir com o
 	# feedback magnético da âncora.
-	if drag_mode == "connect" or is_moving_anchor or is_rectangle_selecting or not _is_canvas_position(pointer_screen) or hovered_symbol >= 0:
+	if drag_mode == "connect" or drag_mode == "extend_terminal" or is_moving_anchor or is_rectangle_selecting or not _is_canvas_position(pointer_screen) or hovered_symbol >= 0:
 		hovered_connection = -1
 	else:
 		hovered_connection = _connection_near(pointer_screen)
@@ -3793,13 +4353,17 @@ func _set_connection_symbol(index: int, symbol: String, record_history := true) 
 
 
 func _set_connection_intensity(index: int, intensity: int, record_history := true) -> void:
-	diagram.set_intensity(index, intensity, record_history)
+	if diagram.set_intensity(index, intensity, record_history):
+		_clear_rune_diagnostics()
+		_invalidate_panel_cache()
 
 
-func _add_connection(from: Vector2, to: Vector2) -> void:
-	if diagram.add_connection(from, to):
-		_invalidate_symbol_connection_indices()
-		_invalidate_sequence_side_multiplier_cache()
+func _add_connection(from: Vector2, to: Vector2) -> bool:
+	if not diagram.add_connection(from, to):
+		return false
+	_invalidate_symbol_connection_indices()
+	_invalidate_sequence_side_multiplier_cache()
+	return true
 
 
 func _begin_pan() -> void:
@@ -3836,7 +4400,6 @@ func _reset_drag() -> void:
 	anchor_move_target = Vector2.ZERO
 	anchor_move_snap_target = Vector2.ZERO
 	anchor_move_snap_target_valid = false
-	anchor_move_is_terminal = false
 	anchor_move_snap_started_at = 0.0
 	anchor_move_press_screen = Vector2.ZERO
 	anchor_move_settle_active = false

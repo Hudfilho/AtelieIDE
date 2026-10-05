@@ -5,6 +5,8 @@ extends RefCounted
 
 const RuneCatalog = preload("res://scripts/core/rune_catalog.gd")
 const RuneBytecode = preload("res://scripts/core/rune_bytecode.gd")
+const RunePortals = preload("res://scripts/core/rune_portals.gd")
+const MAX_RUN_STEPS := 10000
 
 
 func run(bytecode: PackedByteArray) -> Dictionary:
@@ -19,7 +21,7 @@ func run(bytecode: PackedByteArray) -> Dictionary:
 		return result_from_state(state)
 	var steps := 0
 	var pc := 0
-	while pc < instructions.size() and steps < 10000:
+	while pc < instructions.size() and steps < MAX_RUN_STEPS:
 		steps += 1
 		var instruction: Dictionary = instructions[pc]
 		step(instruction, state, pc)
@@ -27,7 +29,7 @@ func run(bytecode: PackedByteArray) -> Dictionary:
 			break
 		var jump_target := int(state["jump_target"])
 		pc = jump_target if jump_target >= 0 else pc + 1
-	if steps >= 10000 and not bool(state["halted"]):
+	if steps >= MAX_RUN_STEPS and not bool(state["halted"]):
 		var errors: Array = state["errors"]
 		errors.append("Limite de passos excedido.")
 		state["halted"] = true
@@ -35,69 +37,21 @@ func run(bytecode: PackedByteArray) -> Dictionary:
 
 
 func create_state() -> Dictionary:
-	return {"stack": [], "memory": {}, "output": [], "errors": [], "halted": false, "jump_target": -1, "warp_targets": {}, "jump_if_true_targets": {}, "warp_endpoint_counts": {}, "program": [], "pending_int_set": -1}
+	return {
+		"stack": [], "memory": {}, "output": [], "errors": [],
+		"halted": false, "jump_target": -1,
+		"warp_targets": {}, "jump_if_true_targets": {}, "warp_endpoint_counts": {},
+		"program": [], "pending_int_set": -1,
+	}
 
 
 func configure_program(state: Dictionary, instructions: Array) -> void:
 	state["program"] = instructions
-	var warp_groups := {}
-	var endpoint_groups := {}
-	var jump_if_true_groups := {}
-	for instruction_index in range(instructions.size()):
-		var instruction: Dictionary = instructions[instruction_index]
-		var opcode := int(instruction["opcode"])
-		var intensity := int(instruction.get("operand", instruction.get("intensity", 0)))
-		if opcode == RuneCatalog.OPCODE_WARP:
-			if not warp_groups.has(intensity):
-				warp_groups[intensity] = []
-			var group: Array = warp_groups[intensity]
-			group.append(instruction_index)
-		elif opcode == RuneCatalog.OPCODE_WARP_ENDPOINT:
-			if not endpoint_groups.has(intensity):
-				endpoint_groups[intensity] = []
-			var endpoint_indices: Array = endpoint_groups[intensity]
-			endpoint_indices.append(instruction_index)
-		elif opcode == RuneCatalog.OPCODE_JUMP_IF_TRUE:
-			if not jump_if_true_groups.has(intensity):
-				jump_if_true_groups[intensity] = []
-			var jump_indices: Array = jump_if_true_groups[intensity]
-			jump_indices.append(instruction_index)
-	var targets := {}
-	var jump_if_true_targets := {}
-	var endpoint_counts := {}
-	var errors: Array = state["errors"]
-	for intensity in endpoint_groups:
-		var counted_endpoint_indices: Array = endpoint_groups[intensity]
-		endpoint_counts[intensity] = counted_endpoint_indices.size()
-	for intensity in warp_groups:
-		var group: Array = warp_groups[intensity]
-		var endpoint_count := int(endpoint_counts.get(intensity, 0))
-		if endpoint_count == 1:
-			var matching_endpoint_indices: Array = endpoint_groups[intensity]
-			var target_index := int(matching_endpoint_indices[0]) + 1
-			for source_index in group:
-				targets[int(source_index)] = target_index
-		elif group.size() >= 2:
-			for group_index in range(group.size()):
-				var source_index := int(group[group_index])
-				var target_index := int(group[(group_index + 1) % group.size()]) + 1
-				targets[source_index] = target_index
-	for intensity in jump_if_true_groups:
-		var jump_indices: Array = jump_if_true_groups[intensity]
-		var endpoint_count := int(endpoint_counts.get(intensity, 0))
-		if endpoint_count == 1:
-			var matching_endpoint_indices: Array = endpoint_groups[intensity]
-			var endpoint_target_index := int(matching_endpoint_indices[0]) + 1
-			for source_index in jump_indices:
-				jump_if_true_targets[int(source_index)] = endpoint_target_index
-		elif warp_groups.has(intensity):
-			var matching_warp_indices: Array = warp_groups[intensity]
-			for source_index in jump_indices:
-				jump_if_true_targets[int(source_index)] = _jump_target_from_warp_group(int(source_index), matching_warp_indices)
-	state["warp_targets"] = targets
-	state["jump_if_true_targets"] = jump_if_true_targets
-	state["warp_endpoint_counts"] = endpoint_counts
-	state["halted"] = not errors.is_empty()
+	var targets := RunePortals.resolve(instructions)
+	state["warp_targets"] = targets["warp"]
+	state["jump_if_true_targets"] = targets["conditional"]
+	state["warp_endpoint_counts"] = targets["endpoint_counts"]
+	state["halted"] = not (state["errors"] as Array).is_empty()
 
 
 func step(instruction: Dictionary, state: Dictionary, instruction_index := -1) -> Dictionary:
@@ -261,14 +215,6 @@ func _is_boolean(value: int) -> bool:
 	return value == 0 or value == 1
 
 
-func _jump_target_from_warp_group(jump_index: int, warp_indices: Array) -> int:
-	for raw_warp_index in warp_indices:
-		var warp_index := int(raw_warp_index)
-		if warp_index > jump_index:
-			return warp_index + 1
-	return int(warp_indices[0]) + 1
-
-
 func _execute_jump_if_true(state: Dictionary, instruction: Dictionary, instruction_index: int) -> void:
 	var errors: Array = state["errors"]
 	var stack: Array = state["stack"]
@@ -323,7 +269,7 @@ func _resolve_intensity_modifier(state: Dictionary, instruction_index: int) -> v
 	var argument_instruction: Dictionary = program[instruction_index + 1]
 	var target_instruction: Dictionary = program[instruction_index + 2]
 	var operation_opcode := int(argument_instruction["opcode"])
-	if operation_opcode not in [RuneCatalog.OPCODE_ADD, RuneCatalog.OPCODE_SUB, RuneCatalog.OPCODE_MUL, RuneCatalog.OPCODE_DIV, RuneCatalog.OPCODE_MOD, RuneCatalog.OPCODE_NEG]:
+	if operation_opcode not in RuneCatalog.INTENSITY_OPERATIONS:
 		errors.append("INT_MOD espera ADD, SUB, MUL, DIV, MOD ou NEG logo depois dele.")
 		return
 	var current_intensity := _instruction_intensity(target_instruction)

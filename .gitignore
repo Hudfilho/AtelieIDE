@@ -2,8 +2,9 @@
 .godot/
 /android/
 
-# Exportações locais do Windows (geradas pelo Godot)
+# Exportações e artefatos de build locais do Windows
 *.exe
+*.obj
 *.pck
 *.tmp
 /results/

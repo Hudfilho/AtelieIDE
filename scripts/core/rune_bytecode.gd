@@ -10,14 +10,18 @@ const RuneCatalog = preload("res://scripts/core/rune_catalog.gd")
 const MAGIC := [0x52, 0x55, 0x4e, 0x45] # RUNE
 const VERSION := 2
 const HEADER_SIZE := 7
+const MAX_INSTRUCTIONS := 65535
 
 
 static func encode(instructions: Array) -> PackedByteArray:
+	# A contagem ocupa 16 bits. Nunca emitir um cabecalho truncado com corpo maior.
+	if instructions.size() > MAX_INSTRUCTIONS:
+		return PackedByteArray()
 	var bytes := PackedByteArray()
 	for value in MAGIC:
 		bytes.append(value)
 	bytes.append(VERSION)
-	var count := mini(instructions.size(), 65535)
+	var count := instructions.size()
 	bytes.append(count & 0xff)
 	bytes.append((count >> 8) & 0xff)
 	for instruction in instructions:
@@ -46,7 +50,7 @@ static func decode(bytes: PackedByteArray) -> Dictionary:
 			break
 		var opcode := bytes[cursor]
 		cursor += 1
-		if RuneCatalog.symbol_for_opcode(opcode).is_empty():
+		if not RuneCatalog.is_known_opcode(opcode):
 			errors.append("Opcode desconhecido: 0x%02X." % opcode)
 			break
 		if cursor >= bytes.size():
@@ -58,6 +62,8 @@ static func decode(bytes: PackedByteArray) -> Dictionary:
 		if RuneCatalog.takes_operand(opcode):
 			instruction["operand"] = intensity
 		instructions.append(instruction)
+	if errors.is_empty() and cursor != bytes.size():
+		errors.append("O binário contém bytes depois da última instrução declarada.")
 	if not errors.is_empty():
 		return {"ok": false, "errors": errors}
 	return {"ok": true, "instructions": instructions}

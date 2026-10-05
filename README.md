@@ -4,7 +4,9 @@
 
 **Atelier IDE** é um protótipo de projeto para a disciplina de Compiladores. Em vez de escrever instruções em texto, o programa é desenhado numa grade: cada ligação é uma célula de execução e os selos colocados sobre ela formam o ritual.
 
-O resultado é compilado para um bytecode próprio (`RUNE`) e executado por uma máquina virtual simples.
+O resultado pode ser compilado para um bytecode próprio (`RUNE`), executado pela máquina virtual do editor, ou para assembly NASM nativo de Windows x86-64. O exportador cobre as 30 runas atuais.
+
+A explicação das etapas, portais, intensidades mutáveis e geração de código está em [Como funciona o compilador](docs/COMPILADOR.md).
 
 ## Ideia
 
@@ -27,15 +29,22 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 - Seleção retangular e remoção com histórico (`Ctrl+Z` / `Ctrl+Y`).
 - Painéis redimensionáveis para grimório, selos e saída.
 - Compilador visual → bytecode `RUNE` → máquina virtual.
+- Exportação para NASM, com caminhos estático e mutável para `INT_SET` / `INT_MOD`.
+- Atlas de runas e cache de texturas dos painéis redimensionáveis.
 - Oráculo de execução com saída, avisos e erros.
 - Ateliê à luz de vela ou pergaminho iluminado, com o tema guardado entre sessões.
+- Menu File para salvar e abrir rituais editáveis (`.atelier`).
+- Verificação de erros no Play com marcação da célula problemática.
 
 ## Controles
 
 | Ação | Controle |
 | --- | --- |
 | Criar uma ligação | Arraste de um ponto vermelho até outro ponto |
-| Continuar uma sequência | Mantenha o botão esquerdo pressionado ao alcançar uma âncora |
+| Continuar uma sequência | Arraste de uma ponta livre, passando pelos pontos sem soltar o botão esquerdo |
+| Apagar a última célula durante o traçado | Volte ao ponto imediatamente anterior sem soltar o botão |
+| Alternar o modo de mover uma ponta | Dê duplo clique nela; a barrinha perpendicular indica o modo ativo |
+| Mover uma junção | Arraste-a para um ponto livre |
 | Navegar pelo canvas | Arraste com o botão do meio |
 | Zoom | Roda do mouse sobre o canvas |
 | Colocar ou mover um selo | Arraste um selo da paleta para uma linha |
@@ -48,6 +57,9 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 | Rolar o grimório | Roda do mouse ou arraste a lista para cima/baixo |
 | Executar o ritual | Botão ▶ no canto superior direito |
 | Alternar dia / noite | Botão ☾ / ☀ no canto superior direito |
+| Salvar / abrir ritual | Menu File ou `Ctrl+S` / `Ctrl+O` |
+| Exportar assembly | Menu File → Exportar Assembly NASM |
+| Diagnóstico de desempenho | `F3`; `F6` alterna o cache dos painéis e `F7` a camada visual |
 
 ## Selos disponíveis
 
@@ -98,7 +110,9 @@ Os booleanos da linguagem usam `1` para verdadeiro e `0` para falso. `EQ`, `NEQ`
    ```
 
 3. Abra a pasta clonada no Godot.
-4. Aperte `F6` ou use **Run Project**.
+4. Aperte `F5` ou use **Run Project**. `F6` executa somente a cena atual no editor.
+
+Neste ambiente, o projeto ativo está em `C:\godot\atelier-ide`, com a cena `scenes/Main.tscn`. A pasta separada `C:\godot\atelier-compiler` não é o projeto aberto pelo usuário; as mudanças do compilador já foram copiadas para o projeto ativo.
 
 ## Estrutura
 
@@ -114,6 +128,10 @@ scripts/
     ├── rune_diagram.gd       # Estado do diagrama e histórico
     ├── rune_compiler.gd      # Diagrama → instruções → bytecode
     ├── rune_bytecode.gd      # Formato binário RUNE
+    ├── rune_portals.gd       # Resolução compartilhada de destinos
+    ├── rune_nasm_exporter.gd # Validação e backend NASM estático
+    ├── rune_nasm_mutable.gd  # Backend NASM com intensidades mutáveis
+    ├── rune_nasm_common.gd   # Emissão binária e limites compartilhados
     └── rune_vm.gd            # Máquina virtual baseada em pilha
 ```
 
@@ -156,12 +174,32 @@ Cada instrução ocupa dois bytes: `[opcode][intensidade]`. Por exemplo, `PUSH 0
 | `JUMP_IF_TRUE` | `1D` | `00011101` |
 | `READ` | `1E` | `00011110` |
 
+## Exportação e testes
+
+O menu File salva o `.asm`. Para montar, ligar e executar com NASM/GCC UCRT64 do MSYS2:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\godot\atelier-ide\tools\run_exported_asm.ps1 C:\caminho\ritual.asm
+```
+
+O script cria `.obj` e `.exe` ao lado do assembly, podendo substituir exportações anteriores de mesmo nome. A interface não faz essa montagem automaticamente.
+
+Para rodar os testes, informe o executável console do Godot. `-Native` também compara executáveis reais com a VM e exige NASM/GCC:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\godot\atelier-ide\tools\run_tests.ps1 -GodotPath C:\caminho\godot_console.exe
+powershell -ExecutionPolicy Bypass -File C:\godot\atelier-ide\tools\run_tests.ps1 -GodotPath C:\caminho\godot_console.exe -Native
+```
+
+Veja [a documentação do compilador](docs/COMPILADOR.md) para formato RUNE, regras das runas, toolchain e limitações.
+
 ## Próximos passos
 
 - Ramificações e controle de fluxo visual.
-- Salvar e abrir rituais pelo editor.
 - Exportação de arquivos `.rune` pela interface.
-- Depurador passo a passo com destaque da célula atual.
+- Melhorar a análise antecipada dos programas com intensidades mutáveis.
+- Associar erros do executável nativo às células do desenho.
+- Ampliar os testes de overflow e os alvos de assembly.
 - Mais selos e ferramentas de linguagem.
 
 ---

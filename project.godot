@@ -22,9 +22,16 @@ window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[internationalization]
+
+locale/translations=PackedStringArray("res://localization/ui.en.translation", "res://localization/ui.pt_BR.translation")
+locale/fallback="pt_BR"
+
 [physics]
 
+common/max_physics_steps_per_frame=1
 3d/physics_engine="Jolt Physics"
+common/enable_object_picking=false
 
 [rendering]
 
