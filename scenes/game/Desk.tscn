@@ -1,0 +1,592 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/game/desk.gd" id="1_desk"]
+[ext_resource type="Theme" path="res://art/theme/shop_theme.tres" id="2_theme"]
+[ext_resource type="Script" path="res://scripts/game/draggable_paper.gd" id="3_paper"]
+[ext_resource type="PackedScene" path="res://scenes/game/Workbench.tscn" id="4_workbench"]
+[ext_resource type="Script" path="res://scripts/game/desk_feedback.gd" id="5_feedback"]
+[ext_resource type="Theme" path="res://art/pixel/pixel_theme.tres" id="6_pixel_theme"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/backdrop.png" id="7_backdrop"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/day_card.png" id="8_day_card"]
+[ext_resource type="Texture2D" path="res://art/pixel/portrait_hooded.png" id="12_hooded"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/candle.png" id="13_candle"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/bell.png" id="14_bell"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/bell_lift.png" id="14_bell_lift"]
+[ext_resource type="Texture2D" path="res://art/pixel/bubble_tail.png" id="15_tail"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_approve.png" id="16_stamp_approve"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_reject.png" id="17_stamp_reject"]
+[ext_resource type="FontFile" path="res://art/pixel/pixel_font_big.fnt" id="18_font_big"]
+[ext_resource type="Script" path="res://scripts/game/pixel_frame.gd" id="19_frame"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_approve_lift.png" id="20_approve_lift"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_reject_lift.png" id="21_reject_lift"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_approve_head.png" id="22_approve_head"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_reject_head.png" id="23_reject_head"]
+[ext_resource type="Script" path="res://scripts/game/desk_stamp.gd" id="24_stamp"]
+[ext_resource type="Texture2D" path="res://art/desk/arcane/stamp_tray.png" id="25_tray"]
+[ext_resource type="Texture2D" path="res://art/pixel/gear.png" id="26_gear"]
+[ext_resource type="Texture2D" path="res://art/pixel/bell_glow.png" id="29_bell_glow"]
+[ext_resource type="Texture2D" path="res://art/pixel/gear_hover.png" id="27_gear_hover"]
+[ext_resource type="PackedScene" path="res://scenes/game/Settings.tscn" id="28_settings"]
+
+[node name="Desk" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_desk")
+generic_portrait = ExtResource("12_hooded")
+
+[node name="LetterboxLayer" type="CanvasLayer" parent="."]
+layer = -2
+
+[node name="Letterbox" type="ColorRect" parent="LetterboxLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.05, 0.035, 0.03, 1)
+
+[node name="PixelLayer" type="CanvasLayer" parent="." node_paths=PackedStringArray("view")]
+unique_name_in_owner = true
+layer = -1
+script = ExtResource("19_frame")
+view = NodePath("PixelView")
+
+[node name="PixelView" type="SubViewportContainer" parent="PixelLayer"]
+texture_filter = 1
+offset_right = 640.0
+offset_bottom = 360.0
+
+[node name="PixelViewport" type="SubViewport" parent="PixelLayer/PixelView"]
+unique_name_in_owner = true
+handle_input_locally = false
+snap_2d_transforms_to_pixel = true
+snap_2d_vertices_to_pixel = true
+canvas_item_default_texture_filter = 0
+size = Vector2i(640, 360)
+render_target_update_mode = 4
+
+[node name="World" type="Control" parent="PixelLayer/PixelView/PixelViewport"]
+unique_name_in_owner = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("6_pixel_theme")
+
+[node name="Backdrop" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("7_backdrop")
+
+[node name="Stage" type="Control" parent="PixelLayer/PixelView/PixelViewport/World"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -180.0
+offset_right = 320.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="DayCard" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 6.0
+offset_top = 4.0
+offset_right = 94.0
+offset_bottom = 127.0
+mouse_filter = 2
+texture = ExtResource("8_day_card")
+
+[node name="DayLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/DayCard"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 33.0
+offset_top = 28.0
+offset_right = 71.0
+offset_bottom = 40.0
+mouse_filter = 1
+theme_type_variation = &"CardLabel"
+text = ""
+
+[node name="MoneyLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/DayCard"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 33.0
+offset_top = 47.0
+offset_right = 71.0
+offset_bottom = 59.0
+mouse_filter = 1
+theme_type_variation = &"CardLabel"
+text = ""
+
+[node name="ReputationLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/DayCard"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 33.0
+offset_top = 66.0
+offset_right = 71.0
+offset_bottom = 78.0
+mouse_filter = 1
+theme_type_variation = &"CardLabel"
+text = ""
+
+[node name="QueueLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/DayCard"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 33.0
+offset_top = 85.0
+offset_right = 71.0
+offset_bottom = 97.0
+mouse_filter = 1
+theme_type_variation = &"CardLabel"
+text = ""
+
+[node name="SettingsButton" type="TextureButton" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 100.0
+offset_top = 8.0
+offset_right = 118.0
+offset_bottom = 26.0
+tooltip_text = "DESK_SETTINGS_TOOLTIP"
+mouse_default_cursor_shape = 2
+texture_normal = ExtResource("26_gear")
+texture_hover = ExtResource("27_gear_hover")
+texture_focused = ExtResource("27_gear_hover")
+
+[node name="Window" type="Control" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+layout_mode = 0
+offset_left = 215.0
+offset_top = 8.0
+offset_right = 433.0
+offset_bottom = 130.0
+mouse_filter = 2
+
+[node name="Portrait" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Window"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 64.0
+offset_top = 30.0
+offset_right = 156.0
+offset_bottom = 122.0
+mouse_filter = 2
+stretch_mode = 3
+
+[node name="Candle" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 224.0
+offset_top = 94.0
+offset_right = 248.0
+offset_bottom = 130.0
+mouse_filter = 2
+texture = ExtResource("13_candle")
+
+[node name="BellButton" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 395.0
+offset_top = 94.0
+offset_right = 429.0
+offset_bottom = 128.0
+tooltip_text = "DESK_BELL"
+mouse_default_cursor_shape = 2
+theme_type_variation = &"PixelBell"
+script = ExtResource("24_stamp")
+rest_texture = ExtResource("14_bell")
+lifted_texture = ExtResource("14_bell_lift")
+show_plate = false
+glow_texture = ExtResource("29_bell_glow")
+
+[node name="BubbleTail" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+layout_mode = 0
+offset_left = 439.0
+offset_top = 30.0
+offset_right = 447.0
+offset_bottom = 40.0
+mouse_filter = 2
+texture = ExtResource("15_tail")
+
+[node name="Bubble" type="PanelContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+layout_mode = 0
+offset_left = 446.0
+offset_top = 8.0
+offset_right = 634.0
+offset_bottom = 66.0
+mouse_filter = 2
+theme_type_variation = &"Bubble"
+
+[node name="Rows" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Bubble"]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="ClientName" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Bubble/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(172, 0)
+layout_mode = 2
+theme_type_variation = &"BubbleName"
+text = "DESK_WINDOW_EMPTY"
+autowrap_mode = 3
+
+[node name="Speech" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Bubble/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(172, 0)
+layout_mode = 2
+theme_type_variation = &"NoteLabel"
+text = ""
+autowrap_mode = 3
+
+[node name="Papers" type="Control" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Rulebook" type="PanelContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 2.0
+offset_top = 146.0
+offset_right = 204.0
+offset_bottom = 358.0
+theme_type_variation = &"Book"
+script = ExtResource("3_paper")
+
+[node name="Pages" type="HBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/Rulebook"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="LeftPage" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/Rulebook/Pages"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(81, 0)
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/Rulebook/Pages/LeftPage"]
+layout_mode = 2
+theme_type_variation = &"TinyCaps"
+text = "DESK_RULEBOOK_TITLE"
+horizontal_alignment = 1
+
+[node name="RulesLeft" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/Rulebook/Pages/LeftPage"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(81, 0)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="RightPage" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/Rulebook/Pages"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(81, 0)
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_constants/separation = 4
+
+[node name="PageHead" type="Control" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/Rulebook/Pages/RightPage"]
+custom_minimum_size = Vector2(0, 9)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RulesRight" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/Rulebook/Pages/RightPage"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(81, 0)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="RequestForm" type="PanelContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 198.0
+offset_top = 146.0
+offset_right = 442.0
+offset_bottom = 358.0
+theme_type_variation = &"Paper"
+script = ExtResource("3_paper")
+
+[node name="Rows" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="ItemField" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+theme_type_variation = &"PaperTitleField"
+toggle_mode = true
+text = ""
+
+[node name="Fields" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="NameField" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+theme_type_variation = &"PaperField"
+toggle_mode = true
+text = ""
+alignment = 0
+
+[node name="AgeField" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+theme_type_variation = &"PaperField"
+toggle_mode = true
+text = ""
+alignment = 0
+
+[node name="RaceField" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+theme_type_variation = &"PaperField"
+toggle_mode = true
+text = ""
+alignment = 0
+
+[node name="SignatureField" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+theme_type_variation = &"PaperField"
+toggle_mode = true
+text = ""
+alignment = 0
+
+[node name="Line" type="HSeparator" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+layout_mode = 2
+
+[node name="DetailsHeader" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+layout_mode = 2
+theme_type_variation = &"TinyCaps"
+text = "FIELD_DETAILS"
+
+[node name="DetailsField" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(216, 0)
+layout_mode = 2
+theme_type_variation = &"PaperField"
+toggle_mode = true
+text = ""
+alignment = 0
+autowrap_mode = 3
+
+[node name="SpecHeader" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+layout_mode = 2
+theme_type_variation = &"TinyCaps"
+text = "DESK_REQUIRED_EFFECT"
+
+[node name="SpecLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(216, 0)
+layout_mode = 2
+theme_type_variation = &"PaperSpec"
+text = ""
+autowrap_mode = 3
+
+[node name="StampBox" type="Panel" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(116, 24)
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 10
+mouse_filter = 2
+theme_type_variation = &"StampBox"
+
+[node name="InkMark" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/StampBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = ExtResource("18_font_big")
+theme_override_font_sizes/font_size = 22
+text = ""
+
+[node name="StampTray" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 465.0
+offset_top = 174.0
+offset_right = 604.0
+offset_bottom = 234.0
+mouse_filter = 2
+texture = ExtResource("25_tray")
+
+[node name="ApproveButton" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 482.0
+offset_top = 120.0
+offset_right = 536.0
+offset_bottom = 224.0
+theme_type_variation = &"PixelStamp"
+text = "DESK_APPROVE"
+script = ExtResource("24_stamp")
+rest_texture = ExtResource("16_stamp_approve")
+lifted_texture = ExtResource("20_approve_lift")
+
+[node name="RejectButton" type="Button" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 537.0
+offset_top = 120.0
+offset_right = 591.0
+offset_bottom = 224.0
+theme_type_variation = &"PixelStamp"
+text = "DESK_REJECT"
+script = ExtResource("24_stamp")
+rest_texture = ExtResource("17_stamp_reject")
+lifted_texture = ExtResource("21_reject_lift")
+
+[node name="InspectionNote" type="PanelContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 448.0
+offset_top = 236.0
+offset_right = 636.0
+offset_bottom = 358.0
+mouse_filter = 2
+theme_type_variation = &"Note"
+
+[node name="Rows" type="VBoxContainer" parent="PixelLayer/PixelView/PixelViewport/World/Stage/InspectionNote"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="FeedbackLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/InspectionNote/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(168, 0)
+layout_mode = 2
+theme_type_variation = &"NoteLabel"
+text = ""
+autowrap_mode = 3
+
+[node name="EvidenceLabel" type="Label" parent="PixelLayer/PixelView/PixelViewport/World/Stage/InspectionNote/Rows"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(168, 0)
+layout_mode = 2
+theme_type_variation = &"EvidenceNote"
+text = ""
+autowrap_mode = 3
+
+[node name="StampLayer" type="Control" parent="PixelLayer/PixelView/PixelViewport/World/Stage"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="StampHead" type="TextureRect" parent="PixelLayer/PixelView/PixelViewport/World/Stage/StampLayer"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 29.0
+offset_bottom = 58.0
+mouse_filter = 2
+
+[node name="Feedback" type="Node" parent="." node_paths=PackedStringArray("shake_target", "stamp_head", "stamp_target", "ink_mark")]
+unique_name_in_owner = true
+script = ExtResource("5_feedback")
+shake_target = NodePath("../PixelLayer/PixelView/PixelViewport/World")
+stamp_head = NodePath("../PixelLayer/PixelView/PixelViewport/World/Stage/StampLayer/StampHead")
+stamp_target = NodePath("../PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/StampBox")
+ink_mark = NodePath("../PixelLayer/PixelView/PixelViewport/World/Stage/Papers/RequestForm/Rows/StampBox/InkMark")
+stamp_sprites = Dictionary[StringName, Texture2D]({
+&"approve": ExtResource("22_approve_head"),
+&"reject": ExtResource("23_reject_head")
+})
+
+[node name="Workbench" parent="." instance=ExtResource("4_workbench")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="Overlay" type="ColorRect" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.03, 0.02, 0.015, 0.82)
+
+[node name="Center" type="CenterContainer" parent="Overlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Card" type="PanelContainer" parent="Overlay/Center"]
+layout_mode = 2
+
+[node name="Rows" type="VBoxContainer" parent="Overlay/Center/Card"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="OverlayTitle" type="Label" parent="Overlay/Center/Card/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+theme_override_font_sizes/font_size = 28
+text = ""
+horizontal_alignment = 1
+
+[node name="OverlayBody" type="RichTextLabel" parent="Overlay/Center/Card/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(620, 0)
+layout_mode = 2
+theme_override_colors/default_color = Color(0.93, 0.86, 0.7, 1)
+bbcode_enabled = true
+text = ""
+fit_content = true
+
+[node name="OverlayButton" type="Button" parent="Overlay/Center/Card/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = ""
+
+[node name="Settings" parent="." instance=ExtResource("28_settings")]
+unique_name_in_owner = true
+layout_mode = 1

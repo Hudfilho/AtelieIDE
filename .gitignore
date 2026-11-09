@@ -9,3 +9,10 @@
 *.tmp
 /results/
 /export_presets.cfg
+
+# Traduções geradas pelo import do Godot a partir de localization/strings.csv
+*.translation
+
+# Cache Python gerado pelas ferramentas de arte
+__pycache__/
+*.pyc

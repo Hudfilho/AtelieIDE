@@ -1,0 +1,223 @@
+[gd_resource type="Theme" format=3]
+
+[ext_resource type="FontFile" path="res://art/fonts/cormorant_garamond/CormorantGaramond-Variable.ttf" id="1_font"]
+[ext_resource type="Texture2D" path="res://art/title/button_primary.png" id="2_primary"]
+[ext_resource type="Texture2D" path="res://art/title/button_primary_hover.png" id="3_primary_hover"]
+[ext_resource type="Texture2D" path="res://art/title/button_primary_pressed.png" id="4_primary_pressed"]
+[ext_resource type="Texture2D" path="res://art/title/button_secondary.png" id="5_secondary"]
+[ext_resource type="Texture2D" path="res://art/title/button_secondary_hover.png" id="6_secondary_hover"]
+[ext_resource type="Texture2D" path="res://art/title/button_secondary_pressed.png" id="7_secondary_pressed"]
+
+[sub_resource type="FontVariation" id="regular"]
+base_font = ExtResource("1_font")
+variation_opentype = {
+2003265652: 500
+}
+
+[sub_resource type="StyleBoxTexture" id="primary"]
+content_margin_left = 84.0
+content_margin_top = 4.0
+content_margin_right = 96.0
+content_margin_bottom = 8.0
+texture = ExtResource("2_primary")
+texture_margin_left = 78.0
+texture_margin_top = 33.0
+texture_margin_right = 92.0
+texture_margin_bottom = 33.0
+
+[sub_resource type="StyleBoxTexture" id="primary_hover"]
+content_margin_left = 84.0
+content_margin_top = 4.0
+content_margin_right = 96.0
+content_margin_bottom = 8.0
+texture = ExtResource("3_primary_hover")
+texture_margin_left = 78.0
+texture_margin_top = 33.0
+texture_margin_right = 92.0
+texture_margin_bottom = 33.0
+
+[sub_resource type="StyleBoxTexture" id="primary_pressed"]
+content_margin_left = 84.0
+content_margin_top = 6.0
+content_margin_right = 96.0
+content_margin_bottom = 6.0
+texture = ExtResource("4_primary_pressed")
+texture_margin_left = 78.0
+texture_margin_top = 33.0
+texture_margin_right = 92.0
+texture_margin_bottom = 33.0
+
+[sub_resource type="StyleBoxTexture" id="secondary"]
+content_margin_left = 44.0
+content_margin_top = 2.0
+content_margin_right = 44.0
+content_margin_bottom = 6.0
+texture = ExtResource("5_secondary")
+texture_margin_left = 44.0
+texture_margin_top = 25.0
+texture_margin_right = 38.0
+texture_margin_bottom = 25.0
+
+[sub_resource type="StyleBoxTexture" id="secondary_hover"]
+content_margin_left = 44.0
+content_margin_top = 2.0
+content_margin_right = 44.0
+content_margin_bottom = 6.0
+texture = ExtResource("6_secondary_hover")
+texture_margin_left = 44.0
+texture_margin_top = 25.0
+texture_margin_right = 38.0
+texture_margin_bottom = 25.0
+
+[sub_resource type="StyleBoxTexture" id="secondary_pressed"]
+content_margin_left = 44.0
+content_margin_top = 4.0
+content_margin_right = 44.0
+content_margin_bottom = 4.0
+texture = ExtResource("7_secondary_pressed")
+texture_margin_left = 44.0
+texture_margin_top = 25.0
+texture_margin_right = 38.0
+texture_margin_bottom = 25.0
+
+[sub_resource type="StyleBoxFlat" id="focus_primary"]
+draw_center = false
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.91, 0.66, 0.9)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+expand_margin_left = -17.0
+expand_margin_top = -4.0
+expand_margin_right = -18.0
+expand_margin_bottom = -4.0
+
+[sub_resource type="StyleBoxFlat" id="focus_secondary"]
+draw_center = false
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.91, 0.66, 0.9)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+expand_margin_left = -10.0
+expand_margin_top = -4.0
+expand_margin_right = -11.0
+expand_margin_bottom = -5.0
+
+[sub_resource type="StyleBoxFlat" id="popup"]
+content_margin_left = 6.0
+content_margin_top = 6.0
+content_margin_right = 6.0
+content_margin_bottom = 6.0
+bg_color = Color(0.12, 0.095, 0.075, 0.97)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.78, 0.6, 0.32, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="popup_hover"]
+bg_color = Color(0.3, 0.22, 0.13, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="settings_card"]
+content_margin_left = 40.0
+content_margin_top = 28.0
+content_margin_right = 40.0
+content_margin_bottom = 30.0
+bg_color = Color(0.1, 0.078, 0.063, 0.97)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.78, 0.6, 0.32, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 10
+
+[resource]
+default_font = SubResource("regular")
+default_font_size = 22
+Label/colors/font_color = Color(0.93, 0.87, 0.74, 1)
+Label/colors/font_shadow_color = Color(0.05, 0.03, 0.02, 0.6)
+Label/constants/shadow_offset_x = 0
+Label/constants/shadow_offset_y = 1
+Label/constants/shadow_outline_size = 0
+TitleTagline/base_type = &"Label"
+TitleTagline/font_sizes/font_size = 21
+TitlePrimary/base_type = &"Button"
+TitlePrimary/font_sizes/font_size = 29
+TitlePrimary/colors/font_color = Color(0.96, 0.91, 0.79, 1)
+TitlePrimary/colors/font_hover_color = Color(1, 0.97, 0.88, 1)
+TitlePrimary/colors/font_pressed_color = Color(0.92, 0.86, 0.72, 1)
+TitlePrimary/colors/font_hover_pressed_color = Color(0.92, 0.86, 0.72, 1)
+TitlePrimary/colors/font_focus_color = Color(1, 0.97, 0.88, 1)
+TitlePrimary/colors/font_outline_color = Color(0.06, 0.12, 0.07, 0.6)
+TitlePrimary/constants/outline_size = 2
+TitlePrimary/styles/normal = SubResource("primary")
+TitlePrimary/styles/hover = SubResource("primary_hover")
+TitlePrimary/styles/pressed = SubResource("primary_pressed")
+TitlePrimary/styles/hover_pressed = SubResource("primary_pressed")
+TitlePrimary/styles/disabled = SubResource("primary")
+TitlePrimary/styles/focus = SubResource("focus_primary")
+TitleSecondary/base_type = &"Button"
+TitleSecondary/font_sizes/font_size = 23
+TitleSecondary/colors/font_color = Color(0.9, 0.84, 0.71, 1)
+TitleSecondary/colors/font_hover_color = Color(1, 0.95, 0.82, 1)
+TitleSecondary/colors/font_pressed_color = Color(0.86, 0.79, 0.65, 1)
+TitleSecondary/colors/font_hover_pressed_color = Color(0.86, 0.79, 0.65, 1)
+TitleSecondary/colors/font_focus_color = Color(1, 0.95, 0.82, 1)
+TitleSecondary/styles/normal = SubResource("secondary")
+TitleSecondary/styles/hover = SubResource("secondary_hover")
+TitleSecondary/styles/pressed = SubResource("secondary_pressed")
+TitleSecondary/styles/hover_pressed = SubResource("secondary_pressed")
+TitleSecondary/styles/disabled = SubResource("secondary")
+TitleSecondary/styles/focus = SubResource("focus_secondary")
+TitleOption/base_type = &"OptionButton"
+TitleOption/font_sizes/font_size = 21
+TitleOption/colors/font_color = Color(0.9, 0.84, 0.71, 1)
+TitleOption/colors/font_hover_color = Color(1, 0.95, 0.82, 1)
+TitleOption/colors/font_pressed_color = Color(0.86, 0.79, 0.65, 1)
+TitleOption/colors/font_hover_pressed_color = Color(0.86, 0.79, 0.65, 1)
+TitleOption/colors/font_focus_color = Color(1, 0.95, 0.82, 1)
+TitleOption/constants/arrow_margin = 30
+TitleOption/constants/modulate_arrow = 1
+TitleOption/styles/normal = SubResource("secondary")
+TitleOption/styles/hover = SubResource("secondary_hover")
+TitleOption/styles/pressed = SubResource("secondary_pressed")
+TitleOption/styles/hover_pressed = SubResource("secondary_pressed")
+TitleOption/styles/disabled = SubResource("secondary")
+TitleOption/styles/focus = SubResource("focus_secondary")
+TitleOptionLabel/base_type = &"Label"
+TitleOptionLabel/font_sizes/font_size = 20
+SettingsCard/base_type = &"PanelContainer"
+SettingsCard/styles/panel = SubResource("settings_card")
+SettingsTitle/base_type = &"Label"
+SettingsTitle/font_sizes/font_size = 36
+SettingsTitle/colors/font_color = Color(0.96, 0.86, 0.6, 1)
+SettingsLabel/base_type = &"Label"
+SettingsLabel/font_sizes/font_size = 23
+PopupMenu/fonts/font = SubResource("regular")
+PopupMenu/font_sizes/font_size = 21
+PopupMenu/colors/font_color = Color(0.9, 0.84, 0.71, 1)
+PopupMenu/colors/font_hover_color = Color(1, 0.93, 0.7, 1)
+PopupMenu/styles/panel = SubResource("popup")
+PopupMenu/styles/hover = SubResource("popup_hover")

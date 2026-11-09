@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
+
+[sub_resource type="Resource" id="on_delivered_0"]
+script = ExtResource("2_consequence")
+delay_days = 1
+headline = "CROWN FINES SCROLL SHOPS: inspectors traced an embargoed elven order to your atelier. A fine has been collected."
+ledger_text = "Crown fine: embargo breach"
+money = -25
+reputation = -2
+flag_changes = Dictionary[String, int]({"guild_suspicion": 1})
+
+[resource]
+script = ExtResource("1_order")
+id = "faelar_quiet_growth"
+client_name = "Faelar Ithil"
+age = "212"
+race = "Elf"
+signature = "Faelar Ithil"
+portrait_color = Color(0.6, 0.78, 0.72, 1)
+greeting = "A modest request. My garden is... impatient."
+item = "Scroll of Quiet Growth"
+details = "Doubles the growth of my moonflowers.\nThe current height is in slot 000."
+spec = "READ slot 000 and print it doubled."
+examples = Array[Dictionary]([{"memory": {0: 4}, "output": ["8"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 11}, "output": ["22"]}])
+par_runes = 4
+reward = 20
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])

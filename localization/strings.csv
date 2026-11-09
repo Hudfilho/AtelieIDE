@@ -1,0 +1,269 @@
+keys,en,pt_BR
+TITLE_TAGLINE,A scroll shop where every spell is drawn by hand.  -  Demo,Uma loja de pergaminhos onde cada feitiço é desenhado à mão.  -  Demo
+TITLE_PLAY,Open the shop,Abrir a loja
+TITLE_SANDBOX,Sandbox (Atelier IDE),Sandbox (Atelier IDE)
+TITLE_QUIT,Quit,Sair
+SETTINGS_TITLE,Settings,Configurações
+SETTINGS_LANGUAGE,Language,Idioma
+SETTINGS_LANGUAGE_AUTO,Automatic (system),Automático (sistema)
+SETTINGS_LANGUAGE_EN,English,Inglês
+SETTINGS_LANGUAGE_PT_BR,Portuguese (Brazil),Português (Brasil)
+SETTINGS_DESK_STYLE,Desk art style,Estilo do balcão
+SETTINGS_CLOSE,Close,Fechar
+DESK_BELL,Ring the bell,Tocar o sino
+DESK_RULEBOOK_TITLE,Today's rules,Regras de hoje
+DESK_REQUIRED_EFFECT,Required effect,Efeito exigido
+DESK_APPROVE,APPROVE,APROVAR
+DESK_REJECT,REJECT,RECUSAR
+DESK_INK_APPROVED,APPROVED,APROVADO
+DESK_INK_REFUSED,REFUSED,RECUSADO
+DESK_WINDOW_EMPTY,The window is empty.,O guichê está vazio.
+DESK_HERALD_HEADER,THE MORNING HERALD,O ARAUTO DA MANHÃ
+DESK_RULEBOOK_HEADER,Rulebook,Livro de regras
+DESK_RUNES_HEADER,Runes on your bench,Runas na sua bancada
+DESK_OPEN_SHOP,Open the shop,Abrir a loja
+DESK_RING_FIRST,Ring the bell to call the first client.,Toque o sino para chamar o primeiro cliente.
+DESK_CHECK_REQUEST,"Click a field, then the rule it breaks. Stamp when you are sure.",Clique num campo e depois na regra que ele viola. Carimbe quando tiver certeza.
+DESK_QUIET_DAY,A quiet day.,Um dia tranquilo.
+DESK_DAY_TOTALS,[b]Today:[/b] %s     [b]Purse:[/b] %d coins     [b]Reputation:[/b] %d,[b]Hoje:[/b] %s     [b]Bolsa:[/b] %d moedas     [b]Reputação:[/b] %d
+DESK_LEDGER_TITLE,%s - Ledger,%s - Livro-caixa
+DESK_SLEEP,Sleep until tomorrow,Dormir até amanhã
+DESK_TOMORROW_HERALD,Tomorrow's Herald will read:,O Arauto de amanhã dirá:
+DESK_THANKS,Thanks for playing the Atelier demo!,Obrigado por jogar o demo do Atelier!
+DESK_DEMO_END_TITLE,End of the demo,Fim do demo
+DESK_BACK_TO_TITLE,Back to the title,Voltar ao título
+DESK_APPROVED,Approved. Take the request to your bench.,Aprovado. Leve o pedido para a bancada.
+DESK_REFUSED_EVIDENCE,Good call. Refused on evidence: %s.,Boa decisão. Recusado com provas: %s.
+DESK_REFUSED_HONEST,An honest customer leaves disappointed. Your reputation suffers.,Um cliente honesto vai embora decepcionado. Sua reputação sofre.
+DESK_REFUSED_NO_CAUSE,"Refused without citing a rule, so it counts as refusing without cause. Link a field to a rule before stamping.","Recusado sem citar uma regra, então conta como recusa sem motivo. Ligue um campo a uma regra antes de carimbar."
+DESK_REACTION_APPROVED,"Wonderful, thank you!","Maravilha, obrigado!"
+DESK_REACTION_HONEST,But... my request was honest!,Mas... meu pedido era honesto!
+DESK_REACTION_CAUGHT,Tch. Fine. I'll find another shop.,Tsc. Tudo bem. Vou achar outra loja.
+DESK_DELIVERED_ILLEGAL,%s pays and hurries off with the scroll. You have an uneasy feeling...,%s paga e sai apressado com o pergaminho. Você fica com uma sensação ruim...
+DESK_DELIVERED,%s thanks you and pays %d coins.,%s agradece e paga %d moedas.
+DESK_ABANDONED,You couldn't write the scroll. %s leaves empty-handed.,Você não conseguiu escrever o pergaminho. %s vai embora de mãos vazias.
+DESK_RING_NEXT,Ring the bell for the next client.,Toque o sino para o próximo cliente.
+DESK_RING_CLOSE,No one else is waiting. Ring the bell to close the shop.,Não há mais ninguém esperando. Toque o sino para fechar a loja.
+DESK_PICK_RULE,Now click the rule this field breaks.,Agora clique na regra que este campo viola.
+DESK_PICK_FIELD,Now click the field on the request that breaks this rule.,Agora clique no campo do pedido que viola esta regra.
+DESK_NO_EVIDENCE,No evidence yet: refusing now counts as refusing without cause.,Nenhuma prova ainda: recusar agora conta como recusa sem motivo.
+DESK_WRONG_LINKS,Wrong links: %d/%d,Ligações erradas: %d/%d
+DESK_HUD_DAY,Day %d,Dia %d
+DESK_HUD_MONEY,%d coins,%d moedas
+DESK_HUD_REPUTATION,Reputation %d,Reputação %d
+DESK_HUD_QUEUE,%d waiting outside,%d esperando lá fora
+DESK_SETTINGS_TOOLTIP,Settings (Esc),Configurações (Esc)
+DESK_STYLE_ARCANE,Arcane,Arcano
+DESK_STYLE_APOTHECARY,Apothecary,Botica
+DESK_SIGNED_COINS,%s coins,%s moedas
+DESK_SIGNED_REP,%s rep,%s rep.
+DESK_PATIENCE_UNEASY,Hm? Is something wrong with my form?,Hum? Tem algo errado com meu formulário?
+DESK_PATIENCE_UPSET,Are you going to stamp it or not? I haven't got all day!,Vai carimbar ou não? Não tenho o dia todo!
+DESK_PATIENCE_EXASPERATED,*sigh*,*suspiro*
+DESK_PATIENCE_PENALTY,The client is losing patience. Reputation -%d.,O cliente está perdendo a paciência. Reputação -%d.
+FIELD_ITEM,Item,Item
+FIELD_NAME,Name,Nome
+FIELD_AGE,Age,Idade
+FIELD_RACE,Race,Raça
+FIELD_SIGNATURE,Signature,Assinatura
+FIELD_DETAILS,Details,Detalhes
+INSPECT_CONFIRMED,"Discrepancy confirmed: %s ""%s"" breaks the %s rule.","Discrepância confirmada: %s ""%s"" viola a regra %s."
+INSPECT_DUPLICATE,You already cited %s against the %s rule.,Você já citou %s contra a regra %s.
+INSPECT_NO_CONTRADICTION,"No contradiction: %s ""%s"" does not break the %s rule.","Sem contradição: %s ""%s"" não viola a regra %s."
+INSPECT_NOT_IN_FORCE,The %s rule is not in force today.,A regra %s não está em vigor hoje.
+LEDGER_SOLD,Sold %s to %s,Vendeu %s para %s
+LEDGER_SOLD_ELEGANT,Sold %s to %s (elegant work!),Vendeu %s para %s (trabalho elegante!)
+LEDGER_REFUSED,Refused %s's %s (%s),Recusou o pedido de %s: %s (%s)
+LEDGER_REFUSED_NO_CAUSE,Turned away %s without cause,Mandou %s embora sem motivo
+LEDGER_ABANDONED,Failed to write %s for %s,Não conseguiu escrever %s para %s
+LEDGER_CONSEQUENCE,Consequence,Consequência
+LEDGER_INSPECTION_PENALTY,Kept %s waiting with a fussy inspection,Fez %s esperar com uma inspeção confusa
+BENCH_DELIVER,Deliver scroll,Entregar pergaminho
+BENCH_ABANDON,Give up the order,Desistir da encomenda
+BENCH_CLEAR,Clear bench,Limpar bancada
+BENCH_RESET_DRAFT,Reset to draft,Voltar ao rascunho
+BENCH_ORDER_TITLE,%s  -  for %s,%s  -  para %s
+BENCH_START_HINT,"Draw the ritual, test it with the play button, then deliver.","Desenhe o ritual, teste com o botão de executar e depois entregue."
+BENCH_NO_INPUTS,no inputs,sem entradas
+BENCH_EXAMPLES,Examples: %s,Exemplos: %s
+BENCH_HIDDEN_ONE,(+1 hidden test on delivery),(+1 teste oculto na entrega)
+BENCH_HIDDEN_MANY,(+%d hidden tests on delivery),(+%d testes ocultos na entrega)
+BENCH_PAR,Elegant work: %d runes or fewer,Trabalho elegante: %d runas ou menos
+BENCH_RESET_DONE,Bench reset. Ctrl+Z brings your ritual back.,Bancada reiniciada. Ctrl+Z traz seu ritual de volta.
+BENCH_PREVIEW_BROKE,Preview broke: %s,A prévia falhou: %s
+BENCH_PREVIEW_MATCH,Preview matches the first example (%s). Deliver when ready.,A prévia bate com o primeiro exemplo (%s). Entregue quando quiser.
+BENCH_PREVIEW_MISMATCH,Preview printed %s; the first example expects %s.,A prévia mostrou %s; o primeiro exemplo espera %s.
+JUDGE_WONT_HOLD,The scroll won't hold: %s,O pergaminho não se sustenta: %s
+JUDGE_INVALID_RITUAL,invalid ritual.,ritual inválido.
+JUDGE_TIMEOUT,the spell never finished (%d steps). Does a loop ever exit?,o feitiço nunca terminou (%d passos). Algum laço chega a sair?
+JUDGE_BROKE,the spell broke: %s,o feitiço quebrou: %s
+JUDGE_MISMATCH,"expected %s, got %s.","esperado %s, obtido %s."
+JUDGE_WITH_INPUTS,"With %s, %s","Com %s, %s"
+JUDGE_HIDDEN_FAILED,A hidden test failed. %s,Um teste oculto falhou. %s
+JUDGE_SLOT,slot %03d = %s,posição %03d = %s
+JUDGE_NOTHING,nothing,nada
+IDE_MENU_FILE,File,Arquivo
+IDE_MENU_SAVE,Save rune...,Salvar runa...
+IDE_MENU_OPEN,Open rune...,Abrir runa...
+IDE_MENU_ASSEMBLY,Export NASM assembly...,Exportar assembly NASM...
+IDE_UNTITLED,UNTITLED,SEM TÍTULO
+IDE_DIALOG_SAVE,Save rune,Salvar runa
+IDE_DIALOG_OPEN,Open rune,Abrir runa
+IDE_FILE_FILTER,Atelier runes,Runas do Ateliê
+IDE_DIALOG_FILE_ERROR,Rune file,Arquivo de runa
+IDE_DIALOG_OPEN_OTHER,Open another rune?,Abrir outra runa?
+IDE_DIALOG_UNSAVED,The current ritual has unsaved changes. Opening another rune will discard them.,O ritual atual tem alterações não salvas. Abrir outra runa vai descartá-las.
+IDE_SAVE_FAILED,Could not save the rune.,Falha ao salvar a runa.
+IDE_OPEN_FAILED,Could not open the rune.,Falha ao abrir a runa.
+BENCH_RUN_STOPPED,Execution stopped.,Execução interrompida.
+BENCH_INTENSITY,INTENSITY,INTENSIDADE
+BENCH_GRIMOIRE_EMPTY,No runes in the ritual yet.,Ainda não há símbolos no ritual.
+BENCH_GRIMOIRE_TITLE,ACTIVE GRIMOIRE,GRIMÓRIO ATIVO
+BENCH_GRIMOIRE_SUBTITLE,Runes linked to the ritual,Símbolos ligados ao ritual
+BENCH_PALETTE_TAB,RUNES,SELOS
+BENCH_PALETTE_TITLE,ATELIER RUNES,SELOS DO ATELIÊ
+BENCH_PALETTE_HINT,Drag a rune onto a spell line.,Arraste um símbolo até a linha de um feitiço.
+BENCH_ORACLE_TITLE,ORACLE,ORÁCULO
+BENCH_ORACLE_HINT,The ritual's output and errors will appear here.,A saída e os erros do ritual aparecerão aqui.
+BENCH_ORACLE_OUTPUT,OUTPUT,SAÍDA
+BENCH_ORACLE_ERRORS,ERRORS (%d),ERROS (%d)
+BENCH_ORACLE_MORE_ERRORS,+%d error(s); enlarge the Oracle,+%d erro(s); aumente o Oráculo
+BENCH_ORACLE_IDLE,every line you trace is a chain of intentions.,cada linha traçada é um encadeamento de intenções.
+BENCH_STACK_TITLE,STACK,PILHA
+BENCH_STACK_SUBTITLE,Machine state,Estado da máquina
+BENCH_STACK_IDLE_1,The stack wakes,A pilha desperta
+BENCH_STACK_IDLE_2,when the ritual begins.,quando o ritual começa.
+BENCH_STACK_TOP,TOP,TOPO
+BENCH_STACK_COUNT,%d VALUES,%d SELOS
+BENCH_STACK_EMPTY,The stack is empty.,A pilha está vazia.
+BENCH_STACK_BELOW,+%d below,+%d abaixo
+COMPILER_CELL,Cell %d: %s,Célula %d: %s
+COMPILER_NO_CONNECTIONS,There are no connections to compile.,Não há conexões para compilar.
+COMPILER_UNKNOWN_RUNE,Unknown rune.,Selo desconhecido.
+COMPILER_NO_RUNES,There are no runes to compile.,Não há selos para compilar.
+COMPILER_IMPLICIT_HALT,HALT was added automatically at the end of %d sequence(s).,HALT foi inserido automaticamente no fim de %d sequência(s).
+COMPILER_WARP_MANY_ENDS,WARP %03d has more than one matching WARP END.,WARP %03d tem mais de um WARP END compatível.
+COMPILER_WARP_NO_TARGET,WARP %03d has no other WARP or WARP END with the same intensity.,WARP %03d não tem outro WARP nem WARP END de mesma intensidade.
+COMPILER_WARP_END_DUPLICATE,WARP END %03d is duplicated; keep a single destination.,WARP END %03d está duplicado; deixe apenas um destino.
+COMPILER_JUMP_MANY_ENDS,JUMP_IF_TRUE %03d has more than one matching WARP END.,JUMP_IF_TRUE %03d tem mais de um WARP END compatível.
+COMPILER_JUMP_NO_TARGET,JUMP_IF_TRUE %03d has no WARP or WARP END with the same intensity.,JUMP_IF_TRUE %03d não tem WARP nem WARP END de mesma intensidade.
+COMPILER_INT_MOD_NEEDS_TWO,INT_MOD needs an operation and a target rune after it.,INT_MOD precisa de uma operação e uma runa-alvo depois dele.
+COMPILER_INT_MOD_NEEDS_OP,"INT_MOD needs ADD, SUB, MUL, DIV, MOD or NEG right after it.","INT_MOD precisa de ADD, SUB, MUL, DIV, MOD ou NEG logo depois dele."
+COMPILER_INT_MOD_NO_TARGET,INT_MOD has no target rune after the operation.,INT_MOD não tem runa-alvo depois da operação.
+COMPILER_INT_MOD_ZERO,INT_MOD does not accept DIV/MOD with intensity 000.,INT_MOD não aceita DIV/MOD com intensidade 000.
+COMPILER_INT_SET_NO_VALUE,INT_SET needs an integer value before the sequence ends.,INT_SET precisa de um valor inteiro antes do fim da sequência.
+COMPILER_INT_SET_NESTED,INT_SET found another INT_SET before an integer value.,INT_SET encontrou outro INT_SET antes de um valor inteiro.
+COMPILER_INT_SET_NO_TARGET,INT_SET found a value but has no target rune after it.,"INT_SET encontrou um valor, mas não tem runa-alvo depois dele."
+COMPILER_SEQUENCE_ENDS,The sequence linked to cell %d does not have two open ends.,A sequência ligada à célula %d não possui duas pontas abertas.
+COMPILER_MANY_SEQUENCES,Found %d sequences; the ritual started with the leftmost one.,Foram encontradas %d sequências; o ritual começou pela sequência mais à esquerda.
+COMPILER_BRANCH,Branch at point %s: forking jumps are not implemented yet.,Ramificação no ponto %s: saltos por bifurcação ainda não foram implementados.
+COMPILER_SEQUENCE_BROKEN,The sequence was interrupted before the last cell.,A sequência foi interrompida antes da última célula.
+VM_STEP_LIMIT,Step limit exceeded.,Limite de passos excedido.
+VM_NEEDS_VALUE,%s needs a value on the stack.,%s precisa de um valor na pilha.
+VM_NEEDS_TWO_VALUES,%s needs two values on the stack.,%s precisa de dois valores na pilha.
+VM_DIVISION_BY_ZERO,%s cannot divide by zero.,%s não aceita divisão por zero.
+VM_NEEDS_BOOLEAN,%s needs a boolean on the stack.,%s precisa de um booleano na pilha.
+VM_NOT_BOOLEAN_GOT,"NOT only accepts 0 or 1, got %d.","NOT aceita apenas 0 ou 1, recebeu %d."
+VM_NEEDS_TWO_BOOLEANS,%s needs two booleans on the stack.,%s precisa de dois booleanos na pilha.
+VM_ONLY_BOOLEANS,%s only accepts 0 or 1.,%s aceita apenas 0 ou 1.
+VM_EMPTY_SLOT,"%s tried to read slot %d, which is empty.","%s tentou ler a posição %d, que está vazia."
+VM_WARP_MANY_ENDS,WARP %03d found more than one WARP END with the same intensity.,WARP %03d encontrou mais de um WARP END com a mesma intensidade.
+VM_WARP_NO_TARGET,WARP %03d found no other portal or matching WARP END.,WARP %03d não encontrou outro portal ou WARP END compatível.
+VM_INT_SET_PENDING,A previous INT_SET is still waiting for a value.,INT_SET anterior ainda está esperando um valor.
+VM_JUMP_MANY_ENDS,JUMP_IF_TRUE %03d found more than one matching WARP END.,JUMP_IF_TRUE %03d encontrou mais de um WARP END compatível.
+VM_JUMP_NO_TARGET,JUMP_IF_TRUE %03d found no matching WARP or WARP END.,JUMP_IF_TRUE %03d não encontrou WARP ou WARP END compatível.
+VM_INT_SET_NO_VALUE,INT_SET ended without finding an integer value.,INT_SET terminou sem encontrar um valor inteiro.
+VM_INT_SET_NO_TARGET,INT_SET found a value but no target rune.,"INT_SET encontrou um valor, mas não encontrou um selo-alvo."
+VM_INT_MOD_NEEDS_TWO,INT_MOD expects two runes after it.,INT_MOD espera dois selos depois dele.
+VM_INT_MOD_NEEDS_OP,"INT_MOD expects ADD, SUB, MUL, DIV, MOD or NEG right after it.","INT_MOD espera ADD, SUB, MUL, DIV, MOD ou NEG logo depois dele."
+VM_INT_MOD_ZERO,INT_MOD %s does not accept intensity 000.,INT_MOD %s não aceita intensidade 000.
+FILE_TOO_MANY,The ritual has too many connections for this format.,O ritual tem conexões demais para este formato.
+FILE_CREATE_FAILED,Could not create the file (%s).,Não foi possível criar o arquivo (%s).
+FILE_WRITE_FAILED,Could not finish saving the file (%s).,Não foi possível terminar de salvar o arquivo (%s).
+FILE_OPEN_FAILED,Could not open the file (%s).,Não foi possível abrir o arquivo (%s).
+FILE_TOO_LARGE,The file is too large for an Atelier rune.,O arquivo é grande demais para uma runa do Ateliê.
+FILE_BAD_JSON,The file does not contain valid JSON.,O arquivo não contém um JSON válido.
+FILE_NOT_RUNE,The file does not contain a valid rune.,O arquivo não contém uma runa válida.
+FILE_BAD_FORMAT,Incompatible rune format or version.,Formato ou versão de runa incompatível.
+FILE_BAD_CONNECTIONS,The connection list is invalid or too large.,A lista de conexões é inválida ou grande demais.
+FILE_BAD_CONNECTION,A connection in the file is invalid.,Uma conexão do arquivo é inválida.
+FILE_BAD_COORDINATES,A connection has invalid coordinates.,Uma conexão contém coordenadas inválidas.
+FILE_ZERO_LENGTH,A connection in the file has no length.,Uma conexão do arquivo não tem comprimento.
+FILE_BAD_RUNE,A connection has an invalid rune.,Uma conexão contém uma runa inválida.
+FILE_UNKNOWN_RUNE,The file contains an unknown rune: %s.,O arquivo contém uma runa desconhecida: %s.
+FILE_BAD_INTENSITY,A connection has an intensity outside 0 to 255.,Uma conexão contém intensidade fora de 0 a 255.
+FILE_BAD_VIEW,The file's view position is invalid.,A posição de visualização do arquivo é inválida.
+FILE_BAD_ZOOM,The saved zoom is outside the allowed range.,O zoom salvo está fora dos limites permitidos.
+IDE_DIALOG_ASSEMBLY,Export NASM assembly,Exportar assembly NASM
+IDE_ASSEMBLY_FILTER,NASM assembly,Assembly NASM
+IDE_ASSEMBLY_EXPORTED,Assembly exported,Assembly exportado
+IDE_ASSEMBLY_FAILED,Could not export assembly.,Não foi possível exportar assembly.
+IDE_ASSEMBLY_SAVED,NASM file saved at:\n%s,Arquivo NASM salvo em:\n%s
+IDE_ASSEMBLY_MODE,Assembly mode,Modo assembly
+IDE_MENU_HOME,Back to menu,Voltar ao menu
+IDE_MENU_UNSAVED,Your ritual has unsaved changes. Return to the menu and discard them?,Seu ritual tem alterações não salvas. Voltar ao menu e descartá-las?
+COMPILER_TOO_MANY,The ritual exceeds %d instructions.,O ritual ultrapassa %d instruções.
+SETTINGS_MENU,Back to menu,Voltar ao menu
+DESK_MENU_CONFIRM,Return to the menu? Starting the shop again will restart the day.,Voltar ao menu? Abrir a loja novamente reiniciará o dia.
+RUNE_ORB_DESC,Pushes the intensity onto the stack.,Coloca a intensidade na pilha.
+RUNE_ORB_EXTRA,value,valor
+RUNE_CUP_DESC,Discards the value on top of the stack.,Descarta o valor no topo da pilha.
+RUNE_CUP_EXTRA,stack: −1,pilha: −1
+RUNE_TWIN_DESC,Duplicates the value on top of the stack.,Duplica o valor no topo da pilha.
+RUNE_TWIN_EXTRA,stack: +1,pilha: +1
+RUNE_KNOT_DESC,Swaps the two values on top of the stack.,Troca os dois valores no topo da pilha.
+RUNE_KNOT_EXTRA,stack: ↔,pilha: ↔
+RUNE_DIAMOND_DESC,Adds the two top values.,Soma os dois valores do topo.
+RUNE_DIAMOND_EXTRA,operation: +,operação: +
+RUNE_MOON_DESC,Subtracts the top value from the one below it.,Subtrai o valor do topo do penúltimo valor.
+RUNE_MOON_EXTRA,operation: −,operação: −
+RUNE_PLUS_DESC,Multiplies the two top values.,Multiplica os dois valores do topo.
+RUNE_PLUS_EXTRA,operation: ×,operação: ×
+RUNE_SLASH_DESC,Divides the second value by the top of the stack.,Divide o penúltimo valor pelo valor no topo da pilha.
+RUNE_SLASH_EXTRA,operation: ÷,operação: ÷
+RUNE_SPIRAL_DESC,Computes the remainder of dividing the two top values.,Calcula o resto da divisão entre os dois valores do topo.
+RUNE_SPIRAL_EXTRA,operation: %,operação: %
+RUNE_DASH_DESC,Flips the sign of the value on top of the stack.,Inverte o sinal do valor no topo da pilha.
+RUNE_DASH_EXTRA,operation: −x,operação: −x
+RUNE_EQ_DESC,Compares for equality and pushes 1 or 0.,Compara igualdade e coloca 1 ou 0 na pilha.
+RUNE_EQ_EXTRA,operation: ==,operação: ==
+RUNE_NEQ_DESC,Compares for difference and pushes 1 or 0.,Compara diferença e coloca 1 ou 0 na pilha.
+RUNE_NEQ_EXTRA,operation: !=,operação: !=
+RUNE_LT_DESC,Checks whether the second value is less than the top.,Verifica se o penúltimo valor é menor que o topo.
+RUNE_LT_EXTRA,operation: <,operação: <
+RUNE_GT_DESC,Checks whether the second value is greater than the top.,Verifica se o penúltimo valor é maior que o topo.
+RUNE_GT_EXTRA,operation: >,operação: >
+RUNE_LTE_DESC,Checks whether the second value is less than or equal to the top.,Verifica se o penúltimo valor é menor ou igual ao topo.
+RUNE_LTE_EXTRA,operation: <=,operação: <=
+RUNE_GTE_DESC,Checks whether the second value is greater than or equal to the top.,Verifica se o penúltimo valor é maior ou igual ao topo.
+RUNE_GTE_EXTRA,operation: >=,operação: >=
+RUNE_NOT_DESC,Inverts a boolean: 1 becomes 0 and 0 becomes 1.,Inverte um booleano: 1 vira 0 e 0 vira 1.
+RUNE_NOT_EXTRA,logic: not,lógica: não
+RUNE_AND_DESC,Combines two booleans with AND.,Combina dois booleanos com E.
+RUNE_AND_EXTRA,logic: and,lógica: e
+RUNE_OR_DESC,Combines two booleans with OR.,Combina dois booleanos com OU.
+RUNE_OR_EXTRA,logic: or,lógica: ou
+RUNE_WARP_DESC,Jumps to another WARP with the same intensity.,Salta para outro WARP com a mesma intensidade.
+RUNE_WARP_EXTRA,portal,portal
+RUNE_WARP_ENDPOINT_DESC,Destination for every WARP with the same intensity.,Destino de todos os WARP com a mesma intensidade.
+RUNE_WARP_ENDPOINT_EXTRA,portal destination,portal destino
+RUNE_JUMP_IF_TRUE_DESC,"If the top of the stack is 001, jumps through the WARP with the same intensity.","Se o topo da pilha for 001, salta pelo WARP da mesma intensidade."
+RUNE_JUMP_IF_TRUE_EXTRA,conditional jump,salto condicional
+RUNE_INT_MOD_DESC,Changes the next rune's intensity with a math operation.,Modifica a intensidade do selo seguinte com uma operação matemática.
+RUNE_INT_MOD_EXTRA,control,controle
+RUNE_INT_SET_DESC,Waits for the next integer and applies it to the following rune.,Espera o próximo inteiro e aplica-o ao selo seguinte.
+RUNE_INT_SET_EXTRA,control,controle
+RUNE_TRIANGLE_DESC,Shows the top value in the Oracle.,Mostra o valor do topo no oráculo.
+RUNE_TRIANGLE_EXTRA,output,saída
+RUNE_PRINTLETTER_DESC,Shows the Unicode character of the intensity (032 = space).,Mostra o caractere Unicode da intensidade (032 = espaço).
+RUNE_PRINTLETTER_EXTRA,character,caractere
+RUNE_CROSS_DESC,Ends the ritual.,Encerra a execução do ritual.
+RUNE_CROSS_EXTRA,end,fim
+RUNE_SQUARE_DESC,Stores the top value in a memory slot.,Guarda o topo em uma posição de memória.
+RUNE_SQUARE_EXTRA,memory,memória
+RUNE_FORK_DESC,Reads the memory slot given by the intensity onto the stack.,Lê uma posição de memória indicada pela intensidade para a pilha.
+RUNE_FORK_EXTRA,memory,memória
+RUNE_READ_DESC,Pushes the memory at the address given by the intensity.,Empilha a memória no endereço indicado pela intensidade.
+RUNE_READ_EXTRA,memory,memória
+COMPILER_INT_APPLY_NO_TARGET,APPLY needs a target rune after it.,APLICAR precisa de uma runa-alvo depois dela.
+VM_INT_APPLY_NO_TARGET,APPLY has no target rune after it.,APLICAR não tem runa-alvo depois dela.

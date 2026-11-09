@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="AtelierShopRule" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/shop_rule.gd" id="1_rule"]
+
+[resource]
+script = ExtResource("1_rule")
+id = "elf_embargo"
+title = "Elven embargo"
+text = "ROYAL DECREE: no scrolls may be sold to elves while the embargo lasts."
+check = 1
+field = "race"
+value = "Elf"
+evidence_fields = PackedStringArray("race")

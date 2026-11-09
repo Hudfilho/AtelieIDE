@@ -34,15 +34,9 @@ if ($Native) {
     }
 }
 
-$tests = @(
-    'compiler_contracts_smoke.gd',
-    'ritual_diagnostics_smoke.gd',
-    'file_menu_smoke.gd',
-    'panel_geometry_smoke.gd',
-    'occupied_node_smoke.gd',
-    'terminal_anchor_double_click_smoke.gd',
-    'nasm_export_smoke.gd'
-)
+$tests = @(Get-ChildItem -LiteralPath (Join-Path $projectPath 'tests') -Filter '*_smoke.gd' -File |
+    Sort-Object Name | ForEach-Object { $_.Name })
+if ($tests.Count -eq 0) { throw 'Nenhum teste *_smoke.gd encontrado.' }
 if ($Native) { $tests += 'nasm_all_runes.gd' }
 foreach ($test in $tests) {
     $testArguments = @('--headless', '--path', $projectPath, '--script', "res://tests/$test")

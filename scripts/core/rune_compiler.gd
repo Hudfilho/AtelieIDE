@@ -12,7 +12,7 @@ func compile(connections: Array) -> Dictionary:
 	var warnings: Array[String] = []
 	var diagnostics: Array[Dictionary] = []
 	if connections.is_empty():
-		return {"ok": false, "errors": ["Não há conexões para compilar."], "warnings": warnings, "diagnostics": diagnostics}
+		return {"ok": false, "errors": [tr("COMPILER_NO_CONNECTIONS")], "warnings": warnings, "diagnostics": diagnostics}
 
 	var sequences := _linearize_sequences(connections, errors, warnings)
 	if not errors.is_empty():
@@ -31,12 +31,15 @@ func compile(connections: Array) -> Dictionary:
 			var symbol := RuneCatalog.symbol_data(kind)
 			var opcode := int(symbol.get("opcode", -1))
 			if opcode < 0:
-				var diagnostic := _rune_diagnostic(connection_index, "Selo desconhecido.")
+				var diagnostic := _rune_diagnostic(connection_index, "COMPILER_UNKNOWN_RUNE")
 				diagnostics.append(diagnostic)
 				errors.append(str(diagnostic["message"]))
 				continue
 			var intensity := clampi(int(connection.get("intensity", 128)), 0, 255)
 			var instruction := {"opcode": opcode, "connection_index": connection_index, "sequence_index": sequence_index, "intensity": intensity}
+			# Raridade (modo jogo): não vai para o bytecode, só para run_program.
+			if int(connection.get("rarity", 0)) > 0:
+				instruction["rarity"] = int(connection["rarity"])
 			if bool(symbol.get("takes_operand", false)):
 				instruction["operand"] = intensity
 			instructions.append(instruction)
@@ -47,22 +50,25 @@ func compile(connections: Array) -> Dictionary:
 	if not errors.is_empty():
 		return {"ok": false, "errors": errors, "warnings": warnings, "diagnostics": diagnostics}
 	if instructions.is_empty():
-		return {"ok": false, "errors": ["Não há selos para compilar."], "warnings": warnings, "diagnostics": diagnostics}
+		return {"ok": false, "errors": [tr("COMPILER_NO_RUNES")], "warnings": warnings, "diagnostics": diagnostics}
 	diagnostics = _validate_rune_dependencies(instructions)
 	if not diagnostics.is_empty():
 		for diagnostic in diagnostics:
 			errors.append(str(diagnostic["message"]))
 		return {"ok": false, "errors": errors, "warnings": warnings, "diagnostics": diagnostics}
 	if inserted_halts > 0:
-		warnings.append("HALT foi inserido automaticamente no fim de %d sequência(s)." % inserted_halts)
+		warnings.append(tr("COMPILER_IMPLICIT_HALT") % [inserted_halts])
 	if instructions.size() > RuneBytecode.MAX_INSTRUCTIONS:
-		return {"ok": false, "errors": ["O ritual ultrapassa %d instruções." % RuneBytecode.MAX_INSTRUCTIONS], "warnings": warnings, "diagnostics": diagnostics}
+		return {"ok": false, "errors": [tr("COMPILER_TOO_MANY") % [RuneBytecode.MAX_INSTRUCTIONS]], "warnings": warnings, "diagnostics": diagnostics}
 
 	return {"ok": true, "instructions": instructions, "bytecode": RuneBytecode.encode(instructions), "errors": errors, "warnings": warnings, "diagnostics": diagnostics}
 
 
-func _rune_diagnostic(connection_index: int, detail: String) -> Dictionary:
-	return {"connection_index": connection_index, "message": "Célula %d: %s" % [connection_index + 1, detail]}
+## code é a chave de tradução do problema: testes e ferramentas comparam o
+## código; "message" é o texto já traduzido para o Oráculo.
+func _rune_diagnostic(connection_index: int, code: String, args: Array = []) -> Dictionary:
+	var detail := tr(code) % args if not args.is_empty() else tr(code)
+	return {"connection_index": connection_index, "code": code, "message": tr("COMPILER_CELL") % [connection_index + 1, detail]}
 
 
 func _validate_rune_dependencies(instructions: Array[Dictionary]) -> Array[Dictionary]:
@@ -74,11 +80,11 @@ func _validate_rune_dependencies(instructions: Array[Dictionary]) -> Array[Dicti
 	for index in range(instructions.size()):
 		var instruction: Dictionary = instructions[index]
 		var opcode := int(instruction["opcode"])
-		if opcode != RuneCatalog.OPCODE_WARP and opcode != RuneCatalog.OPCODE_WARP_ENDPOINT:
+		if not RuneCatalog.is_warp(opcode) and opcode != RuneCatalog.OPCODE_WARP_ENDPOINT:
 			continue
 		if mutable_runes.has(index):
 			mutable_portal = true
-		var groups: Dictionary = warps if opcode == RuneCatalog.OPCODE_WARP else endpoints
+		var groups: Dictionary = warps if RuneCatalog.is_warp(opcode) else endpoints
 		var intensity := int(instruction.get("intensity", 0))
 		var members: Array = groups.get(intensity, [])
 		members.append(index)
@@ -92,40 +98,43 @@ func _validate_rune_dependencies(instructions: Array[Dictionary]) -> Array[Dicti
 		var intensity := int(instruction.get("intensity", 0))
 		var endpoint_count := (endpoints.get(intensity, []) as Array).size()
 		match opcode:
-			RuneCatalog.OPCODE_WARP:
+			RuneCatalog.OPCODE_WARP, RuneCatalog.OPCODE_WARP_FRAGILE:
 				if endpoint_count > 1 and not mutable_portal:
-					diagnostics.append(_rune_diagnostic(connection_index, "WARP %03d tem mais de um WARP END compatível." % intensity))
+					diagnostics.append(_rune_diagnostic(connection_index, "COMPILER_WARP_MANY_ENDS", [intensity]))
 				elif endpoint_count == 0 and (warps.get(intensity, []) as Array).size() < 2 and not mutable_portal:
-					diagnostics.append(_rune_diagnostic(connection_index, "WARP %03d não tem outro WARP nem WARP END de mesma intensidade." % intensity))
+					diagnostics.append(_rune_diagnostic(connection_index, "COMPILER_WARP_NO_TARGET", [intensity]))
 			RuneCatalog.OPCODE_WARP_ENDPOINT:
 				if endpoint_count > 1 and not mutable_portal:
-					diagnostics.append(_rune_diagnostic(connection_index, "WARP END %03d está duplicado; deixe apenas um destino." % intensity))
+					diagnostics.append(_rune_diagnostic(connection_index, "COMPILER_WARP_END_DUPLICATE", [intensity]))
 			RuneCatalog.OPCODE_JUMP_IF_TRUE:
 				if endpoint_count > 1 and not mutable_portal and not mutable_runes.has(index):
-					diagnostics.append(_rune_diagnostic(connection_index, "JUMP_IF_TRUE %03d tem mais de um WARP END compatível." % intensity))
+					diagnostics.append(_rune_diagnostic(connection_index, "COMPILER_JUMP_MANY_ENDS", [intensity]))
 				elif endpoint_count == 0 and not warps.has(intensity) and not mutable_portal and not mutable_runes.has(index):
-					diagnostics.append(_rune_diagnostic(connection_index, "JUMP_IF_TRUE %03d não tem WARP nem WARP END de mesma intensidade." % intensity))
+					diagnostics.append(_rune_diagnostic(connection_index, "COMPILER_JUMP_NO_TARGET", [intensity]))
+			RuneCatalog.OPCODE_INT_APPLY:
+				if not _same_sequence_rune(instructions, index, index + 1):
+					diagnostics.append(_rune_diagnostic(connection_index, "COMPILER_INT_APPLY_NO_TARGET"))
 			RuneCatalog.OPCODE_INT_MOD:
 				var operation_index := index + 1
 				if not _same_sequence_rune(instructions, index, operation_index):
-					diagnostics.append(_rune_diagnostic(connection_index, "INT_MOD precisa de uma operação e uma runa-alvo depois dele."))
+					diagnostics.append(_rune_diagnostic(connection_index, "COMPILER_INT_MOD_NEEDS_TWO"))
 					continue
 				var operation: Dictionary = instructions[operation_index]
 				var operation_opcode := int(operation["opcode"])
 				if operation_opcode not in RuneCatalog.INTENSITY_OPERATIONS:
-					diagnostics.append(_rune_diagnostic(connection_index, "INT_MOD precisa de ADD, SUB, MUL, DIV, MOD ou NEG logo depois dele."))
+					diagnostics.append(_rune_diagnostic(connection_index, "COMPILER_INT_MOD_NEEDS_OP"))
 					continue
 				if not _same_sequence_rune(instructions, index, index + 2):
-					diagnostics.append(_rune_diagnostic(connection_index, "INT_MOD não tem runa-alvo depois da operação."))
+					diagnostics.append(_rune_diagnostic(connection_index, "COMPILER_INT_MOD_NO_TARGET"))
 				elif operation_opcode in [RuneCatalog.OPCODE_DIV, RuneCatalog.OPCODE_MOD] and int(operation.get("intensity", 0)) == 0 and not mutable_runes.has(operation_index):
-					diagnostics.append(_rune_diagnostic(connection_index, "INT_MOD não aceita DIV/MOD com intensidade 000."))
+					diagnostics.append(_rune_diagnostic(connection_index, "COMPILER_INT_MOD_ZERO"))
 			RuneCatalog.OPCODE_INT_SET:
 				var value_index := index + 1
 				var has_control_flow := false
 				while _same_sequence_rune(instructions, index, value_index):
 					var candidate: Dictionary = instructions[value_index]
 					var candidate_opcode := int(candidate["opcode"])
-					if candidate_opcode in [RuneCatalog.OPCODE_WARP, RuneCatalog.OPCODE_JUMP_IF_TRUE]:
+					if RuneCatalog.is_warp(candidate_opcode) or candidate_opcode == RuneCatalog.OPCODE_JUMP_IF_TRUE:
 						has_control_flow = true
 					if candidate_opcode == RuneCatalog.OPCODE_INT_SET:
 						break
@@ -135,11 +144,11 @@ func _validate_rune_dependencies(instructions: Array[Dictionary]) -> Array[Dicti
 				if has_control_flow:
 					continue # O valor pode vir de outra sequência após um salto.
 				if not _same_sequence_rune(instructions, index, value_index):
-					diagnostics.append(_rune_diagnostic(connection_index, "INT_SET precisa de um valor inteiro antes do fim da sequência."))
+					diagnostics.append(_rune_diagnostic(connection_index, "COMPILER_INT_SET_NO_VALUE"))
 				elif int(instructions[value_index]["opcode"]) == RuneCatalog.OPCODE_INT_SET:
-					diagnostics.append(_rune_diagnostic(connection_index, "INT_SET encontrou outro INT_SET antes de um valor inteiro."))
+					diagnostics.append(_rune_diagnostic(connection_index, "COMPILER_INT_SET_NESTED"))
 				elif not _same_sequence_rune(instructions, index, value_index + 1):
-					diagnostics.append(_rune_diagnostic(connection_index, "INT_SET encontrou um valor, mas não tem runa-alvo depois dele."))
+					diagnostics.append(_rune_diagnostic(connection_index, "COMPILER_INT_SET_NO_TARGET"))
 	return diagnostics
 
 
@@ -150,6 +159,8 @@ func _potential_intensity_targets(instructions: Array[Dictionary]) -> Dictionary
 		var opcode := int(instruction["opcode"])
 		if opcode == RuneCatalog.OPCODE_INT_MOD and _same_sequence_rune(instructions, index, index + 2):
 			targets[index + 2] = true
+		elif opcode == RuneCatalog.OPCODE_INT_APPLY and _same_sequence_rune(instructions, index, index + 1):
+			targets[index + 1] = true
 		elif opcode == RuneCatalog.OPCODE_INT_SET:
 			var value_index := index + 1
 			while _same_sequence_rune(instructions, index, value_index):
@@ -175,7 +186,7 @@ func export_binary(connections: Array, path: String) -> Dictionary:
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		result["ok"] = false
-		result["errors"] = ["Não foi possível gravar o binário em %s." % path]
+		result["errors"] = ["Could not write the binary to %s." % path]  # dev-only
 		return result
 	file.store_buffer(result["bytecode"])
 	file.flush()
@@ -183,7 +194,7 @@ func export_binary(connections: Array, path: String) -> Dictionary:
 	file.close()
 	if write_error != OK:
 		result["ok"] = false
-		result["errors"] = ["Não foi possível terminar de gravar o binário em %s (%s)." % [path, error_string(write_error)]]
+		result["errors"] = ["Could not finish writing the binary to %s (%s)." % [path, error_string(write_error)]]  # dev-only
 		return result
 	result["path"] = path
 	return result
@@ -207,7 +218,7 @@ func _linearize_sequences(connections: Array, errors: Array[String], warnings: A
 		if not errors.is_empty():
 			return []
 		if endpoints.size() != 2:
-			errors.append("A sequência ligada à célula %d não possui duas pontas abertas." % (component_start_index + 1))
+			errors.append(tr("COMPILER_SEQUENCE_ENDS") % [component_start_index + 1])
 			return []
 		var start_point: Vector2 = endpoints[0]
 		if _is_point_before(endpoints[1], start_point):
@@ -221,7 +232,7 @@ func _linearize_sequences(connections: Array, errors: Array[String], warnings: A
 		})
 
 	if sequence_entries.size() > 1:
-		warnings.append("Foram encontradas %d sequências; o ritual começou pela sequência mais à esquerda." % sequence_entries.size())
+		warnings.append(tr("COMPILER_MANY_SEQUENCES") % [sequence_entries.size()])
 	var sequences: Array = []
 	while not sequence_entries.is_empty():
 		var entry_index := _leftmost_sequence_entry(sequence_entries)
@@ -305,7 +316,7 @@ func _inspect_component_point(point: Vector2, component_members: Dictionary, poi
 		if component_members.has(int(raw_linked_index)):
 			degree += 1
 	if degree > 2:
-		errors.append("Ramificação no ponto %s: saltos por bifurcação ainda não foram implementados." % point_key)
+		errors.append(tr("COMPILER_BRANCH") % [point_key])
 	elif degree == 1:
 		endpoints.append(point)
 
@@ -325,11 +336,11 @@ func _linearize_component(connections: Array, component: Array[int], start_point
 			if candidate_index == previous_index or not component_members.has(candidate_index):
 				continue
 			if next_index >= 0:
-				errors.append("Ramificação no ponto %s: saltos por bifurcação ainda não foram implementados." % _point_key(current_point))
+				errors.append(tr("COMPILER_BRANCH") % [_point_key(current_point)])
 				return []
 			next_index = candidate_index
 		if next_index < 0:
-			errors.append("A sequência foi interrompida antes da última célula.")
+			errors.append(tr("COMPILER_SEQUENCE_BROKEN"))
 			return []
 		ordered.append(next_index)
 		var connection: Dictionary = connections[next_index]

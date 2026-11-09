@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="AtelierShopRule" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/shop_rule.gd" id="1_rule"]
+
+[resource]
+script = ExtResource("1_rule")
+id = "signature"
+title = "Matching signature"
+text = "The signature must match the client's name."
+check = 2
+field = "signature"
+other_field = "name"
+evidence_fields = PackedStringArray("signature", "name")

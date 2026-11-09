@@ -1,0 +1,20 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="fireball_pixel.gd" id="1"]
+[ext_resource type="Shader" path="fireball_pixel.gdshader" id="2"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fireball"]
+resource_local_to_scene = true
+shader = ExtResource("2")
+shader_parameter/progress = 0.0
+
+[node name="FireballPixel" type="Node2D"]
+script = ExtResource("1")
+
+[node name="Visual" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_fireball")
+offset_left = -96.0
+offset_top = -96.0
+offset_right = 96.0
+offset_bottom = 96.0
+mouse_filter = 2

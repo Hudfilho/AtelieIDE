@@ -202,7 +202,7 @@ Os dois caminhos compartilham [`rune_nasm_common.gd`](../scripts/core/rune_nasm_
 
 ## 8. Como exportar, executar e testar
 
-No menu **File → Exportar Assembly NASM**, escolha o `.asm`. O menu gera somente o assembly; montar e ligar são etapas externas.
+Entre no **Sandbox (Atelier IDE)** pelo menu inicial e marque **Modo assembly** na barra superior. Em **File → Exportar assembly NASM**, escolha o `.asm`. O menu gera somente o assembly; montar e ligar são etapas externas. O modo loja continua usando o compilador/VM para avaliar encomendas, mas não oferece exportação NASM.
 
 Para montar, ligar e executar no Windows:
 

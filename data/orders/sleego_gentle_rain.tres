@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Resource" path="res://data/portraits/sleego.tres" id="portrait"]
+
+[resource]
+script = ExtResource("1_order")
+id = "sleego_gentle_rain"
+client_name = "Sleego"
+age = "40"
+race = "Slime"
+signature = "Sleego"
+portrait = ExtResource("portrait")
+portrait_color = Color(0.55, 0.72, 0.35, 1)
+greeting = "Hello, hello! Do not mind the armor. It was empty, so I moved in."
+reaction_approved = "The ferns will be so pleased! Thank you!"
+reaction_refused = "Oh. It is the helmet, isn't it? It scares people."
+item = "Scroll of Gentle Rain"
+details = "The old grove is thirsty. Pour only what the soil still lacks: its thirst, minus the rain that already fell."
+spec = "Print the soil's thirst minus the rain that fell.
+READ the thirst from slot 000 and the rain from slot 001."
+examples = Array[Dictionary]([{"memory": {0: 9, 1: 4}, "output": ["5"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 12, 1: 5}, "output": ["7"]}, {"memory": {0: 6, 1: 6}, "output": ["0"]}])
+par_runes = 4
+reward = 16

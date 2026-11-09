@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
+[ext_resource type="Resource" path="res://data/portraits/kothar.tres" id="portrait"]
+
+[sub_resource type="Resource" id="on_delivered_0"]
+script = ExtResource("2_consequence")
+headline = "SHOCK ON COGWHEEL LANE: a man was thrown across the street by a trapped doorknob. The Guild asks which shop sold the charm."
+ledger_text = "Guild inquiry: the trapped door"
+reputation = -2
+flag_changes = Dictionary[String, int]({"guild_suspicion": 1})
+
+[resource]
+script = ExtResource("1_order")
+id = "kothar_doorbell_charm"
+client_name = "Kothar"
+age = "29"
+race = "Kobold"
+signature = "Kothar"
+portrait = ExtResource("portrait")
+portrait_color = Color(0.3, 0.45, 0.8, 1)
+greeting = "Evening! Just a small tinkering favour, nothing fancy."
+reaction_approved = "Ha! That will teach him to touch my gears."
+reaction_refused = "Hmph. It was only a little jolt..."
+item = "Doorbell Charm"
+details = "My neighbour keeps stealing my gears. Hang it on my door: a lightning jolt for whoever grabs the knob!"
+tags = PackedStringArray("offensive")
+spec = "Print the jolt strength: the door's charge plus 5.
+READ the charge from slot 000."
+examples = Array[Dictionary]([{"memory": {0: 3}, "output": ["8"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 10}, "output": ["15"]}, {"memory": {0: 0}, "output": ["5"]}])
+par_runes = 4
+reward = 12
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])

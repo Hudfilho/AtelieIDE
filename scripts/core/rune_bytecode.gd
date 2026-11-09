@@ -35,26 +35,26 @@ static func encode(instructions: Array) -> PackedByteArray:
 static func decode(bytes: PackedByteArray) -> Dictionary:
 	var errors: Array[String] = []
 	if bytes.size() < HEADER_SIZE:
-		return {"ok": false, "errors": ["Binário menor que o cabeçalho RUNE."]}
+		return {"ok": false, "errors": ["Binary is shorter than the RUNE header."]}  # dev-only
 	for index in range(MAGIC.size()):
 		if bytes[index] != MAGIC[index]:
-			return {"ok": false, "errors": ["Assinatura RUNE inválida."]}
+			return {"ok": false, "errors": ["Invalid RUNE signature."]}  # dev-only
 	if bytes[4] != VERSION:
-		return {"ok": false, "errors": ["Versão de bytecode não suportada."]}
+		return {"ok": false, "errors": ["Unsupported bytecode version."]}  # dev-only
 	var instruction_count := bytes[5] | (bytes[6] << 8)
 	var cursor := HEADER_SIZE
 	var instructions: Array[Dictionary] = []
 	for _index in range(instruction_count):
 		if cursor >= bytes.size():
-			errors.append("O bytecode terminou antes da última instrução.")
+			errors.append("The bytecode ended before the last instruction.")  # dev-only
 			break
 		var opcode := bytes[cursor]
 		cursor += 1
 		if not RuneCatalog.is_known_opcode(opcode):
-			errors.append("Opcode desconhecido: 0x%02X." % opcode)
+			errors.append("Unknown opcode: 0x%02X." % opcode)  # dev-only
 			break
 		if cursor >= bytes.size():
-			errors.append("Intensidade ausente para %s." % RuneCatalog.name_for_opcode(opcode))
+			errors.append("Missing intensity for %s." % RuneCatalog.name_for_opcode(opcode))  # dev-only
 			break
 		var intensity := bytes[cursor]
 		cursor += 1
@@ -63,7 +63,7 @@ static func decode(bytes: PackedByteArray) -> Dictionary:
 			instruction["operand"] = intensity
 		instructions.append(instruction)
 	if errors.is_empty() and cursor != bytes.size():
-		errors.append("O binário contém bytes depois da última instrução declarada.")
+		errors.append("Trailing bytes after the declared instructions.")  # dev-only
 	if not errors.is_empty():
 		return {"ok": false, "errors": errors}
 	return {"ok": true, "instructions": instructions}

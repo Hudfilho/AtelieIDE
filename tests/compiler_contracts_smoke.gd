@@ -59,20 +59,20 @@ func _run() -> void:
 	var encoded := Bytecode.encode(all_instructions)
 	var decoded := Bytecode.decode(encoded)
 	_check(bool(decoded["ok"]) and decoded["instructions"] == all_instructions, "As 30 instrucoes devem sobreviver ao round-trip RUNE v2.")
-	_invalid_bytecode(encoded.slice(0, 6), "cabeçalho")
+	_invalid_bytecode(encoded.slice(0, 6), "RUNE header")
 	var malformed := encoded.duplicate()
 	malformed[0] = 0
-	_invalid_bytecode(malformed, "Assinatura")
+	_invalid_bytecode(malformed, "signature")
 	malformed = encoded.duplicate()
 	malformed[4] = 1
-	_invalid_bytecode(malformed, "Versão")
+	_invalid_bytecode(malformed, "version")
 	malformed = encoded.duplicate()
 	malformed[7] = 255
-	_invalid_bytecode(malformed, "Opcode")
-	_invalid_bytecode(encoded.slice(0, encoded.size() - 1), "Intensidade ausente")
+	_invalid_bytecode(malformed, "opcode")
+	_invalid_bytecode(encoded.slice(0, encoded.size() - 1), "Missing intensity")
 	malformed = encoded.duplicate()
 	malformed.append(0)
-	_invalid_bytecode(malformed, "depois da última")
+	_invalid_bytecode(malformed, "Trailing bytes")
 	var too_many: Array = []
 	too_many.resize(Bytecode.MAX_INSTRUCTIONS + 1)
 	_check(Bytecode.encode(too_many).is_empty(), "Nao pode haver truncamento silencioso da contagem de instrucoes.")

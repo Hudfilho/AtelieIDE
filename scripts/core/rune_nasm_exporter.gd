@@ -53,6 +53,8 @@ func generate(connections: Array) -> Dictionary:
 	var uses_mutable_intensity := false
 	for instruction in instructions:
 		var opcode := int(instruction["opcode"])
+		if RuneCatalog.is_game_only(opcode):
+			return {"ok": false, "errors": ["%s so existe no modo jogo e nao tem traducao NASM." % RuneCatalog.name_for_opcode(opcode)]}
 		if opcode not in SUPPORTED_OPCODES:
 			return {"ok": false, "errors": ["%s ainda nao tem traducao NASM." % RuneCatalog.name_for_opcode(opcode)]}
 		uses_mutable_intensity = uses_mutable_intensity or opcode in [RuneCatalog.OPCODE_INT_SET, RuneCatalog.OPCODE_INT_MOD]

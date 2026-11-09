@@ -20,6 +20,8 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 
 ## Recursos atuais
 
+- Menu inicial para escolher Loja ou Sandbox, com configurações de idioma e visual.
+- Assembly opcional no Sandbox, separado das restrições do modo loja.
 - Grade infinita com pan e zoom.
 - Criação encadeada de ligações entre pontos.
 - Encaixe magnético ao aproximar uma linha de uma âncora.
@@ -58,7 +60,8 @@ No canvas, a intensidade de um selo vai de `0` a `255`. Para instruções como `
 | Executar o ritual | Botão ▶ no canto superior direito |
 | Alternar dia / noite | Botão ☾ / ☀ no canto superior direito |
 | Salvar / abrir ritual | Menu File ou `Ctrl+S` / `Ctrl+O` |
-| Exportar assembly | Menu File → Exportar Assembly NASM |
+| Exportar assembly | No Sandbox, marque Modo assembly; depois File → Exportar assembly NASM |
+| Voltar ao menu inicial | File no Sandbox; Configurações na Loja |
 | Diagnóstico de desempenho | `F3`; `F6` alterna o cache dos painéis e `F7` a camada visual |
 
 ## Selos disponíveis
@@ -111,8 +114,150 @@ Os booleanos da linguagem usam `1` para verdadeiro e `0` para falso. `EQ`, `NEQ`
 
 3. Abra a pasta clonada no Godot.
 4. Aperte `F5` ou use **Run Project**. `F6` executa somente a cena atual no editor.
+5. No menu inicial, escolha **Abrir a loja** ou **Sandbox (Atelier IDE)**. Para exportar NASM, ative **Modo assembly** na barra do Sandbox.
 
-Neste ambiente, o projeto ativo está em `C:\godot\atelier-ide`, com a cena `scenes/Main.tscn`. A pasta separada `C:\godot\atelier-compiler` não é o projeto aberto pelo usuário; as mudanças do compilador já foram copiadas para o projeto ativo.
+Neste ambiente, o projeto ativo está em `C:\godot\atelier-ide`, com a cena inicial `scenes/game/Title.tscn`; `scenes/Main.tscn` é o Sandbox. A pasta separada `C:\godot\atelier-compiler` não é o projeto aberto pelo usuário; as mudanças do compilador já foram copiadas para o projeto ativo.
+
+## Demo do jogo (integrado da branch `game-case`)
+
+O projeto abre numa tela inicial com duas opções: **Abrir a loja**, o demo do jogo, e **Sandbox (Atelier IDE)**, a IDE livre de sempre. O Sandbox mantém as 30 runas e a exportação NASM opcional, sem restrições da loja.
+
+Para trocar de modo, use **File → Voltar ao menu** no Sandbox ou **Configurações → Voltar ao menu** no balcão. O Sandbox pede confirmação se o ritual não foi salvo. A loja avisa que iniciar de novo reinicia a partida: salvar a campanha ainda não está implementado. Runas mágicas, estoque e mana também ficam para a próxima etapa; as encomendas atuais avaliam saída numérica da VM.
+
+No demo você cuida de uma loja de pergaminhos, inspirada em *Papers, Please*, *Potion Craft* e *Witch Hat Atelier*:
+
+1. Toque o sino para chamar o próximo cliente.
+2. Inspecione: clique num campo do pedido e depois na regra do livro que ele viola, ou na ordem inversa. Ligações certas viram provas, marcadas em tinta vermelha; as erradas voltam como contradição. A primeira ligação errada com um cliente não custa nada. A partir da segunda ele se impacienta, e ao chegar ao limite (3, configurável em `inspection_mistake_threshold` no `Desk`) a loja perde 1 de reputação, uma única vez por cliente. Cada cliente novo começa do zero.
+3. Carimbe **REJECT** ou **APPROVE**. Uma recusa só é correta se citar ao menos uma prova válida. Recusar sem prova conta como recusa sem motivo, mesmo que o pedido seja ilegal.
+4. Se aprovar, escreva o pergaminho na bancada, que é o editor de runas em modo jogo, só com as runas liberadas no dia. **Deliver scroll** roda o ritual contra os casos de teste da encomenda.
+5. No fim do dia aparece o livro-caixa. As decisões têm consequências, algumas na hora e outras nas manhãs seguintes: jornal, multas, reputação e flags do mundo, como `guild_suspicion`. As flags mudam quem aparece nos dias seguintes. No dia 3, por exemplo, o inspetor da Guilda faz uma visita de rotina ou uma auditoria, conforme a suspeita acumulada.
+
+| Pasta | Conteúdo |
+| --- | --- |
+| `scenes/game/` | `Title`, `Desk` (balcão) e `Workbench` (bancada) |
+| `scripts/game/` | Lógica do balcão, da bancada, do `GameState` (autoload) e do `AtelierSpellJudge` |
+| `scripts/game/data/` | Tipos de dados: `AtelierShopDay`, `AtelierScrollOrder`, `AtelierShopRule`, `AtelierConsequence`, `AtelierFlagCondition` |
+| `data/days/`, `data/orders/`, `data/rules/` | Conteúdo do demo em `.tres`, editável pelo Inspector |
+
+**Tela de título:** a ilustração em `art/concepts/title/title.webp` vira o fundo com o logotipo pintado (o nome "Atelier" é o mesmo nos dois idiomas).
+- A frase e os botões pintados em inglês saem. Entram botões de verdade, traduzidos, com as molduras recortadas da própria ilustração: a verde com ramos para "Abrir a loja" e as escuras com filete dourado para as outras opções. As molduras são texturas de 9 fatias, com as pontas inteiras e o meio esticando conforme o texto.
+- `tools/title_art/import_title_art.py` gera o fundo limpo e as molduras (normal, mouse em cima e clique) em `art/title/`.
+- Fundo e botões ficam num palco de 1280x720 (`Title.tscn`) que escala junto para cobrir a janela sem distorcer, então os botões continuam nos lugares dos pintados. Em telas mais largas que 16:9 o corte sai mais da mesa do que do logotipo.
+- O foco de teclado acende a moldura dourada do botão. O botão "Configurações" fica entre a IDE livre e "Sair".
+- A fonte é a [Cormorant Garamond](https://github.com/CatharsisFonts/Cormorant) (licença SIL OFL 1.1, em `art/fonts/cormorant_garamond/OFL.txt`), usada como fonte variável com peso 500 e renderizada por MSDF para ficar nítida em qualquer escala. Os acentos altos e finos (ê, ô) são do desenho da fonte.
+- `tests/title_smoke.gd` confere:
+  - a cobertura em 16:9, 16:10, 21:9 e 4:3;
+  - o logotipo e todos os botões inteiros na tela, sem se sobrepor;
+  - os textos cabendo nos botões;
+  - os caracteres da fonte nos dois idiomas.
+
+**Balcão em pixel art (protótipo):** o balcão é desenhado num `SubViewport` de 640x360, com filtro nearest e pixels alinhados. A bancada de runas e os cartões do dia continuam em resolução cheia.
+
+- **Grade inteira:** `AtelierPixelFrame` (`scripts/game/pixel_frame.gd`) mostra o balcão com a maior escala inteira que cabe na janela, centralizado, e pinta tarjas no espaço que sobra. Por exemplo: 2x em 1280x720, 3x em 1920x1080, 4x em 2560x1440, e 2x com tarjas de 43/24 px em 1366x768. Nunca há escala fracionária. O balcão fica numa `CanvasLayer` abaixo da interface, porque a posição de um `Control` é arredondada para o pixel lógico e, com a janela esticada, isso desalinha o balcão em 1 px.
+
+- **Balcão físico (M8):** em vez de painéis, o jogador vê objetos sobre a mesa. Em cima ficam a janela com o cliente, o balão de fala (só o nome e a fala; a raça fica no pedido) e a vela e o sino no peitoril. Na mesa ficam:
+  - o livro de regras aberto, com duas páginas e regras numeradas (`AtelierContentBudget.rule_pages` divide as regras entre as páginas);
+  - o pedido no centro, o papel mais claro da cena;
+  - os carimbos em pé na bandeja de tinta (`AtelierDeskStamp`): sobem 2 px no hover e têm o nome numa plaquinha de latão;
+  - uma única nota da inspeção, presa com tacha.
+
+  Na parede fica o cartão do dia: número do dia, moedas, reputação e fila ao lado dos ícones pintados, com o texto completo na dica de cada número.
+- **Hierarquia do texto:** quatro fontes bitmap próprias. Versaletes miúdos para cabeçalhos e rótulos de seção; a normal para o texto; a de título (mais alta e em negrito) para o nome do pergaminho e do cliente; e a grande, só para a marca do carimbo.
+- **Cores com significado:** vermelho é discrepância e recusa, verde é aprovado, roxo é o efeito exigido e dourado é interação (seleção, sino). Nenhuma delas aparece como enfeite.
+- **Seleção:** o campo ou a regra escolhida ganha uma barra dourada na margem e um sublinhado, sem pintar a linha inteira. As provas continuam em tinta vermelha com `»`.
+- **Dicas da nota:** mensagens do tipo "clique num campo" somem sozinhas depois de alguns segundos (`hint_fade_delay`). Resultados, avisos e penalidades ficam.
+- **Sino:** é só o objeto, sem plaquinha (o nome aparece na dica do mouse). Brilha de leve, pulsando, quando tocar é a próxima ação; brilha mais forte e sobe 2 px com o mouse em cima; apaga enquanto um cliente é atendido. O halo (`bell_glow.png`) sai de `generate_pixel_art.py`.
+- **Configurações:** a engrenagem no canto do balcão, a tecla Esc (em qualquer tela do balcão) ou o botão da tela de título abrem o painel (`scenes/game/Settings.tscn`, `AtelierSettingsPanel`), com:
+  - **idioma:** automático (o do sistema), inglês ou português. Troca na hora, sem reiniciar: o balcão, a bancada, o livro-caixa e a marca do carimbo guardam como escrever cada texto e reescrevem quando o idioma muda;
+  - **estilo de arte do balcão:** troca na hora.
+
+  As escolhas ficam salvas em `user://settings.cfg` (`AtelierSettings`). Os testes usam um arquivo próprio, para as preferências do jogador não mudarem o resultado.
+- **Estilos de arte do balcão:** há dois (`AtelierDeskStyles`).
+  - **Arcano** (`arcane`): janela em arco, tapeçaria da lua e bandeja de carimbos.
+  - **Botica** (`apothecary`): parede de tábuas com ervas, janela retangular, carimbos com almofadas de tinta.
+
+  Cada estilo é um `AtelierDeskStyle` em `data/desk_styles/`, com as texturas e as posições do retrato e da vela. O layout, os tamanhos dos papéis e o orçamento de texto são os mesmos nos dois; o balcão só troca a arte (`apply_style`).
+- **Arte de produção:** os assets pintados ficam em `art/concepts/desk/<estilo>/` (a pasta tem `.gdignore`). `tools/pixel_art/import_desk_art.py [estilo]` converte para a grade de 640x360 em `art/desk/<estilo>/`, com um módulo por estilo (`desk_arcane.py`, `desk_apothecary.py`) e funções comuns em `desk_art_common.py`:
+  - o fundo é reduzido por área, o que recupera a grade de pixels dele. No Botica, a parede sobe 23 px para o peitoril cair onde os retratos se apoiam, e as tábuas do balcão se repetem até o pé da tela;
+  - os objetos soltos são recortados (do fundo liso no Arcano, pelo alfa no Botica);
+  - os papéis com texto são remontados em fatias. Cantos, moldura e beirada rasgada ficam em escala uniforme, e o miolo, limpo das linhas pautadas, é esticado até o tamanho que o orçamento de texto pede. As molduras finas são redesenhadas a 1 px.
+
+  Os tamanhos e posições dos scripts têm de bater com `Desk.tscn`; `tests/desk_style_smoke.gd` confere isso para todo estilo. O asset da janela avulsa não é usado: os dois fundos já trazem a janela.
+- `tools/pixel_art/generate_pixel_art.py` continua gerando o que é desenhado por código: as quatro fontes bitmap, a silhueta genérica, o balão de fala e a área tracejada do carimbo.
+- **Retratos:** clientes com retrato (`portrait` na encomenda, um `AtelierPortrait` em `data/portraits/`) mudam de expressão na janela:
+  - neutra ao chegar;
+  - feliz na aprovação;
+  - preocupada no primeiro sinal de impaciência;
+  - contrariada na recusa e no limite da paciência.
+
+  Hoje há retratos de Mira Holloway, Anderdingus, Elenia Valehart, Sleego, Kothar, Chrono Genesis, Yuval, Nemo, Rango e Reed Prato Cheio. Os outros clientes usam uma silhueta tingida com `portrait_color`.
+- Os PNGs dos retratos (92x92, em `art/portraits/`) saem de `tools/pixel_art/make_portraits.py`. O script recorta os painéis de expressão das fichas em `art/concepts/portraits/`, separa o personagem do fundo, reduz para pixel art com uma paleta de 32 cores por personagem e contorna a silhueta. As fichas do estilo novo entram em `CUTOUTS`, com o recorte do tipo de fundo: pergaminho com enfeites pintados (`cutout_painted`, um GrabCut semeado pela massa do corpo), traço de nanquim com o corpo da cor do papel (`cutout_inked`) ou painel pintado até a borda (`cutout_sky`, só o céu dos cantos sai). A paleta delas é um k-means em Lab, que guarda acentos como o azul das tatuagens, e quem enche o painel inteiro sai menor na tela (`FIT`). As fichas são só a fonte visual: raça, idade e nome continuam vindo das encomendas. A pasta `art/concepts/` tem `.gdignore`, então o Godot não importa as fichas. `tests/portrait_smoke.gd` confere o formato dos PNGs e a troca de expressões.
+- A marca APPROVED/REFUSED cai numa área reservada do pergaminho (`StampBox`), sem cobrir texto.
+- As plaquinhas dos carimbos são escuras com borda de latão, com contraste de pelo menos 4.5:1 mesmo quando desligadas.
+- `tests/pixel_desk_smoke.gd` monta o balcão para todo cliente de todos os dias. Ele confere que:
+  - nada sai da tela;
+  - cada página do livro fica do seu lado do vinco;
+  - pedido, carimbos, sino e nota não se sobrepõem;
+  - a marca fica dentro da área;
+  - as quatro fontes têm todos os caracteres;
+  - as dicas somem e os avisos ficam.
+
+  Rode também com `locale/test="pt_BR"`. `tests/pixel_frame_smoke.gd` confere a escala inteira e o centro em várias resoluções.
+
+**Orçamento de texto do balcão:** `AtelierContentBudget` (`scripts/game/content_budget.gd`) mede o texto com a fonte e a largura reais do balcão. Os limites são:
+
+- o nome do pergaminho (`item`) numa linha só, na fonte de título;
+- detalhes com até 150 caracteres e até 4 linhas, contando o `»` de prova;
+- a primeira linha do pedido (`spec`) com até 2 linhas, já que é a única que o balcão mostra, como "efeito exigido" (o resto aparece na bancada);
+- falas do cliente com até 3 linhas;
+- no máximo 3 regras por dia, e as regras de cada página do livro aberto cabem nela.
+
+A fonte nunca encolhe para caber. Conteúdo fora do limite é um erro de conteúdo: o jogo avisa ao abrir o dia (só em debug) e `tests/content_budget_smoke.gd` falha. Esse teste também confere que a medição bate com o balcão montado.
+
+**Retorno tátil do balcão:** o nó `Feedback` do `Desk` (`AtelierDeskFeedback`) cuida só de animação e som. Ele faz o carimbo voar até o papel, deixa a marca APPROVED/REFUSED, faz a mesa tremer e toca as deixas de som `bell`, `stamp_approve`, `stamp_reject`, `paper` e `coins`.
+
+- A decisão só vale no impacto do carimbo. Os tempos ficam em constantes no topo de `desk_feedback.gd`.
+- Os sons atuais são provisórios, gerados em código. Para trocar um deles, arraste o arquivo para `Feedback > sounds` no Inspector.
+- Nos testes, `instant = true` faz tudo acontecer na hora, e `mute = true` só anuncia as deixas, sem tocar.
+
+**Idiomas:** o jogo usa a localização nativa do Godot. A tabela `localization/strings.csv`, com uma coluna `en` e outra `pt_BR`, é registrada em `project.godot`.
+
+- O inglês é o fallback. O jogo abre no idioma do sistema quando há tradução para ele (`pt_BR`); nos demais casos, abre em inglês.
+- No código, use `tr("CHAVE")` ou `tr("CHAVE") % [args]`. Nas cenas, escreva a chave no `text`; o `Control` traduz sozinho.
+- Engine e UI devolvem códigos, e quem mostra o texto chama `tr()`. Os diagnósticos do compilador trazem um `code`, e `AtelierRitualFile` devolve `error` como chave, com `error_args` quando há argumentos.
+- Mensagens só de desenvolvimento ficam em inglês simples, marcadas com `# dev-only`, e não entram na tabela. É o caso do overlay F3, dos erros internos de bytecode e da exportação binária, que ainda não tem interface.
+- O conteúdo autoral (clientes, regras, dias e manchetes nos `.tres`) não vira chave: é texto em inglês e passa pela tradução automática usando o próprio texto como chave.
+- O teste `tests/localization_smoke.gd` confere que toda chave usada existe e resolve em inglês, que nenhuma chave da tabela está sem uso e que nenhum texto fixo sobrou nas chamadas de exibição. Os testes não dependem do idioma ativo.
+
+**Para rodar os testes:** rode `godot --headless --path . --import` uma vez e depois `godot --headless --path . -s tests/<teste>.gd`.
+
+**Para criar um cliente novo:**
+
+1. Duplique um `.tres` em `data/orders/`, dê um `id` único e edite os campos no Inspector.
+2. Preencha `examples`, os casos mostrados na bancada, e `hidden_tests`, os casos conferidos só na entrega. Ambos seguem o formato `{"memory": {0: 5}, "output": ["15"]}`, e a memória é lida com `READ`.
+   - Pedidos que leem entradas precisam de pelo menos um teste oculto, para que decorar a resposta do exemplo não baste.
+   - Se um teste oculto falha, a bancada mostra as entradas dele como pista.
+   - `max_steps` é o limite de passos por caso; acima dele, o feitiço é considerado um laço infinito.
+   - `starting_ritual` é opcional: um rascunho já desenhado ao abrir a encomenda. **Reset** volta a ele, e `Ctrl+Z` desfaz o reinício.
+3. Declare as consequências em `on_delivered`, `on_rejected` e `on_abandoned`. Cada `AtelierConsequence` tem:
+   - `delay_days`: `0` aplica na hora, `1` na manhã seguinte.
+   - `headline`, que sai no jornal, e `ledger_text`, que entra no livro-caixa.
+   - `money`, `reputation` e `flag_changes`, cujos valores são somados às flags.
+
+   A legalidade não é escrita no pedido: ela vem das regras do dia. Para regras sobre a natureza do pedido, use `tags` (por exemplo `offensive` ou `mind`). O jogador não vê as etiquetas e deduz pelo item e pelos detalhes. Pedidos ilegais precisam de pelo menos uma consequência ao serem entregues. A regra geral da loja (pagamento, bônus de elegância e reputação por recusar) fica no `GameState`.
+4. Para um cliente condicional, use `conditions`: todas precisam valer para ele aparecer. Para versões alternativas, use `variants`: a primeira variante cujas condições valem toma o lugar do cliente. O inspetor do dia 3 e o retorno do goblin usam esse recurso.
+5. Adicione a encomenda ao `orders` de um dia. As variantes não entram na lista, só o cliente base.
+6. Coloque a solução de referência em `tests/spell_judge_smoke.gd`, pelo `id`. O teste garante que toda encomenda e toda variante tem solução com as runas do dia, que os ids são únicos e que toda flag usada numa condição é produzida por alguma consequência.
+
+**Para criar uma regra:** crie um `.tres` em `data/rules/` com `AtelierShopRule`, com `id`, `title` (nome curto para o livro-caixa e as provas) e `text`. Em seguida:
+
+- Escolha a verificação em `check`:
+  - `FIELD_IS`: um campo igual a um valor, como `race` = `Elf`.
+  - `FIELDS_DIFFER`: dois campos diferentes, como `signature` ≠ `name`.
+  - `HAS_TAG`: o pedido tem uma etiqueta, como `offensive`.
+- Liste em `evidence_fields` os campos que o jogador pode citar como prova.
+- Coloque a regra nos `rules` dos dias em que vale.
+- Atualize `EXPECTED_BROKEN_RULES` em `tests/spell_judge_smoke.gd`, que fixa quais pedidos devem violar quais regras.
 
 ## Estrutura
 

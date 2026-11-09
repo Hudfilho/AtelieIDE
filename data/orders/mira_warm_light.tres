@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Resource" path="res://data/portraits/mira_holloway.tres" id="portrait"]
+
+[resource]
+script = ExtResource("1_order")
+id = "mira_warm_light"
+client_name = "Mira Holloway"
+age = "34"
+race = "Human"
+signature = "Mira Holloway"
+portrait = ExtResource("portrait")
+portrait_color = Color(0.85, 0.62, 0.38, 1)
+reaction_approved = "Oh, lovely! The cat thanks you too."
+reaction_refused = "Oh... alright. Candles it is, then."
+greeting = "Good morning! The bakery lantern died last night and I bake before sunrise."
+item = "Scroll of Warm Light"
+details = "Something bright for the oven corner, please.\nBrightness 3 is plenty, I don't want to wake the cat."
+spec = "Print a light of brightness 3.
+Your master left a draft light scroll on the bench, but it is far too bright: click the Orb rune and lower its intensity."
+examples = Array[Dictionary]([{"memory": {}, "output": ["3"]}])
+par_runes = 2
+reward = 8
+starting_ritual = Array[Dictionary]([{"from": Vector2(0, 0), "to": Vector2(48, 0), "symbol": "ORB", "intensity": 128}, {"from": Vector2(48, 0), "to": Vector2(96, 0), "symbol": "TRIANGLE", "intensity": 128}])

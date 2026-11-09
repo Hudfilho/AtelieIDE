@@ -19,6 +19,7 @@ const FILE_BAR_HEIGHT := 40.0
 const FILE_MENU_SAVE := 1
 const FILE_MENU_OPEN := 2
 const FILE_MENU_ASSEMBLY := 3
+const FILE_MENU_HOME := 4
 const PANEL_TAB_SIZE := 42.0
 const DEFAULT_LEFT_PANEL_WIDTH := 304.0
 const DEFAULT_RIGHT_PANEL_WIDTH := 236.0
@@ -159,6 +160,35 @@ var col_title_shadow: Color
 
 const PALETTE_SYMBOLS = RuneCatalog.SYMBOLS
 
+## Emitido quando uma execução animada termina (por HALT, erro ou fim do
+## programa). result["stopped"] indica que o jogador interrompeu no ■.
+signal ritual_finished(result: Dictionary)
+
+## Modo jogo: a bancada do ateliê embutida numa cena do jogo, sem a barra de
+## arquivos. Defina antes de adicionar o nó à árvore.
+@export var game_mode := false
+## Modo jogo com HUD externa em pixel art: esconde todos os painéis do editor
+## (paleta, comandos, pilha, Oráculo, inspetor) e deixa só a mesa. Quem usa
+## esse modo fornece a paleta e a edição de intensidade pela API abaixo.
+@export var pixel_hud := false
+## Intensidade de uma runa recém-colocada.
+var placed_rune_intensity := DEFAULT_RUNE_INTENSITY
+## kind -> Texture2D branca; quando presente, substitui o glifo do atlas.
+var extra_rune_textures: Dictionary = {}
+## Cores das raridades (modo jogo): índice = raridade guardada na célula.
+var rarity_colors: Array = []
+## Raridade da runa sendo arrastada (vai junto quando ela muda de célula).
+var active_symbol_rarity := 0
+## Modo jogo: soltar uma runa no quadradinho ao lado do traço (onde o ícone
+## fica) também vale, não só em cima da linha. Desligado no editor.
+var snap_drops_to_slots := false
+## O NASM fica disponivel somente no Sandbox, quando o jogador o ativa.
+var assembly_enabled := false
+## Runas mostradas na paleta; o catálogo inteiro quando o modo jogo não restringe.
+var palette_symbols: Array = PALETTE_SYMBOLS
+## Memória inicial da execução animada: as entradas da encomenda que o READ lê.
+var run_memory: Dictionary = {}
+
 var pan := Vector2(340.0, 230.0)
 var zoom := 1.0
 var diagram: AtelierRuneDiagram = RuneDiagram.new()
@@ -285,6 +315,7 @@ var panel_cache_valid := false
 var panel_cache_capture_pending := false
 var panel_cache_revision := 0
 var panel_cache_state_signature := 0
+var panel_cache_capture_blocked := false
 var file_toolbar: Panel
 var file_menu_button: MenuButton
 var file_title_label: Label
@@ -293,6 +324,8 @@ var open_file_dialog: FileDialog
 var assembly_file_dialog: FileDialog
 var file_error_dialog: AcceptDialog
 var assembly_result_dialog: AcceptDialog
+var assembly_toggle: CheckButton
+var menu_confirmation: ConfirmationDialog
 var open_confirmation: ConfirmationDialog
 var current_ritual_path := ""
 var saved_connections_signature := 0
@@ -347,11 +380,293 @@ func _ready() -> void:
 	grain_texture = _create_grain_texture()
 	_build_star_field()
 	_apply_theme(_load_saved_theme())
+	if pixel_hud:
+		_apply_pixel_hud_colors()
 	_create_textured_panel_skins()
-	_create_file_toolbar()
-	_create_file_dialogs()
+	if not game_mode:
+		_create_file_toolbar()
+		_create_file_dialogs()
 	saved_connections_signature = hash(connections)
 	grab_focus()
+	queue_redraw()
+
+
+## ======================== HUD PIXEL (MODO JOGO) ========================
+
+func _apply_pixel_hud_colors() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var tint := Color("d6e6ee")
+	col_sky = Color("0b1226")
+	col_sky_high = col_sky
+	col_dot = Color(tint, 0.16)
+	col_dot_hover = Color(tint, 0.7)
+	# Opaca: no traço pixel o pincel se sobrepõe nas diagonais.
+	col_rune_line = col_sky.lerp(tint, 0.7)
+	col_leather_light = Color(tint, 0.5)
+	col_gold_glow = Color(tint, 1.0)
+
+
+## Tamanho de um "pixel" da mesa na tela: o mesmo dos ícones das runas
+## (16 px desenhados em 32 px no zoom 1), acompanhando o zoom.
+func _px_unit() -> float:
+	return maxf(1.0, roundf(2.0 * zoom))
+
+
+func _px_cell(screen_position: Vector2) -> Vector2i:
+	var unit := _px_unit()
+	return Vector2i(roundi(screen_position.x / unit), roundi(screen_position.y / unit))
+
+
+func _px_brush(cell: Vector2i, brush: int) -> Rect2:
+	var unit := _px_unit()
+	var half := brush / 2
+	return Rect2(Vector2(cell.x - half, cell.y - half) * unit, Vector2(brush, brush) * unit)
+
+
+## Traço pixel: pincel quadrado de `brush` unidades. Retas viram um retângulo;
+## diagonais são escadas (Bresenham), cada célula pintada uma vez só.
+func _px_line(from_screen: Vector2, to_screen: Vector2, color: Color, brush := 2) -> void:
+	var a := _px_cell(from_screen)
+	var b := _px_cell(to_screen)
+	if a.x == b.x or a.y == b.y:
+		draw_rect(_px_brush(a, brush).merge(_px_brush(b, brush)), color)
+		return
+	var unit := _px_unit()
+	var half := brush / 2
+	var cells := {}
+	var dx := absi(b.x - a.x)
+	var dy := -absi(b.y - a.y)
+	var sx := 1 if a.x < b.x else -1
+	var sy := 1 if a.y < b.y else -1
+	var err := dx + dy
+	var cell := a
+	while true:
+		for oy in range(brush):
+			for ox in range(brush):
+				cells[Vector2i(cell.x - half + ox, cell.y - half + oy)] = true
+		if cell == b:
+			break
+		var e2 := 2 * err
+		if e2 >= dy:
+			err += dy
+			cell.x += sx
+		if e2 <= dx:
+			err += dx
+			cell.y += sy
+	for raw_cell in cells:
+		var c: Vector2i = raw_cell
+		draw_rect(Rect2(Vector2(c) * unit, Vector2(unit, unit)), color)
+
+
+## Disco (ou anel, com width > 0) rasterizado em células.
+func _px_disc(center: Vector2, radius: float, color: Color, width := 0.0) -> void:
+	var unit := _px_unit()
+	var r := maxf(radius / unit, 1.0)
+	var w := width / unit
+	var c := Vector2(center.x / unit, center.y / unit)
+	var reach := int(ceil(r)) + 1
+	var base := Vector2i(roundi(c.x), roundi(c.y))
+	for oy in range(-reach, reach + 1):
+		for ox in range(-reach, reach + 1):
+			var cell := Vector2i(base.x + ox, base.y + oy)
+			var distance := (Vector2(cell) + Vector2(0.5, 0.5)).distance_to(c)
+			var inside := distance <= r + 0.15
+			if inside and w > 0.0:
+				inside = distance >= r - maxf(w, 1.0)
+			if inside:
+				draw_rect(Rect2(Vector2(cell) * unit, Vector2(unit, unit)), color)
+
+
+## Linha no estilo do modo atual: pixel em pixel_hud, suave no Sandbox.
+func _stroke(from_screen: Vector2, to_screen: Vector2, color: Color, width: float) -> void:
+	if pixel_hud:
+		_px_line(from_screen, to_screen, color, 2 if width < 7.0 * zoom else 3)
+	else:
+		draw_line(from_screen, to_screen, color, width, true)
+
+
+func _draw_pixel_grid(canvas_rect: Rect2, point_counts: Dictionary) -> void:
+	var top_left_world := _screen_to_world(canvas_rect.position)
+	var bottom_right_world := _screen_to_world(canvas_rect.end)
+	var first_x := int(floor(top_left_world.x / GRID_SPACING))
+	var last_x := int(ceil(bottom_right_world.x / GRID_SPACING))
+	var first_y := int(floor(top_left_world.y / GRID_SPACING))
+	var last_y := int(ceil(bottom_right_world.y / GRID_SPACING))
+	var step := _grid_draw_step(last_x - first_x + 1, last_y - first_y + 1)
+	var dot := col_dot
+	dot.a /= float(step)
+	first_x -= posmod(first_x, step)
+	first_y -= posmod(first_y, step)
+	for grid_y in range(first_y, last_y + 1, step):
+		for grid_x in range(first_x, last_x + 1, step):
+			var world := Vector2(grid_x, grid_y) * GRID_SPACING
+			if int(point_counts.get(world, 0)) > 0:
+				continue # a linha passa por cima
+			draw_rect(_px_brush(_px_cell(_world_to_screen(world)), 2), dot)
+	if animated_hover_point_valid and int(point_counts.get(animated_hover_world, 0)) <= 1:
+		var hover_color := col_dot.lerp(col_dot_hover, _hover_alpha(point_hover_started_at))
+		var cell := _px_cell(_world_to_screen(animated_hover_world))
+		draw_rect(_px_brush(cell, 2), hover_color)
+		for offset in [Vector2i(-2, 0), Vector2i(2, 0), Vector2i(0, -2), Vector2i(0, 2)]:
+			draw_rect(_px_brush(cell + offset, 2), Color(hover_color, hover_color.a * 0.55))
+
+
+func _draw_pixel_connections(canvas_rect: Rect2, point_counts: Dictionary) -> void:
+	var visible_indices := _visible_connection_indices(canvas_rect)
+	performance_visible_connections = visible_indices.size()
+	var unit := _px_unit()
+	var shadow := col_rune_line.darkened(0.72)
+	var shadow_offset := Vector2(0.0, unit)
+	# Sombra de um pixel embaixo, depois o traço.
+	for index in visible_indices:
+		var connection: Dictionary = connections[index]
+		_px_line(_world_to_screen(connection["from"]) + shadow_offset, _world_to_screen(connection["to"]) + shadow_offset, shadow)
+	for index in visible_indices:
+		var connection: Dictionary = connections[index]
+		var line_color := col_rune_line
+		if invalid_connection_indices.has(index):
+			line_color = col_error
+		elif _is_connection_selected(index):
+			line_color = col_rune_line.lightened(0.45)
+		elif index == animated_hover_connection:
+			line_color = col_rune_line.lerp(col_rune_line.lightened(0.35), _hover_alpha(connection_hover_started_at))
+		_px_line(_world_to_screen(connection["from"]), _world_to_screen(connection["to"]), line_color)
+	# Pontas soltas: quadradinho de 4 unidades com sombra.
+	for index in visible_indices:
+		var connection: Dictionary = connections[index]
+		for raw_point in [connection["from"], connection["to"]]:
+			var point: Vector2 = raw_point
+			if int(point_counts.get(point, 0)) != 1 or _terminal_move_armed_at(point):
+				continue
+			var cell := _px_cell(_world_to_screen(point))
+			draw_rect(_px_brush(cell + Vector2i(0, 1), 4), shadow)
+			draw_rect(_px_brush(cell, 4), col_rune_line)
+	for index in visible_indices:
+		var connection: Dictionary = connections[index]
+		var kind := str(connection.get("symbol", ""))
+		if kind.is_empty() or (symbol_settle_active and symbol_settle_connection == index):
+			continue
+		var rune_color := _intensity_color(_display_connection_intensity(index, connection))
+		if invalid_connection_indices.has(index):
+			rune_color = rune_color.lerp(col_error, 0.85)
+		if index == animated_hover_symbol:
+			rune_color = rune_color.lightened(0.25 * _symbol_hover_alpha())
+		var symbol_position := _symbol_position(connection, index)
+		if _is_connection_selected(index):
+			_draw_pixel_selection_brackets(symbol_position, rune_color.lightened(0.3))
+		_draw_rune(kind, symbol_position, zoom, rune_color)
+		_draw_rarity_pips(symbol_position, int(connection.get("rarity", 0)))
+
+
+## Raridade: um quadradinho colorido por nível, logo abaixo do ícone.
+func _draw_rarity_pips(center: Vector2, rarity: int) -> void:
+	if rarity <= 0 or rarity >= rarity_colors.size():
+		return
+	var unit := _px_unit()
+	var color: Color = rarity_colors[rarity]
+	var cell := _px_cell(center)
+	var first := cell.x - (rarity * 3 - 1) / 2
+	for pip in range(rarity):
+		var at := Vector2(first + pip * 3, cell.y + 9) * unit
+		draw_rect(Rect2(at + Vector2(0.0, unit), Vector2(unit, unit) * 2.0), col_sky.darkened(0.5))
+		draw_rect(Rect2(at, Vector2(unit, unit) * 2.0), color)
+
+
+## Cantoneiras pixel em volta da runa selecionada (no lugar da aura suave).
+func _draw_pixel_selection_brackets(center: Vector2, color: Color) -> void:
+	var unit := _px_unit()
+	var half := 10.0 * unit
+	var arm := 3.0 * unit
+	var c := Vector2(_px_cell(center)) * unit
+	for sx in [-1.0, 1.0]:
+		for sy in [-1.0, 1.0]:
+			var corner := c + Vector2(sx * half, sy * half)
+			var h_x := corner.x if sx < 0.0 else corner.x - arm
+			var v_y := corner.y if sy < 0.0 else corner.y - arm
+			draw_rect(Rect2(Vector2(h_x, corner.y - (0.0 if sy < 0.0 else unit)), Vector2(arm, unit)), color)
+			draw_rect(Rect2(Vector2(corner.x - (0.0 if sx < 0.0 else unit), v_y), Vector2(unit, arm)), color)
+
+
+## Solta uma runa da paleta externa na célula sob local_position.
+func drop_symbol_at(local_position: Vector2, kind: String, rarity := 0) -> bool:
+	pointer_screen = local_position
+	if not _is_canvas_position(local_position) or drop_target_at(local_position) < 0:
+		return false
+	active_symbol = kind
+	active_symbol_rarity = rarity
+	dragged_symbol_source = -1
+	dragged_symbol_intensity = placed_rune_intensity
+	_place_active_symbol()
+	_reset_drag()
+	queue_redraw()
+	return true
+
+
+## Célula que recebe uma runa solta em `screen_position` (coordenadas locais),
+## ou -1. Sem snap_drops_to_slots é só a linha embaixo do cursor. Com ele, vale
+## também a casa do ícone: dentro do quadradinho ela ganha; perto, ganha a casa
+## ou linha mais próxima.
+func drop_target_at(screen_position: Vector2) -> int:
+	if not snap_drops_to_slots:
+		return _connection_near(screen_position)
+	var half := 12.0 * zoom + 4.0
+	var slot_radius := maxf(16.0, 26.0 * zoom)
+	var best := -1
+	var best_distance := INF
+	for index in range(connections.size()):
+		var connection: Dictionary = connections[index]
+		var slot := _symbol_position(connection, index)
+		var offset := screen_position - slot
+		if absf(offset.x) <= half and absf(offset.y) <= half:
+			return index
+		var distance := INF
+		if offset.length() <= slot_radius:
+			distance = offset.length()
+		var a := _world_to_screen(connection["from"])
+		var b := _world_to_screen(connection["to"])
+		var ab := b - a
+		var t := clampf((screen_position - a).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
+		var line_distance := screen_position.distance_to(a + ab * t)
+		if line_distance < LINE_HIT_RADIUS:
+			distance = minf(distance, line_distance)
+		if distance < best_distance:
+			best_distance = distance
+			best = index
+	return best
+
+
+## Célula com runa selecionada sozinha, ou -1.
+func selected_rune() -> int:
+	return selected_connection if _has_selected_connection() else -1
+
+
+func rune_intensity(index: int) -> int:
+	if index < 0 or index >= connections.size():
+		return 0
+	return _connection_intensity(connections[index])
+
+
+func rune_rarity(index: int) -> int:
+	if index < 0 or index >= connections.size():
+		return 0
+	return int(connections[index].get("rarity", 0))
+
+
+## Raridade fica na própria célula (as cópias do histórico levam junto).
+func _set_connection_rarity(index: int, rarity: int) -> void:
+	if index < 0 or index >= connections.size():
+		return
+	var connection: Dictionary = connections[index]
+	if rarity > 0:
+		connection["rarity"] = rarity
+	else:
+		connection.erase("rarity")
+
+
+func set_rune_intensity(index: int, intensity: int, record_history := true) -> void:
+	if index < 0 or index >= connections.size():
+		return
+	_set_connection_intensity(index, clampi(intensity, 0, 255), record_history)
 	queue_redraw()
 
 
@@ -446,11 +761,22 @@ func _sync_textured_panel_skins() -> void:
 			skin.size = panel.size
 
 
+## Os painéis desenham textos traduzidos (e guardam uma imagem deles): refaz
+## tudo quando o idioma muda.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED and is_node_ready():
+		_invalidate_panel_cache()
+		queue_redraw()
+
+
 func _invalidate_panel_cache() -> void:
 	panel_cache_revision += 1
 	panel_cache_valid = false
 	panel_cache_textures.clear()
 	panel_cache_rects.clear()
+	# Os comandos anteriores ainda podem referenciar as texturas liberadas.
+	# Refazê-los evita painéis brancos até o próximo movimento do mouse.
+	queue_redraw()
 
 
 # O diagrama pode redesenhar a cada movimento do mouse. Só uma alteração do
@@ -494,7 +820,15 @@ func _panel_cache_can_draw() -> bool:
 
 
 func _panel_cache_can_capture() -> bool:
-	return panel_raster_cache_enabled and diagnostic_static_layer_visible and not panel_cache_valid and not _panel_cache_is_volatile()
+	return is_visible_in_tree() and not panel_cache_capture_blocked and panel_raster_cache_enabled and diagnostic_static_layer_visible and not panel_cache_valid and not _panel_cache_is_volatile()
+
+
+## A captura da viewport não pode incluir uma janela por cima da bancada.
+func set_panel_cache_capture_blocked(blocked: bool) -> void:
+	if panel_cache_capture_blocked == blocked:
+		return
+	panel_cache_capture_blocked = blocked
+	_invalidate_panel_cache()
 
 
 func _panel_cache_regions() -> Array[Dictionary]:
@@ -529,8 +863,9 @@ func _request_panel_cache_capture() -> void:
 
 func _capture_panel_cache_after_draw(requested_revision: int) -> void:
 	await RenderingServer.frame_post_draw
-	if requested_revision != panel_cache_revision:
+	if requested_revision != panel_cache_revision or panel_cache_capture_blocked or not is_visible_in_tree():
 		panel_cache_capture_pending = false
+		queue_redraw()
 		return
 	var viewport_texture := get_viewport().get_texture()
 	if viewport_texture == null or size.x <= 0.0 or size.y <= 0.0:
@@ -541,17 +876,21 @@ func _capture_panel_cache_after_draw(requested_revision: int) -> void:
 		panel_cache_capture_pending = false
 		return
 	var screenshot_size := screenshot.get_size()
-	var scale := Vector2(float(screenshot_size.x) / size.x, float(screenshot_size.y) / size.y)
+	# A captura é da viewport inteira; no modo jogo o canvas não começa em (0, 0).
+	var visible_size := get_viewport().get_visible_rect().size
+	var scale := Vector2(float(screenshot_size.x) / visible_size.x, float(screenshot_size.y) / visible_size.y)
+	var to_viewport := get_global_transform_with_canvas()
 	var textures := {}
 	var rects := {}
 	for entry in _panel_cache_regions():
 		var logical_rect: Rect2 = entry["rect"]
+		var viewport_rect: Rect2 = to_viewport * logical_rect
 		var pixel_position := Vector2i(
-				clampi(floori(logical_rect.position.x * scale.x), 0, screenshot_size.x),
-				clampi(floori(logical_rect.position.y * scale.y), 0, screenshot_size.y))
+				clampi(floori(viewport_rect.position.x * scale.x), 0, screenshot_size.x),
+				clampi(floori(viewport_rect.position.y * scale.y), 0, screenshot_size.y))
 		var pixel_end := Vector2i(
-				clampi(ceili(logical_rect.end.x * scale.x), 0, screenshot_size.x),
-				clampi(ceili(logical_rect.end.y * scale.y), 0, screenshot_size.y))
+				clampi(ceili(viewport_rect.end.x * scale.x), 0, screenshot_size.x),
+				clampi(ceili(viewport_rect.end.y * scale.y), 0, screenshot_size.y))
 		var pixel_rect := Rect2i(pixel_position, pixel_end - pixel_position)
 		if pixel_rect.size.x <= 0 or pixel_rect.size.y <= 0:
 			continue
@@ -593,17 +932,26 @@ func _create_file_toolbar() -> void:
 
 	file_menu_button = MenuButton.new()
 	file_menu_button.name = "FileMenu"
-	file_menu_button.text = "File"
+	file_menu_button.text = tr("IDE_MENU_FILE")
 	file_menu_button.flat = false
 	file_menu_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	file_menu_button.focus_mode = Control.FOCUS_ALL
 	file_toolbar.add_child(file_menu_button)
 	var menu := file_menu_button.get_popup()
-	menu.add_item("Salvar runa...", FILE_MENU_SAVE)
-	menu.add_item("Abrir runa...", FILE_MENU_OPEN)
+	menu.add_item(tr("IDE_MENU_SAVE"), FILE_MENU_SAVE)
+	menu.add_item(tr("IDE_MENU_OPEN"), FILE_MENU_OPEN)
 	menu.add_separator()
-	menu.add_item("Exportar Assembly NASM (protótipo)...", FILE_MENU_ASSEMBLY)
+	menu.add_item(tr("IDE_MENU_ASSEMBLY"), FILE_MENU_ASSEMBLY)
+	menu.set_item_disabled(menu.get_item_index(FILE_MENU_ASSEMBLY), not assembly_enabled)
+	menu.add_separator()
+	menu.add_item(tr("IDE_MENU_HOME"), FILE_MENU_HOME)
 	menu.id_pressed.connect(_on_file_menu_item_pressed)
+	assembly_toggle = CheckButton.new()
+	assembly_toggle.name = "AssemblyToggle"
+	assembly_toggle.text = tr("IDE_ASSEMBLY_MODE")
+	assembly_toggle.button_pressed = assembly_enabled
+	assembly_toggle.toggled.connect(set_assembly_enabled)
+	file_toolbar.add_child(assembly_toggle)
 
 	file_title_label = Label.new()
 	file_title_label.name = "FileTitle"
@@ -621,8 +969,10 @@ func _layout_file_toolbar() -> void:
 	file_toolbar.size = Vector2(size.x, FILE_BAR_HEIGHT)
 	file_menu_button.position = Vector2(12.0, 5.0)
 	file_menu_button.size = Vector2(80.0, 30.0)
-	file_title_label.position = Vector2(112.0, 5.0)
-	file_title_label.size = Vector2(maxf(size.x - 126.0, 0.0), 30.0)
+	assembly_toggle.position = Vector2(104.0, 5.0)
+	assembly_toggle.size = Vector2(180.0, 30.0)
+	file_title_label.position = Vector2(300.0, 5.0)
+	file_title_label.size = Vector2(maxf(size.x - 314.0, 0.0), 30.0)
 
 
 func _refresh_file_toolbar_theme() -> void:
@@ -658,12 +1008,14 @@ func _refresh_file_toolbar_theme() -> void:
 	popup.add_theme_color_override("font_disabled_color", col_text_faint)
 	file_title_label.add_theme_color_override("font_color", col_text_faint)
 	file_title_label.add_theme_font_size_override("font_size", 12)
+	assembly_toggle.add_theme_color_override("font_color", col_text)
+	assembly_toggle.add_theme_font_size_override("font_size", 14)
 
 
 func _refresh_file_title() -> void:
 	if file_title_label == null:
 		return
-	file_title_label.text = "ATELIER IDE   /   %s" % ("SEM TÍTULO" if current_ritual_path.is_empty() else current_ritual_path.get_file())
+	file_title_label.text = "ATELIER IDE   /   %s" % (tr("IDE_UNTITLED") if current_ritual_path.is_empty() else current_ritual_path.get_file())
 
 
 func _create_file_dialogs() -> void:
@@ -674,10 +1026,10 @@ func _create_file_dialogs() -> void:
 	save_file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 	save_file_dialog.use_native_dialog = true
 	save_file_dialog.mode_overrides_title = false
-	save_file_dialog.title = "Salvar runa"
+	save_file_dialog.title = tr("IDE_DIALOG_SAVE")
 	if not documents_dir.is_empty():
 		save_file_dialog.current_dir = documents_dir
-	save_file_dialog.add_filter("*.atelier", "Runas do Ateliê")
+	save_file_dialog.add_filter("*.atelier", tr("IDE_FILE_FILTER"))
 	save_file_dialog.file_selected.connect(_on_save_file_selected)
 	add_child(save_file_dialog)
 
@@ -687,10 +1039,10 @@ func _create_file_dialogs() -> void:
 	open_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	open_file_dialog.use_native_dialog = true
 	open_file_dialog.mode_overrides_title = false
-	open_file_dialog.title = "Abrir runa"
+	open_file_dialog.title = tr("IDE_DIALOG_OPEN")
 	if not documents_dir.is_empty():
 		open_file_dialog.current_dir = documents_dir
-	open_file_dialog.add_filter("*.atelier", "Runas do Ateliê")
+	open_file_dialog.add_filter("*.atelier", tr("IDE_FILE_FILTER"))
 	open_file_dialog.file_selected.connect(_on_open_file_selected)
 	add_child(open_file_dialog)
 	assembly_file_dialog = FileDialog.new()
@@ -699,27 +1051,35 @@ func _create_file_dialogs() -> void:
 	assembly_file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 	assembly_file_dialog.use_native_dialog = true
 	assembly_file_dialog.mode_overrides_title = false
-	assembly_file_dialog.title = "Exportar Assembly NASM"
+	assembly_file_dialog.title = tr("IDE_DIALOG_ASSEMBLY")
 	if not documents_dir.is_empty():
 		assembly_file_dialog.current_dir = documents_dir
-	assembly_file_dialog.add_filter("*.asm", "Assembly NASM")
+	assembly_file_dialog.add_filter("*.asm", tr("IDE_ASSEMBLY_FILTER"))
 	assembly_file_dialog.file_selected.connect(_on_assembly_file_selected)
 	add_child(assembly_file_dialog)
 
 	file_error_dialog = AcceptDialog.new()
-	file_error_dialog.title = "Arquivo de runa"
+	file_error_dialog.title = tr("IDE_DIALOG_FILE_ERROR")
 	add_child(file_error_dialog)
 	assembly_result_dialog = AcceptDialog.new()
-	assembly_result_dialog.title = "Assembly exportado"
+	assembly_result_dialog.title = tr("IDE_ASSEMBLY_EXPORTED")
 	add_child(assembly_result_dialog)
+	menu_confirmation = ConfirmationDialog.new()
+	menu_confirmation.name = "ReturnToMenuDialog"
+	menu_confirmation.title = tr("IDE_MENU_HOME")
+	menu_confirmation.dialog_text = tr("IDE_MENU_UNSAVED")
+	menu_confirmation.confirmed.connect(_return_to_menu)
+	add_child(menu_confirmation)
 	open_confirmation = ConfirmationDialog.new()
-	open_confirmation.title = "Abrir outra runa?"
-	open_confirmation.dialog_text = "O ritual atual tem alterações não salvas. Abrir outra runa vai descartá-las."
+	open_confirmation.title = tr("IDE_DIALOG_OPEN_OTHER")
+	open_confirmation.dialog_text = tr("IDE_DIALOG_UNSAVED")
 	open_confirmation.confirmed.connect(_show_open_file_dialog)
 	add_child(open_confirmation)
 
 
 func _on_file_menu_item_pressed(id: int) -> void:
+	if game_mode:
+		return
 	if editing_intensity_text:
 		_commit_intensity_text()
 	_cancel_drag()
@@ -733,7 +1093,10 @@ func _on_file_menu_item_pressed(id: int) -> void:
 			else:
 				_show_open_file_dialog()
 		FILE_MENU_ASSEMBLY:
-			_show_assembly_file_dialog()
+			if assembly_enabled:
+				_show_assembly_file_dialog()
+		FILE_MENU_HOME:
+			_request_return_to_menu()
 
 
 func _show_save_file_dialog() -> void:
@@ -763,7 +1126,7 @@ func _show_assembly_file_dialog() -> void:
 func _on_save_file_selected(path: String) -> void:
 	var result: Dictionary = RitualFile.save_file(path, connections, pan, zoom)
 	if not result.get("ok", false):
-		_show_file_error(str(result.get("error", "Falha ao salvar a runa.")))
+		_show_file_error(_file_error_text(result, "IDE_SAVE_FAILED"))
 		return
 	current_ritual_path = str(result["path"])
 	saved_connections_signature = hash(connections)
@@ -773,18 +1136,20 @@ func _on_save_file_selected(path: String) -> void:
 func _on_open_file_selected(path: String) -> void:
 	var result: Dictionary = RitualFile.load_file(path)
 	if not result.get("ok", false):
-		_show_file_error(str(result.get("error", "Falha ao abrir a runa.")))
+		_show_file_error(_file_error_text(result, "IDE_OPEN_FAILED"))
 		return
 	_apply_opened_ritual(result)
 
 
 func _on_assembly_file_selected(path: String) -> void:
+	if game_mode or not assembly_enabled:
+		return
 	var result: Dictionary = RuneNasmExporter.new().export_file(connections, path)
 	if not bool(result.get("ok", false)):
 		var messages: Array = result.get("errors", [])
-		_show_file_error("\n".join(messages) if not messages.is_empty() else "Falha ao exportar Assembly.")
+		_show_file_error("\n".join(messages) if not messages.is_empty() else tr("IDE_ASSEMBLY_FAILED"))
 		return
-	assembly_result_dialog.dialog_text = "Arquivo NASM salvo em:\n%s" % str(result["path"])
+	assembly_result_dialog.dialog_text = tr("IDE_ASSEMBLY_SAVED") % str(result["path"])
 	assembly_result_dialog.popup_centered()
 
 
@@ -822,6 +1187,82 @@ func _apply_opened_ritual(document: Dictionary) -> void:
 	_refresh_file_title()
 	_update_hover()
 	queue_redraw()
+
+
+## ======================== MODO JOGO ========================
+
+func set_assembly_enabled(enabled: bool) -> void:
+	assembly_enabled = enabled and not game_mode
+	if assembly_toggle != null:
+		assembly_toggle.set_pressed_no_signal(assembly_enabled)
+	if file_menu_button != null:
+		var menu := file_menu_button.get_popup()
+		menu.set_item_disabled(menu.get_item_index(FILE_MENU_ASSEMBLY), not assembly_enabled)
+
+
+func _request_return_to_menu() -> void:
+	if hash(connections) != saved_connections_signature:
+		menu_confirmation.popup_centered()
+	else:
+		_return_to_menu()
+
+
+func _return_to_menu() -> void:
+	_stop_ritual()
+	get_tree().change_scene_to_file("res://scenes/game/Title.tscn")
+
+
+func _file_bar_height() -> float:
+	return 0.0 if game_mode else FILE_BAR_HEIGHT
+
+
+## Restringe a paleta às runas liberadas; uma lista vazia mostra o catálogo todo.
+func set_allowed_symbols(kinds: PackedStringArray) -> void:
+	if kinds.is_empty():
+		palette_symbols = PALETTE_SYMBOLS
+	else:
+		palette_symbols = PALETTE_SYMBOLS.filter(func(item: Dictionary) -> bool: return kinds.has(str(item["kind"])))
+	palette_scroll = 0.0
+	palette_scroll_target = 0.0
+	hovered_palette_index = -1
+	animated_hover_palette_index = -1
+	_invalidate_panel_cache()
+	queue_redraw()
+
+
+## Limpa a bancada para uma nova encomenda.
+func load_connections(new_connections: Array, new_pan := Vector2(340.0, 230.0), new_zoom := 1.0) -> void:
+	_apply_opened_ritual({"connections": new_connections, "pan": new_pan, "zoom": new_zoom, "path": ""})
+
+
+## Centraliza o ritual (ou a origem, se vazio) na área de desenho visível.
+## Chame depois de abrir/fechar painéis, pois eles mudam essa área.
+func frame_connections() -> void:
+	var center := Vector2.ZERO
+	if not connections.is_empty():
+		var bounds := Rect2(connections[0]["from"], Vector2.ZERO)
+		for connection in connections:
+			bounds = bounds.expand(connection["from"]).expand(connection["to"])
+		center = bounds.get_center()
+	pan = (_canvas_rect().get_center() - center * zoom).round()
+	_update_hover()
+	queue_redraw()
+
+
+## Troca o ritual como uma ação desfazível (Ctrl+Z traz o anterior de volta).
+func replace_connections(new_connections: Array) -> void:
+	var previous := diagram.snapshot()
+	var undo_history := diagram.undo_history.duplicate()
+	load_connections(new_connections, pan, zoom)
+	diagram.undo_history = undo_history
+	diagram.record_undo_snapshot(previous)
+
+
+## AtelierRitualFile devolve o erro como chave (e argumentos); traduz aqui.
+func _file_error_text(result: Dictionary, fallback_key: String) -> String:
+	var args: Array = result.get("error_args", [])
+	var message := tr(str(result.get("error", fallback_key)))
+	return message % args if not args.is_empty() else message
 
 
 func _show_file_error(message: String) -> void:
@@ -1146,6 +1587,8 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
+	if not is_visible_in_tree():
+		return
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
 	if event.keycode == KEY_F3:
@@ -1165,7 +1608,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		queue_redraw()
 		get_viewport().set_input_as_handled()
 		return
-	if event.ctrl_pressed and (event.keycode == KEY_S or event.keycode == KEY_O):
+	if not game_mode and event.ctrl_pressed and (event.keycode == KEY_S or event.keycode == KEY_O):
 		_on_file_menu_item_pressed(FILE_MENU_SAVE if event.keycode == KEY_S else FILE_MENU_OPEN)
 		get_viewport().set_input_as_handled()
 		return
@@ -1245,6 +1688,8 @@ func _gui_input(event: InputEvent) -> void:
 			if pointer_screen.distance_to(symbol_press_screen) >= SYMBOL_DRAG_THRESHOLD:
 				drag_mode = "symbol"
 				symbol_drag_start_snapshot = _connections_snapshot()
+				active_symbol_rarity = rune_rarity(dragged_symbol_source)
+				_set_connection_rarity(dragged_symbol_source, 0)
 				_set_connection_symbol(dragged_symbol_source, "", false)
 				_set_connection_intensity(dragged_symbol_source, DEFAULT_RUNE_INTENSITY, false)
 		elif drag_mode == "intensity":
@@ -1384,6 +1829,7 @@ func _gui_input(event: InputEvent) -> void:
 		if not palette_symbol.is_empty():
 			drag_mode = "symbol"
 			active_symbol = palette_symbol
+			active_symbol_rarity = 0
 			dragged_symbol_source = -1
 			dragged_symbol_intensity = DEFAULT_RUNE_INTENSITY
 		elif _is_canvas_position(pointer_screen):
@@ -1511,6 +1957,7 @@ func _run_ritual() -> void:
 		execution_instructions.append(animated_instruction)
 	_refresh_execution_intensity_overrides()
 	execution_state = vm.create_state()
+	execution_state["memory"] = run_memory.duplicate()
 	vm.configure_program(execution_state, execution_instructions)
 	if bool(execution_state["halted"]):
 		for error in execution_state["errors"]:
@@ -1592,18 +2039,23 @@ func _step_paused_ritual() -> void:
 	_execute_next_ritual_step()
 
 
-func _finish_ritual() -> void:
+func _finish_ritual(stopped := false) -> void:
+	var was_active := _ritual_is_active()
 	ritual_running = false
 	ritual_paused = false
 	execution_step_elapsed = 0.0
+	if was_active and not execution_state.is_empty():
+		var result := vm.result_from_state(execution_state)
+		result["stopped"] = stopped
+		ritual_finished.emit(result)
 
 
 func _stop_ritual() -> void:
-	_finish_ritual()
+	_finish_ritual(true)
 	execution_instructions.clear()
 	execution_connection = -1
 	execution_highlight_ends_at = animation_clock
-	execution_warnings.append("Execução interrompida.")
+	execution_warnings.append(tr("BENCH_RUN_STOPPED"))
 
 
 func _execution_step_duration() -> float:
@@ -1643,6 +2095,9 @@ func export_current_ritual(path: String) -> Dictionary:
 func _draw() -> void:
 	if atlas_baking_mode:
 		_draw_rune_atlas()
+		return
+	if pixel_hud:
+		_draw_pixel_hud_table()
 		return
 	var current_panel_signature := _panel_cache_signature()
 	if current_panel_signature != panel_cache_state_signature:
@@ -1702,6 +2157,23 @@ func _draw() -> void:
 	if performance_overlay_visible:
 		_draw_performance_overlay()
 	performance_draw_ms = float(Time.get_ticks_usec() - draw_started_us) / 1000.0
+
+
+## Só a mesa: fundo liso, grade, linhas e runas. A HUD fica com quem embute.
+func _draw_pixel_hud_table() -> void:
+	var canvas_rect := _canvas_rect()
+	draw_rect(canvas_rect, col_sky)
+	var point_counts := _anchor_point_counts()
+	_draw_grid(canvas_rect, point_counts)
+	_draw_connections(canvas_rect, point_counts)
+	_draw_selection_move_preview()
+	_draw_connection_preview()
+	_draw_terminal_move_marker()
+	_draw_selection_rectangle()
+	_draw_dragged_symbol()
+	_draw_settling_symbol()
+	if performance_overlay_visible:
+		_draw_performance_overlay()
 
 
 ## Desenha a sala inteira, ou so o anel em volta de `hole` quando a mesa ja
@@ -1870,6 +2342,9 @@ func _draw_canvas_edge(canvas_rect: Rect2) -> void:
 
 
 func _draw_grid(canvas_rect: Rect2, point_counts: Dictionary) -> void:
+	if pixel_hud:
+		_draw_pixel_grid(canvas_rect, point_counts)
+		return
 	var top_left_world := _screen_to_world(canvas_rect.position)
 	var bottom_right_world := _screen_to_world(canvas_rect.end)
 	var first_x := int(floor(top_left_world.x / GRID_SPACING)) - 1
@@ -1960,12 +2435,18 @@ func _ring_texture(width_ratio: float) -> Texture2D:
 func _draw_filled_circle(center: Vector2, radius: float, color: Color) -> void:
 	if radius <= 0.0:
 		return
+	if pixel_hud:
+		_px_disc(center, radius, color)
+		return
 	var diameter := radius * 2.0
 	draw_texture_rect(filled_circle_texture, Rect2(center - Vector2.ONE * radius, Vector2.ONE * diameter), false, color)
 
 
 func _draw_ring(center: Vector2, radius: float, color: Color, width: float) -> void:
 	if radius <= 0.0 or width <= 0.0:
+		return
+	if pixel_hud:
+		_px_disc(center, radius, color, width)
 		return
 	var diameter := radius * 2.0
 	draw_texture_rect(_ring_texture(width / radius), Rect2(center - Vector2.ONE * radius, Vector2.ONE * diameter), false, color)
@@ -2040,6 +2521,9 @@ func _connection_point_uses(world_point: Vector2) -> int:
 
 
 func _draw_connections(canvas_rect: Rect2, point_counts: Dictionary) -> void:
+	if pixel_hud:
+		_draw_pixel_connections(canvas_rect, point_counts)
+		return
 	# A estrutura inteira usa a mesma tinta-base. Cada ligação ainda existe no
 	# diagrama, mas só é revelada como uma célula individual pelo hover.
 	var visible_indices := _visible_connection_indices(canvas_rect)
@@ -2143,7 +2627,7 @@ func _draw_invalid_connection_cell(from_screen: Vector2, to_screen: Vector2) -> 
 	var offset := direction / length * half_length
 	var marker := col_error
 	marker.a = 0.78
-	draw_line(middle - offset, middle + offset, marker, 7.0 * zoom, true)
+	_stroke(middle - offset, middle + offset, marker, 7.0 * zoom)
 
 
 func _draw_line_joins_and_caps(points: Dictionary, color: Color, radius: float) -> void:
@@ -2190,7 +2674,7 @@ func _draw_terminal_move_marker() -> void:
 	if segment.length_squared() < 0.001:
 		return
 	var normal := Vector2(-segment.y, segment.x).normalized() * (9.0 * zoom)
-	draw_line(center - normal, center + normal, col_gold_glow, 3.0 * zoom, true)
+	_stroke(center - normal, center + normal, col_gold_glow, 3.0 * zoom)
 
 
 func _draw_performance_overlay() -> void:
@@ -2200,11 +2684,11 @@ func _draw_performance_overlay() -> void:
 	draw_rect(overlay, Color(0.03, 0.05, 0.09, 0.90), true)
 	draw_rect(overlay, col_gold_glow, false, 1.0)
 	var fps := Engine.get_frames_per_second()
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 19.0), "DIAGNÓSTICO  •  F3", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, col_gold_glow)
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 39.0), "%.0f FPS  |  desenho %.2f ms" % [fps, performance_draw_ms], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text)
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 58.0), "grade %.2f  |  código %.2f  |  abas %.2f ms" % [performance_grid_ms, performance_connections_ms, performance_panels_ms], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 77.0), "%d células  |  %d visíveis" % [connections.size(), performance_visible_connections], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
-	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 96.0), "%d pontos da grade  |  %d draw calls" % [performance_grid_dots, int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 19.0), "DIAGNOSTICS  •  F3", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, col_gold_glow)  # dev-only
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 39.0), "%.0f FPS  |  draw %.2f ms" % [fps, performance_draw_ms], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text)  # dev-only
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 58.0), "grid %.2f  |  code %.2f  |  panels %.2f ms" % [performance_grid_ms, performance_connections_ms, performance_panels_ms], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)  # dev-only
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 77.0), "%d cells  |  %d visible" % [connections.size(), performance_visible_connections], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)  # dev-only
+	draw_string(ThemeDB.fallback_font, overlay.position + Vector2(10.0, 96.0), "%d grid dots  |  %d draw calls" % [performance_grid_dots, int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)  # dev-only
 
 
 func _is_connection_hidden_during_move(connection: Dictionary, connection_index := -1) -> bool:
@@ -2220,6 +2704,8 @@ func _is_connection_hidden_during_move(connection: Dictionary, connection_index 
 
 
 func _draw_rounded_segment_caps(from_screen: Vector2, to_screen: Vector2, color: Color, radius: float) -> void:
+	if pixel_hud:
+		return
 	_draw_filled_circle(from_screen, radius, color)
 	_draw_filled_circle(to_screen, radius, color)
 
@@ -2352,10 +2838,10 @@ func _draw_connection_preview() -> void:
 		var candidate := _grid_point_at(pointer_screen)
 		if candidate.has("point"):
 			target_screen = _world_to_screen(candidate["point"])
-		draw_line(_world_to_screen(line_start_world), target_screen, col_gold_glow, 3.0 * zoom, true)
+		_stroke(_world_to_screen(line_start_world), target_screen, col_gold_glow, 3.0 * zoom)
 	elif drag_mode == "connect":
 		var start_screen := _world_to_screen(line_start_world)
-		draw_line(start_screen, _anchor_snap_endpoint(), col_gold_glow, 3.0 * zoom, true)
+		_stroke(start_screen, _anchor_snap_endpoint(), col_gold_glow, 3.0 * zoom)
 	elif drag_mode == "move_anchor" or anchor_move_settle_active:
 		_draw_anchor_move_preview()
 
@@ -2375,9 +2861,9 @@ func _draw_selection_move_preview() -> void:
 		var to_point: Vector2 = connection["to"]
 		var from_screen := _world_to_screen(from_point + selection_move_offset)
 		var to_screen := _world_to_screen(to_point + selection_move_offset)
-		draw_line(from_screen, to_screen, preview_glow, 8.0 * zoom, true)
+		_stroke(from_screen, to_screen, preview_glow, 8.0 * zoom)
 		_draw_rounded_segment_caps(from_screen, to_screen, preview_glow, 4.0 * zoom)
-		draw_line(from_screen, to_screen, preview_color, 2.0 * zoom, true)
+		_stroke(from_screen, to_screen, preview_color, 2.0 * zoom)
 		_draw_rounded_segment_caps(from_screen, to_screen, preview_color, 1.0 * zoom)
 		var symbol := str(connection.get("symbol", ""))
 		if not symbol.is_empty():
@@ -2405,9 +2891,9 @@ func _draw_anchor_move_preview() -> void:
 		var to_screen := _world_to_screen(preview_to)
 		var original_middle := (_world_to_screen(from_point) + _world_to_screen(to_point)) * 0.5
 		var preview_middle := (from_screen + to_screen) * 0.5
-		draw_line(from_screen, to_screen, glow_color, 8.0 * zoom, true)
+		_stroke(from_screen, to_screen, glow_color, 8.0 * zoom)
 		_draw_rounded_segment_caps(from_screen, to_screen, glow_color, 4.0 * zoom)
-		draw_line(from_screen, to_screen, preview_color, 2.5 * zoom, true)
+		_stroke(from_screen, to_screen, preview_color, 2.5 * zoom)
 		_draw_rounded_segment_caps(from_screen, to_screen, preview_color, 1.25 * zoom)
 		var symbol := str(connection.get("symbol", ""))
 		if not symbol.is_empty():
@@ -2423,6 +2909,17 @@ func _draw_anchor_move_preview() -> void:
 
 func _draw_selection_rectangle() -> void:
 	if drag_mode != "selection":
+		return
+	if pixel_hud:
+		var unit := _px_unit()
+		var a := Vector2(_px_cell(selection_rect.position)) * unit
+		var b := Vector2(_px_cell(selection_rect.end)) * unit
+		var box := Rect2(a, b - a).abs()
+		draw_rect(box, Color(col_gold_glow, 0.08))
+		draw_rect(Rect2(box.position, Vector2(box.size.x, unit)), col_gold_glow)
+		draw_rect(Rect2(box.position + Vector2(0.0, box.size.y - unit), Vector2(box.size.x, unit)), col_gold_glow)
+		draw_rect(Rect2(box.position, Vector2(unit, box.size.y)), col_gold_glow)
+		draw_rect(Rect2(box.position + Vector2(box.size.x - unit, 0.0), Vector2(unit, box.size.y)), col_gold_glow)
 		return
 	var fill_color := col_gold_bright
 	fill_color.a = 0.08
@@ -2606,6 +3103,9 @@ func _draw_settling_symbol() -> void:
 
 
 func _draw_symbol_selection_glow(kind: String, symbol_position: Vector2, rune_color: Color) -> void:
+	if pixel_hud:
+		_draw_pixel_selection_brackets(symbol_position, rune_color.lightened(0.3))
+		return
 	# A seleção acompanha o formato da runa, em vez de usar uma bolha circular.
 	var outer_color := rune_color.lightened(0.35)
 	var inner_color := rune_color.lightened(0.20)
@@ -2660,7 +3160,7 @@ func _draw_intensity_inspector() -> void:
 	var intensity := _connection_intensity(connection)
 	_draw_arcane_frame(inspector)
 	_draw_rune(kind, inspector.position + Vector2(25.0, 27.0), 0.72, _intensity_color(intensity))
-	draw_string(ThemeDB.fallback_font, inspector.position + Vector2(44.0, 22.0), "INTENSIDADE", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, col_text_faint)
+	draw_string(ThemeDB.fallback_font, inspector.position + Vector2(44.0, 22.0), tr("BENCH_INTENSITY"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, col_text_faint)
 	draw_string(ThemeDB.fallback_font, inspector.position + Vector2(44.0, 41.0), str(data["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, col_text)
 	var value_rect := _intensity_value_rect()
 	control_stylebox.border_color = col_gold_glow if editing_intensity_text else col_brass
@@ -2716,7 +3216,7 @@ func _draw_left_panel() -> void:
 				draw_texture_rect(sigil, Rect2(sigil_center - sigil.get_size() * 0.5, sigil.get_size()), false, Color.WHITE)
 			_draw_rune(kind, sigil_center, 0.76, col_parch_ink.lerp(col_brass, float(intensity) / 255.0))
 			draw_string(ThemeDB.fallback_font, row.position + Vector2(58.0, 26.0), str(data["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, col_parch_ink)
-			var extra := str(data["extra"])
+			var extra := tr(str(data["extra"]))
 			# So mostramos o numero quando a intensidade participa da instrucao
 			# como operando; nos outros selos ela e apenas visual.
 			if RuneCatalog.takes_operand(int(data.get("opcode", -1))):
@@ -2735,9 +3235,10 @@ func _draw_left_panel() -> void:
 		var empty_center := Vector2(panel.get_center().x, panel.position.y + 132.0)
 		_draw_ring(empty_center, 30.0, col_brass, 1.0)
 		draw_line(empty_center - Vector2(48.0, 0.0), empty_center + Vector2(48.0, 0.0), col_brass, 1.0, true)
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(29.0, 192.0), "Ainda não há símbolos no ritual.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(29.0, 192.0), tr("BENCH_GRIMOIRE_EMPTY"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 
 
+## Uma carta de pergaminho do grimorio, com sombra e o selo de escolha.
 ## Uma carta de pergaminho do grimorio, com o selo de escolha por cima.
 func _draw_spell_card(row: Rect2, selected: bool) -> void:
 	var texture := _spell_card_texture(int(roundf(row.size.y)))
@@ -2764,6 +3265,8 @@ func _command_row_at(screen_position: Vector2) -> int:
 
 
 func _left_command_list_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	if not left_panel_open:
 		return Rect2()
 	var panel := _left_panel_rect()
@@ -2785,8 +3288,8 @@ func _draw_left_scroll_masks(panel: Rect2, list_rect: Rect2) -> void:
 
 
 func _draw_left_panel_header(panel: Rect2) -> void:
-	_draw_panel_title(panel.position + Vector2(20.0, 32.0), "GRIMÓRIO ATIVO", 16)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 54.0), "Símbolos ligados ao ritual", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	_draw_panel_title(panel.position + Vector2(20.0, 32.0), tr("BENCH_GRIMOIRE_TITLE"), 16)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 54.0), tr("BENCH_GRIMOIRE_SUBTITLE"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
 	draw_line(panel.position + Vector2(20.0, 70.0), Vector2(panel.end.x - 20.0, panel.position.y + 70.0), col_spellstrip, 1.0, true)
 
 
@@ -2881,15 +3384,15 @@ func _draw_top_panel() -> void:
 	_draw_stop_button(_stop_button_rect())
 	_draw_theme_button(_theme_button_rect())
 	if not top_panel_open:
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(16.0, 27.0), "SELOS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(16.0, 27.0), tr("BENCH_PALETTE_TAB"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 		return
 
-	_draw_panel_title(panel.position + Vector2(20.0, 28.0), "SELOS DO ATELIÊ", 16)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 47.0), "Arraste um símbolo até a linha de um feitiço.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	_draw_panel_title(panel.position + Vector2(20.0, 28.0), tr("BENCH_PALETTE_TITLE"), 16)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 47.0), tr("BENCH_PALETTE_HINT"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
 
 	var palette_viewport := _palette_viewport_rect()
-	for index in range(PALETTE_SYMBOLS.size()):
-		var item: Dictionary = PALETTE_SYMBOLS[index]
+	for index in range(palette_symbols.size()):
+		var item: Dictionary = palette_symbols[index]
 		var tile := _palette_rect(index)
 		if not _palette_tile_is_visible(tile, palette_viewport):
 			continue
@@ -2906,16 +3409,16 @@ func _draw_bottom_panel() -> void:
 	_draw_arcane_frame(panel)
 	_draw_toggle_button(_bottom_toggle_rect(), "down" if bottom_panel_open else "up")
 	if not bottom_panel_open:
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(16.0, 27.0), "ORÁCULO", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(16.0, 27.0), tr("BENCH_ORACLE_TITLE"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 		return
 
 	_draw_oracle_orb(panel.position + Vector2(38.0, 36.0), 30.0)
-	_draw_panel_title(panel.position + Vector2(62.0, 32.0), "ORÁCULO", 16)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(62.0, 53.0), "A saída e os erros do ritual aparecerão aqui.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	_draw_panel_title(panel.position + Vector2(62.0, 32.0), tr("BENCH_ORACLE_TITLE"), 16)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(62.0, 53.0), tr("BENCH_ORACLE_HINT"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
 	var divider_x := panel.position.x + panel.size.x * 0.58
 	draw_line(Vector2(divider_x, panel.position.y + 72.0), Vector2(divider_x, panel.end.y - 16.0), col_spellstrip, 1.0, true)
-	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 24.0, panel.position.y + 93.0), "SAÍDA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_gold)
-	draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, panel.position.y + 93.0), "ERROS (%d)" % execution_errors.size(), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_gold)
+	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 24.0, panel.position.y + 93.0), tr("BENCH_ORACLE_OUTPUT"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_gold)
+	draw_string(ThemeDB.fallback_font, Vector2(divider_x + 20.0, panel.position.y + 93.0), tr("BENCH_ORACLE_ERRORS") % [execution_errors.size()], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_gold)
 	var output_position := Vector2(panel.position.x + 24.0, panel.position.y + 118.0)
 	var output_width := divider_x - panel.position.x - 42.0
 	var output_font: Font = ThemeDB.fallback_font
@@ -2936,12 +3439,12 @@ func _draw_bottom_panel() -> void:
 		var error_text := "! " + execution_errors[error_index]
 		var error_size := output_font.get_multiline_string_size(error_text, HORIZONTAL_ALIGNMENT_LEFT, error_width, 13)
 		if error_y + error_size.y > panel.end.y - 10.0:
-			draw_string(output_font, Vector2(divider_x + 20.0, minf(error_y, panel.end.y - 12.0)), "+%d erro(s); aumente o Oráculo" % (execution_errors.size() - error_index), HORIZONTAL_ALIGNMENT_LEFT, error_width, 11, col_error)
+			draw_string(output_font, Vector2(divider_x + 20.0, minf(error_y, panel.end.y - 12.0)), tr("BENCH_ORACLE_MORE_ERRORS") % [execution_errors.size() - error_index], HORIZONTAL_ALIGNMENT_LEFT, error_width, 11, col_error)
 			break
 		draw_multiline_string(output_font, Vector2(divider_x + 20.0, error_y), error_text, HORIZONTAL_ALIGNMENT_LEFT, error_width, 13, -1, col_error)
 		error_y += error_size.y + 6.0
 	if execution_output.is_empty() and execution_errors.is_empty() and execution_warnings.is_empty():
-		draw_string(ThemeDB.fallback_font, output_position, "cada linha traçada é um encadeamento de intenções.", HORIZONTAL_ALIGNMENT_LEFT, output_width, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, output_position, tr("BENCH_ORACLE_IDLE"), HORIZONTAL_ALIGNMENT_LEFT, output_width, 13, col_text_faint)
 
 
 ## O orbe do oraculo: uma lua dourada acesa no rodape.
@@ -2960,24 +3463,24 @@ func _draw_right_panel() -> void:
 	_draw_arcane_frame(panel)
 	_draw_toggle_button(_right_toggle_rect(), "right" if right_panel_open else "left")
 	if not right_panel_open:
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(5.0, 58.0), "PILHA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(5.0, 58.0), tr("BENCH_STACK_TITLE"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, col_text_faint)
 		return
 
-	_draw_panel_title(panel.position + Vector2(20.0, 64.0), "PILHA", 16)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 85.0), "Estado da máquina", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
+	_draw_panel_title(panel.position + Vector2(20.0, 64.0), tr("BENCH_STACK_TITLE"), 16)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 85.0), tr("BENCH_STACK_SUBTITLE"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, col_text_faint)
 	draw_line(panel.position + Vector2(20.0, 101.0), Vector2(panel.end.x - 20.0, panel.position.y + 101.0), col_spellstrip, 1.0, true)
 	if execution_state.is_empty() or not execution_state.has("stack"):
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 136.0), "A pilha desperta", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 155.0), "quando o ritual começa.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 136.0), tr("BENCH_STACK_IDLE_1"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 155.0), tr("BENCH_STACK_IDLE_2"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 		return
 
 	var stack: Array = execution_state["stack"]
 	var text_width := panel.size.x - 40.0
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), "TOPO", HORIZONTAL_ALIGNMENT_LEFT, text_width, 11, col_gold)
-	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), "%d SELOS" % stack.size(), HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, col_text_faint)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), tr("BENCH_STACK_TOP"), HORIZONTAL_ALIGNMENT_LEFT, text_width, 11, col_gold)
+	draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 124.0), tr("BENCH_STACK_COUNT") % [stack.size()], HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, col_text_faint)
 	if stack.is_empty():
 		_draw_ring(panel.position + Vector2(panel.size.x * 0.5, 169.0), 24.0, col_leather_light, 1.0)
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 215.0), "A pilha está vazia.", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, 215.0), tr("BENCH_STACK_EMPTY"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, col_text_faint)
 		return
 
 	var row_height := 42.0
@@ -2987,7 +3490,7 @@ func _draw_right_panel() -> void:
 	var first_visible := maxi(stack.size() - visible_rows, 0)
 	var row_y := first_y
 	if first_visible > 0:
-		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, row_y + 11.0), "+%d abaixo" % first_visible, HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, col_text_faint)
+		draw_string(ThemeDB.fallback_font, panel.position + Vector2(20.0, row_y + 11.0), tr("BENCH_STACK_BELOW") % [first_visible], HORIZONTAL_ALIGNMENT_RIGHT, text_width, 10, col_text_faint)
 		row_y += 16.0
 	for stack_index in range(stack.size() - 1, first_visible - 1, -1):
 		var row := Rect2(panel.position.x + 14.0, row_y, panel.size.x - 28.0, 34.0)
@@ -2996,19 +3499,19 @@ func _draw_right_panel() -> void:
 		var stack_value := int(stack[stack_index])
 		draw_string(ThemeDB.fallback_font, row.position + Vector2(14.0, 22.0), "%03d" % stack_value, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, col_parch_ink)
 		if is_top:
-			draw_string(ThemeDB.fallback_font, row.position + Vector2(14.0, 21.0), "TOPO", HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 28.0, 10, col_parch_muted)
+			draw_string(ThemeDB.fallback_font, row.position + Vector2(14.0, 21.0), tr("BENCH_STACK_TOP"), HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 28.0, 10, col_parch_muted)
 		row_y += row_height
 
 
 func _draw_palette_tooltip() -> void:
 	if not top_panel_open or hovered_palette_index < 0:
 		return
-	var item: Dictionary = PALETTE_SYMBOLS[hovered_palette_index]
+	var item: Dictionary = palette_symbols[hovered_palette_index]
 	var tile := _palette_rect(hovered_palette_index)
 	var panel := _top_panel_rect()
 	var font: Font = ThemeDB.fallback_font
 	var title := str(item["label"])
-	var description := str(item["description"])
+	var description := tr(str(item["description"]))
 	var max_width := minf(330.0, maxf(panel.size.x - 24.0, 1.0))
 	if max_width < 80.0:
 		return
@@ -3205,6 +3708,17 @@ func _draw_rune_atlas() -> void:
 
 
 func _draw_rune(kind: String, center: Vector2, rune_scale: float, color: Color) -> void:
+	if extra_rune_textures.has(kind):
+		var icon_size := Vector2.ONE * 32.0 * rune_scale
+		var top_left := center - icon_size * 0.5
+		if pixel_hud:
+			# Um pixel do ícone = uma unidade da mesa, alinhado à mesma grade.
+			var unit := _px_unit()
+			var texture: Texture2D = extra_rune_textures[kind]
+			icon_size = Vector2(texture.get_size()) * unit
+			top_left = ((center - icon_size * 0.5) / unit).round() * unit
+		draw_texture_rect(extra_rune_textures[kind], Rect2(top_left, icon_size), false, color)
+		return
 	if not atlas_baking_mode and _draw_rune_from_atlas(kind, center, rune_scale, color):
 		return
 	var r := 11.0 * rune_scale
@@ -3390,7 +3904,9 @@ func _is_canvas_position(screen_position: Vector2) -> bool:
 
 
 func _canvas_rect() -> Rect2:
-	var top := FILE_BAR_HEIGHT + PANEL_GAP * 2.0 + _top_panel_height()
+	if pixel_hud:
+		return Rect2(Vector2.ZERO, size)
+	var top := _file_bar_height() + PANEL_GAP * 2.0 + _top_panel_height()
 	var bottom := size.y - PANEL_GAP * 2.0 - _bottom_panel_height()
 	return Rect2(_middle_left(), top, _middle_width(), maxf(bottom - top, 0.0))
 
@@ -3405,7 +3921,7 @@ func _middle_width() -> float:
 
 
 func _left_panel_rect() -> Rect2:
-	return Rect2(PANEL_GAP, FILE_BAR_HEIGHT + PANEL_GAP, _left_panel_width(), maxf(size.y - FILE_BAR_HEIGHT - PANEL_GAP * 2.0, 0.0))
+	return Rect2(PANEL_GAP, _file_bar_height() + PANEL_GAP, _left_panel_width(), maxf(size.y - _file_bar_height() - PANEL_GAP * 2.0, 0.0))
 
 
 func _left_panel_width() -> float:
@@ -3425,7 +3941,7 @@ func _bottom_panel_height() -> float:
 
 
 func _top_panel_rect() -> Rect2:
-	return Rect2(_middle_left(), FILE_BAR_HEIGHT + PANEL_GAP, _middle_width(), _top_panel_height())
+	return Rect2(_middle_left(), _file_bar_height() + PANEL_GAP, _middle_width(), _top_panel_height())
 
 
 func _bottom_panel_rect() -> Rect2:
@@ -3435,10 +3951,12 @@ func _bottom_panel_rect() -> Rect2:
 
 func _right_panel_rect() -> Rect2:
 	var panel_width := _right_panel_width()
-	return Rect2(size.x - PANEL_GAP - panel_width, FILE_BAR_HEIGHT + PANEL_GAP, panel_width, maxf(size.y - FILE_BAR_HEIGHT - PANEL_GAP * 2.0, 0.0))
+	return Rect2(size.x - PANEL_GAP - panel_width, _file_bar_height() + PANEL_GAP, panel_width, maxf(size.y - _file_bar_height() - PANEL_GAP * 2.0, 0.0))
 
 
 func _left_toggle_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	var panel := _left_panel_rect()
 	if left_panel_open:
 		return Rect2(panel.end.x - 38.0, panel.position.y + 8.0, 30.0, 30.0)
@@ -3446,16 +3964,22 @@ func _left_toggle_rect() -> Rect2:
 
 
 func _top_toggle_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	var panel := _top_panel_rect()
 	return Rect2(panel.end.x - 38.0, panel.position.y + 6.0, 30.0, 30.0)
 
 
 func _bottom_toggle_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	var panel := _bottom_panel_rect()
 	return Rect2(panel.end.x - 38.0, panel.position.y + 6.0, 30.0, 30.0)
 
 
 func _right_toggle_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	var panel := _right_panel_rect()
 	if right_panel_open:
 		return Rect2(panel.position.x + 8.0, panel.position.y + 8.0, 30.0, 30.0)
@@ -3489,32 +4013,44 @@ func _toggle_panel(panel: String) -> void:
 
 
 func _play_button_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	var panel := _top_panel_rect()
 	return Rect2(panel.end.x - 254.0, panel.position.y + 6.0, 30.0, 30.0)
 
 
 func _pause_button_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	var panel := _top_panel_rect()
 	return Rect2(panel.end.x - 218.0, panel.position.y + 6.0, 30.0, 30.0)
 
 
 func _step_button_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	var panel := _top_panel_rect()
 	return Rect2(panel.end.x - 182.0, panel.position.y + 6.0, 30.0, 30.0)
 
 
 func _stop_button_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	var panel := _top_panel_rect()
 	return Rect2(panel.end.x - 146.0, panel.position.y + 6.0, 30.0, 30.0)
 
 
 ## Alterna entre o grimorio a luz de vela e o pergaminho iluminado.
 func _theme_button_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	var panel := _top_panel_rect()
 	return Rect2(panel.end.x - 110.0, panel.position.y + 6.0, 30.0, 30.0)
 
 
 func _execution_speed_slider_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	var panel := _top_panel_rect()
 	var right_edge := _play_button_rect().position.x - 12.0
 	var left_edge := maxf(panel.position.x + 118.0, right_edge - 126.0)
@@ -3537,6 +4073,8 @@ func _resize_handle_at(screen_position: Vector2) -> String:
 
 
 func _resize_handle_rect(panel_name: String) -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	# Toda a lateral e a folga externa sao arrastaveis, nao so os tres pontos.
 	# Antes a hitbox terminava no centro do grip, deixando metade dele de fora.
 	var padding := PANEL_GAP * 0.5
@@ -3583,10 +4121,10 @@ func _resize_panel(screen_position: Vector2) -> void:
 			var max_right_width := maxf(MIN_RIGHT_PANEL_WIDTH, size.x - _left_panel_width() - PANEL_GAP * 4.0 - 190.0)
 			right_panel_size = clampf(resize_start_size - (screen_position.x - resize_start_mouse.x), MIN_RIGHT_PANEL_WIDTH, max_right_width)
 		"resize_top":
-			var max_top_height := maxf(MIN_TOP_PANEL_HEIGHT, size.y - FILE_BAR_HEIGHT - _bottom_panel_height() - PANEL_GAP * 4.0 - 120.0)
+			var max_top_height := maxf(MIN_TOP_PANEL_HEIGHT, size.y - _file_bar_height() - _bottom_panel_height() - PANEL_GAP * 4.0 - 120.0)
 			top_panel_size = clampf(resize_start_size + (screen_position.y - resize_start_mouse.y), MIN_TOP_PANEL_HEIGHT, max_top_height)
 		"resize_bottom":
-			var max_bottom_height := maxf(MIN_BOTTOM_PANEL_HEIGHT, size.y - FILE_BAR_HEIGHT - _top_panel_height() - PANEL_GAP * 4.0 - 120.0)
+			var max_bottom_height := maxf(MIN_BOTTOM_PANEL_HEIGHT, size.y - _file_bar_height() - _top_panel_height() - PANEL_GAP * 4.0 - 120.0)
 			bottom_panel_size = clampf(resize_start_size - (screen_position.y - resize_start_mouse.y), MIN_BOTTOM_PANEL_HEIGHT, max_bottom_height)
 	_clamp_palette_scroll()
 	_update_hover()
@@ -3599,6 +4137,8 @@ func _has_selected_connection() -> bool:
 
 
 func _intensity_inspector_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	if not _has_selected_connection():
 		return Rect2()
 	var canvas := _canvas_rect()
@@ -4076,6 +4616,8 @@ func _palette_rect(index: int) -> Rect2:
 
 
 func _palette_viewport_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	if not top_panel_open:
 		return Rect2()
 	var panel := _top_panel_rect()
@@ -4112,7 +4654,7 @@ func _palette_tile_size() -> float:
 
 
 func _palette_columns() -> int:
-	return maxi(1, int(ceil(float(PALETTE_SYMBOLS.size()) / float(_palette_rows()))))
+	return maxi(1, int(ceil(float(palette_symbols.size()) / float(_palette_rows()))))
 
 
 func _palette_content_width() -> float:
@@ -4173,6 +4715,8 @@ func _clamp_palette_scroll() -> void:
 
 
 func _palette_scrollbar_rect() -> Rect2:
+	if pixel_hud:
+		return Rect2()
 	if not top_panel_open:
 		return Rect2()
 	var viewport := _palette_viewport_rect()
@@ -4215,7 +4759,7 @@ func _palette_index_at(screen_position: Vector2) -> int:
 	var viewport := _palette_viewport_rect()
 	if not top_panel_open or not viewport.has_point(screen_position):
 		return -1
-	for index in range(PALETTE_SYMBOLS.size()):
+	for index in range(palette_symbols.size()):
 		var tile := _palette_rect(index)
 		if _palette_tile_is_visible(tile, viewport) and tile.has_point(screen_position):
 			return index
@@ -4225,7 +4769,7 @@ func _palette_index_at(screen_position: Vector2) -> int:
 func _palette_symbol_at(screen_position: Vector2) -> String:
 	var index := _palette_index_at(screen_position)
 	if index >= 0:
-		return str(PALETTE_SYMBOLS[index]["kind"])
+		return str(palette_symbols[index]["kind"])
 	return ""
 
 
@@ -4309,7 +4853,7 @@ func _connection_near(screen_position: Vector2) -> int:
 
 
 func _place_active_symbol() -> void:
-	var target := _connection_near(pointer_screen)
+	var target := drop_target_at(pointer_screen)
 	if target >= 0:
 		_select_connection(target, false, true)
 		if dragged_symbol_source >= 0:
@@ -4324,14 +4868,16 @@ func _place_active_symbol() -> void:
 			var target_connection: Dictionary = connections[target]
 			var target_symbol := str(target_connection.get("symbol", ""))
 			var target_intensity := _connection_intensity(target_connection)
-			if target_symbol != active_symbol or target_intensity != DEFAULT_RUNE_INTENSITY:
+			if target_symbol != active_symbol or target_intensity != placed_rune_intensity:
 				_record_current_state()
 				_set_connection_symbol(target, active_symbol, false)
-				_set_connection_intensity(target, DEFAULT_RUNE_INTENSITY, false)
+				_set_connection_intensity(target, placed_rune_intensity, false)
+		_set_connection_rarity(target, active_symbol_rarity)
 		_start_symbol_settle(target)
 	elif dragged_symbol_source >= 0:
 		_set_connection_symbol(dragged_symbol_source, active_symbol, false)
 		_set_connection_intensity(dragged_symbol_source, dragged_symbol_intensity, false)
+		_set_connection_rarity(dragged_symbol_source, active_symbol_rarity)
 
 
 func _start_symbol_settle(target: int) -> void:

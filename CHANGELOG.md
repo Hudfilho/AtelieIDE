@@ -1,5 +1,19 @@
 # Patch notes — grande atualização do Atelier IDE
 
+## Integração Loja / Sandbox — 2026-10-05
+
+- Core da branch `game-case` integrado com o compilador atual: dias, pedidos, inspeção, consequências, bancada e livro-caixa.
+- Menu inicial com Abrir a loja, Sandbox (Atelier IDE), configurações e sair.
+- Sandbox mantém as 30 runas; o checkbox Modo assembly habilita a exportação NASM. A loja usa somente as runas do dia e não expõe o compilador nativo.
+- Retorno ao menu pelo File do Sandbox ou pelas configurações da loja, com avisos antes de descartar o ritual ou reiniciar a partida.
+- VM aceita memória inicial e limite de passos por encomenda; o editor emite o resultado da execução para a bancada.
+- Preservados atlas, cache de painéis, cantos retos, redimensionamento, edição de nós e os backends NASM estático/mutável.
+- Traduções inglês/pt_BR conciliadas com as ações de assembly e retorno ao menu.
+- Executor de testes descobre também as suítes da loja; nova suíte cobre ida/volta entre modos e assembly opt-in.
+- Corrigido o redesenho ao invalidar o cache de painéis, evitando áreas brancas até o próximo movimento do mouse.
+- Captura dos painéis suspensa sob configurações/confirmadores da loja, para não gravar a janela modal por cima ao mudar de idioma.
+- Integração passou 23 suítes, incluindo 56 executáveis NASM comparados com a VM e o Fibonacci do usuário; telas conferidas também no renderizador real.
+
 ## Visual e desempenho
 
 - O ateliê ganhou o visual arcano de couro, latão e pergaminho, com temas claro e escuro; a escolha do tema é lembrada entre sessões.
@@ -12,7 +26,7 @@
 
 - O menu **File** permite salvar e abrir rituais editáveis no formato `.atelier`, incluindo células, runas, intensidades, posição da câmera e zoom.
 - `Ctrl+S` e `Ctrl+O` são atalhos para salvar e abrir. Antes de abrir outro ritual com alterações não salvas, o editor pede confirmação.
-- **Exportar Assembly NASM** está habilitado no menu File e salva código nativo para Windows x86-64.
+- **Exportar Assembly NASM** salva código nativo para Windows x86-64; na integração atual, é habilitado pelo checkbox Modo assembly no Sandbox.
 - Ao apertar Play, o compilador detecta dependências inválidas de `WARP`, `WARP END`, `JUMP_IF_TRUE`, `INT_MOD` e `INT_SET` antes de executar. Erros são explicados no Oráculo e a célula correspondente recebe uma marca vermelha discreta. Erros encontrados durante a execução também são localizados.
 
 ## Compilador e ferramentas
@@ -37,9 +51,8 @@
 
 - Testes automatizados cobrem salvar/abrir, diagnósticos de runas, o modo de mover pontas, traçado contínuo, retorno que apaga a última célula e bloqueio de nós ocupados.
 - A revisão passou 8 suítes, incluindo 56 executáveis comparados com a VM e o Fibonacci do usuário. Os testes também cobrem catálogo, bytecode, geometria dos painéis, todas as runas NASM e casos de erro.
-- Permanecem avisos preexistentes de traduções ausentes na configuração local do Godot; eles estão documentados e não impedem os testes.
+- A integração corrigiu os caminhos das traduções para os recursos gerados do CSV.
 
 ## Próxima etapa planejada, não incluída nesta versão
 
-- Preservar o editor livre em um modo **Sandbox**, com assembly opcional, separado das regras de estoque e mana do modo loja.
-- Integrar o core da loja da branch `game-case` e acrescentar runas mágicas e avaliação de receitas de feitiços. Essa integração foi adiada explicitamente para o próximo prompt.
+- Acrescentar runas mágicas, estoque, mana e avaliação de receitas de feitiços ao core da loja. O Sandbox permanece livre dessas restrições.

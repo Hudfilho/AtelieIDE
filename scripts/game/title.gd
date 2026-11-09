@@ -1,0 +1,42 @@
+extends Control
+
+## Tela inicial do demo: começa o dia de loja, abre a IDE livre (sandbox) ou
+## as configurações (idioma e estilo de arte do balcão, salvos para as
+## próximas vezes).
+## A ilustração tem o logotipo pintado e os botões ficam onde estavam os
+## pintados, então fundo e botões estão num palco de 1280x720 que escala
+## junto para cobrir a janela (tools/title_art/import_title_art.py).
+
+## Tamanho do palco (o da ilustração na tela).
+const STAGE_SIZE := Vector2(1280, 720)
+## Quando a janela é mais larga que 16:9, o palco corta mais embaixo (mesa)
+## do que em cima (logotipo): fração do corte vertical que sai de cima.
+const CROP_FROM_TOP := 0.3
+
+@onready var stage: Control = %Stage
+
+
+func _ready() -> void:
+	# Primeira cena do jogo: aplica o idioma escolhido nas configurações.
+	AtelierSettings.apply_language()
+	resized.connect(fit_stage)
+	fit_stage()
+	%PlayButton.pressed.connect(_on_play)
+	%SandboxButton.pressed.connect(func() -> void: get_tree().change_scene_to_file("res://scenes/Main.tscn"))
+	%SettingsButton.pressed.connect(%Settings.open)
+	%Settings.closed.connect(%SettingsButton.grab_focus)
+	%QuitButton.pressed.connect(func() -> void: get_tree().quit())
+	%PlayButton.grab_focus()
+
+
+func _on_play() -> void:
+	GameState.new_game()
+	get_tree().change_scene_to_file("res://scenes/game/Desk.tscn")
+
+
+## Escala o palco para cobrir a janela sem distorcer, centrado na horizontal.
+func fit_stage() -> void:
+	var scale_factor := maxf(size.x / STAGE_SIZE.x, size.y / STAGE_SIZE.y)
+	stage.scale = Vector2(scale_factor, scale_factor)
+	var spare := size - STAGE_SIZE * scale_factor
+	stage.position = Vector2(spare.x * 0.5, spare.y * CROP_FROM_TOP)

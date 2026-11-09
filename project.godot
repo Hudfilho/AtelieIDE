@@ -11,9 +11,13 @@ config_version=5
 [application]
 
 config/name="AtelierIDE"
-run/main_scene="res://scenes/Main.tscn"
+run/main_scene="res://scenes/ware/Hub.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[autoload]
+
+GameState="*res://scripts/game/game_state.gd"
 
 [display]
 
@@ -24,8 +28,7 @@ window/stretch/aspect="expand"
 
 [internationalization]
 
-locale/translations=PackedStringArray("res://localization/ui.en.translation", "res://localization/ui.pt_BR.translation")
-locale/fallback="pt_BR"
+locale/translations=PackedStringArray("res://localization/strings.en.translation", "res://localization/strings.pt_BR.translation")
 
 [physics]
 

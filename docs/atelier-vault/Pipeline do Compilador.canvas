@@ -1,0 +1,463 @@
+{
+ "nodes": [
+  {
+   "id": "g_front",
+   "type": "group",
+   "label": "FRONTEND — do desenho à IR",
+   "x": -60,
+   "y": -60,
+   "width": 1500,
+   "height": 420,
+   "color": "4"
+  },
+  {
+   "id": "g_vm",
+   "type": "group",
+   "label": "BACKEND 1 — Bytecode + VM (editor)",
+   "x": -60,
+   "y": 440,
+   "width": 1500,
+   "height": 420,
+   "color": "5"
+  },
+  {
+   "id": "g_nasm",
+   "type": "group",
+   "label": "BACKEND 2 — Assembly nativo (Windows x64)",
+   "x": -60,
+   "y": 940,
+   "width": 1500,
+   "height": 440,
+   "color": "6"
+  },
+  {
+   "id": "g_game",
+   "type": "group",
+   "label": "JOGO — o que ainda vai mudar",
+   "x": -60,
+   "y": 1460,
+   "width": 1500,
+   "height": 300,
+   "color": "2"
+  },
+  {
+   "id": "t_user",
+   "type": "text",
+   "text": "## 🖊️ Usuário desenha\nLiga pontos da grade; cada célula recebe `kind` + intensidade 0–255.\n\nO desenho **é** o código-fonte.",
+   "x": 0,
+   "y": 20,
+   "width": 300,
+   "height": 160
+  },
+  {
+   "id": "n01",
+   "type": "file",
+   "file": "01 Diagrama e Arquivo .atelier.md",
+   "x": 360,
+   "y": 20,
+   "width": 300,
+   "height": 160
+  },
+  {
+   "id": "n02",
+   "type": "file",
+   "file": "02 Catálogo de Runas.md",
+   "x": 360,
+   "y": 220,
+   "width": 300,
+   "height": 160,
+   "color": "4"
+  },
+  {
+   "id": "n03",
+   "type": "file",
+   "file": "03 Frontend — Linearização e Validação.md",
+   "x": 720,
+   "y": 20,
+   "width": 340,
+   "height": 160
+  },
+  {
+   "id": "n04",
+   "type": "file",
+   "file": "04 Representação Intermediária (IR).md",
+   "x": 1120,
+   "y": 20,
+   "width": 300,
+   "height": 160,
+   "color": "3"
+  },
+  {
+   "id": "t_front_rules",
+   "type": "text",
+   "text": "**Regras da sintaxe geométrica**\n- grau ≤ 2 por ponto (sem bifurcação)\n- 2 pontas por sequência (sem círculo)\n- início = menor x, depois menor y\n- HALT implícito no fim\n- portais / INT_SET / INT_MOD validados",
+   "x": 720,
+   "y": 220,
+   "width": 340,
+   "height": 180,
+   "color": "4"
+  },
+  {
+   "id": "t_ir",
+   "type": "text",
+   "text": "```gdscript\n{opcode, intensity, operand?,\n connection_index, sequence_index}\n```\nUma **lista**, não uma árvore.",
+   "x": 1120,
+   "y": 220,
+   "width": 300,
+   "height": 160,
+   "color": "3"
+  },
+  {
+   "id": "n05",
+   "type": "file",
+   "file": "05 Bytecode RUNE v2.md",
+   "x": 0,
+   "y": 520,
+   "width": 300,
+   "height": 160,
+   "color": "5"
+  },
+  {
+   "id": "n06",
+   "type": "file",
+   "file": "06 Máquina Virtual.md",
+   "x": 360,
+   "y": 520,
+   "width": 300,
+   "height": 160,
+   "color": "5"
+  },
+  {
+   "id": "n11",
+   "type": "file",
+   "file": "11 Execução no Editor (Play).md",
+   "x": 720,
+   "y": 520,
+   "width": 340,
+   "height": 160
+  },
+  {
+   "id": "n07",
+   "type": "file",
+   "file": "07 Portais e Saltos.md",
+   "x": 360,
+   "y": 700,
+   "width": 300,
+   "height": 140,
+   "color": "1"
+  },
+  {
+   "id": "n08",
+   "type": "file",
+   "file": "08 INT_SET e INT_MOD.md",
+   "x": 720,
+   "y": 700,
+   "width": 340,
+   "height": 140,
+   "color": "1"
+  },
+  {
+   "id": "t_bytes",
+   "type": "text",
+   "text": "```\n52 55 4E 45 | 02 | 03 00 | 01 80 | 05 00 | 06 00\n  RUNE       v2   N=3    PUSH128  PRINT   HALT\n```\n2 bytes/instrução · máx 65 535",
+   "x": 0,
+   "y": 700,
+   "width": 300,
+   "height": 140,
+   "color": "5"
+  },
+  {
+   "id": "t_play",
+   "type": "text",
+   "text": "Play = compile → encode → **decode** → recolocar `connection_index` → `vm.step()` em RPS.\n\nA VM roda o mesmo bytecode que seria exportado.",
+   "x": 1120,
+   "y": 520,
+   "width": 300,
+   "height": 180
+  },
+  {
+   "id": "n09",
+   "type": "file",
+   "file": "09 Backend NASM Estático.md",
+   "x": 360,
+   "y": 1020,
+   "width": 300,
+   "height": 160,
+   "color": "6"
+  },
+  {
+   "id": "n10",
+   "type": "file",
+   "file": "10 Backend NASM Mutável.md",
+   "x": 720,
+   "y": 1020,
+   "width": 340,
+   "height": 160,
+   "color": "6"
+  },
+  {
+   "id": "t_choice",
+   "type": "text",
+   "text": "**Seleção automática**\n\nSem `INT_SET`/`INT_MOD` → **estático**: saltos resolvidos antes, pilha com endereços fixos `[rsp+32+8k]`.\n\nCom eles → **mutável**: tabela de intensidades em `r13`, resolvedor de portais em runtime, tabela de saltos.",
+   "x": 0,
+   "y": 1020,
+   "width": 300,
+   "height": 260,
+   "color": "6"
+  },
+  {
+   "id": "t_toolchain",
+   "type": "text",
+   "text": "```\n.asm ──nasm -f win64──► .obj ──gcc──► .exe\n```\n`tools/run_exported_asm.ps1`\n\nNão é interpretador: PUSH é `mov`, PRINT é `call printf`.",
+   "x": 1120,
+   "y": 1020,
+   "width": 300,
+   "height": 180
+  },
+  {
+   "id": "t_common",
+   "type": "text",
+   "text": "`rune_nasm_common.gd`\nemit_binary · MAX_STACK 256 · 10 000 passos · RUNTIME_ERRORS",
+   "x": 360,
+   "y": 1210,
+   "width": 700,
+   "height": 100,
+   "color": "6"
+  },
+  {
+   "id": "n12",
+   "type": "file",
+   "file": "12 Testes e Ferramentas.md",
+   "x": 1120,
+   "y": 1220,
+   "width": 300,
+   "height": 120
+  },
+  {
+   "id": "n14",
+   "type": "file",
+   "file": "14 Runas Mágicas — Mudanças para o Jogo.md",
+   "x": 0,
+   "y": 1540,
+   "width": 400,
+   "height": 160,
+   "color": "2"
+  },
+  {
+   "id": "t_magic",
+   "type": "text",
+   "text": "**Pilha mágica** (separada da numérica)\nRunas mágicas empilham `{kind, intensity}` **ao executar** → **Castar** vira feitiço.\n\nToca: catálogo (opcode ≥ 0x1f), VM (`state.magic`), NASM (rejeitar com mensagem), painel no canvas.\nNão toca: bytecode, `.atelier`, INT_SET/INT_MOD.",
+   "x": 460,
+   "y": 1540,
+   "width": 600,
+   "height": 200,
+   "color": "2"
+  },
+  {
+   "id": "n13",
+   "type": "file",
+   "file": "13 Limitações Conhecidas.md",
+   "x": 1120,
+   "y": 1540,
+   "width": 300,
+   "height": 120
+  }
+ ],
+ "edges": [
+  {
+   "id": "e1",
+   "fromNode": "t_user",
+   "toNode": "n01",
+   "fromSide": "right",
+   "toSide": "left",
+   "label": "salva/abre JSON"
+  },
+  {
+   "id": "e2",
+   "fromNode": "n01",
+   "toNode": "n03",
+   "fromSide": "right",
+   "toSide": "left",
+   "label": "connections[]"
+  },
+  {
+   "id": "e3",
+   "fromNode": "n02",
+   "toNode": "n03",
+   "fromSide": "right",
+   "toSide": "bottom",
+   "label": "kind → opcode"
+  },
+  {
+   "id": "e4",
+   "fromNode": "n03",
+   "toNode": "n04",
+   "fromSide": "right",
+   "toSide": "left",
+   "label": "compile()"
+  },
+  {
+   "id": "e5",
+   "fromNode": "t_front_rules",
+   "toNode": "n03",
+   "fromSide": "top",
+   "toSide": "bottom"
+  },
+  {
+   "id": "e6",
+   "fromNode": "t_ir",
+   "toNode": "n04",
+   "fromSide": "top",
+   "toSide": "bottom"
+  },
+  {
+   "id": "e7",
+   "fromNode": "n04",
+   "toNode": "n05",
+   "fromSide": "bottom",
+   "toSide": "top",
+   "label": "encode()"
+  },
+  {
+   "id": "e8",
+   "fromNode": "n05",
+   "toNode": "n06",
+   "fromSide": "right",
+   "toSide": "left",
+   "label": "decode()"
+  },
+  {
+   "id": "e9",
+   "fromNode": "n06",
+   "toNode": "n11",
+   "fromSide": "right",
+   "toSide": "left",
+   "label": "step() por instrução"
+  },
+  {
+   "id": "e10",
+   "fromNode": "n07",
+   "toNode": "n06",
+   "fromSide": "top",
+   "toSide": "bottom",
+   "label": "resolve() destinos"
+  },
+  {
+   "id": "e11",
+   "fromNode": "n08",
+   "toNode": "n06",
+   "fromSide": "left",
+   "toSide": "right",
+   "label": "reescreve state.program"
+  },
+  {
+   "id": "e12",
+   "fromNode": "t_bytes",
+   "toNode": "n05",
+   "fromSide": "top",
+   "toSide": "bottom"
+  },
+  {
+   "id": "e13",
+   "fromNode": "t_play",
+   "toNode": "n11",
+   "fromSide": "left",
+   "toSide": "right"
+  },
+  {
+   "id": "e14",
+   "fromNode": "n04",
+   "toNode": "n09",
+   "fromSide": "bottom",
+   "toSide": "top",
+   "label": "generate()",
+   "color": "6"
+  },
+  {
+   "id": "e15",
+   "fromNode": "t_choice",
+   "toNode": "n09",
+   "fromSide": "right",
+   "toSide": "left"
+  },
+  {
+   "id": "e16",
+   "fromNode": "t_choice",
+   "toNode": "n10",
+   "fromSide": "right",
+   "toSide": "left"
+  },
+  {
+   "id": "e17",
+   "fromNode": "n07",
+   "toNode": "n09",
+   "fromSide": "bottom",
+   "toSide": "top",
+   "label": "mesmas regras de destino",
+   "color": "1"
+  },
+  {
+   "id": "e18",
+   "fromNode": "n10",
+   "toNode": "t_toolchain",
+   "fromSide": "right",
+   "toSide": "left",
+   "label": ".asm"
+  },
+  {
+   "id": "e19",
+   "fromNode": "n09",
+   "toNode": "t_toolchain",
+   "fromSide": "top",
+   "toSide": "bottom",
+   "label": ".asm"
+  },
+  {
+   "id": "e20",
+   "fromNode": "t_common",
+   "toNode": "n09",
+   "fromSide": "top",
+   "toSide": "bottom"
+  },
+  {
+   "id": "e21",
+   "fromNode": "t_common",
+   "toNode": "n10",
+   "fromSide": "top",
+   "toSide": "bottom"
+  },
+  {
+   "id": "e22",
+   "fromNode": "n12",
+   "toNode": "t_toolchain",
+   "fromSide": "top",
+   "toSide": "bottom",
+   "label": "nasm_all_runes compara .exe ↔ VM"
+  },
+  {
+   "id": "e23",
+   "fromNode": "n14",
+   "toNode": "t_magic",
+   "fromSide": "right",
+   "toSide": "left"
+  },
+  {
+   "id": "e24",
+   "fromNode": "t_magic",
+   "toNode": "n06",
+   "fromSide": "top",
+   "toSide": "bottom",
+   "label": "novo estado na VM",
+   "color": "2"
+  },
+  {
+   "id": "e25",
+   "fromNode": "t_magic",
+   "toNode": "n02",
+   "fromSide": "top",
+   "toSide": "bottom",
+   "label": "novos símbolos",
+   "color": "2"
+  }
+ ]
+}

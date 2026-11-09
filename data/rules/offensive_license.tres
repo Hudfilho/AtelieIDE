@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="AtelierShopRule" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/shop_rule.gd" id="1_rule"]
+
+[resource]
+script = ExtResource("1_rule")
+id = "offensive_license"
+title = "Offensive magic"
+text = "Offensive scrolls (fire, lightning, curses) may not be sold to the public."
+check = 3
+value = "offensive"
+evidence_fields = PackedStringArray("item", "details")

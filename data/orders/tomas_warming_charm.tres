@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+
+[resource]
+script = ExtResource("1_order")
+id = "tomas_warming_charm"
+client_name = "Tomas Reed"
+age = "71"
+race = "Human"
+signature = "Tomas Reed"
+portrait_color = Color(0.62, 0.58, 0.52, 1)
+greeting = "These old bones feel every draft, young one."
+item = "Warming Charm"
+details = "Keep me 10 degrees warmer than the air outside. The weather changes, so read it every time."
+spec = "Print the outside temperature plus 10.\nREAD the temperature from slot 000."
+examples = Array[Dictionary]([{"memory": {0: 5}, "output": ["15"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 20}, "output": ["30"]}, {"memory": {0: 0}, "output": ["10"]}])
+par_runes = 4
+reward = 15

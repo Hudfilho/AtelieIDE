@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Resource" path="res://data/portraits/anderdingus.tres" id="portrait"]
+[ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
+[ext_resource type="Script" path="res://scripts/game/data/flag_condition.gd" id="3_condition"]
+
+[sub_resource type="Resource" id="on_delivered_0"]
+script = ExtResource("2_consequence")
+delay_days = 1
+headline = "MILLBROOK EVACUATED: a second, far larger fire swept the northern caves. The Guild names your atelier as the source."
+ledger_text = "Guild fine: the second Millbrook fire"
+money = -40
+reputation = -6
+flag_changes = Dictionary[String, int]({"guild_suspicion": 3})
+
+[sub_resource type="Resource" id="condition_0"]
+script = ExtResource("3_condition")
+flag = "goblin_armed"
+comparison = 0
+value = 1
+
+[resource]
+script = ExtResource("1_order")
+id = "anderdingus_bigger_fireball"
+client_name = "Anderdingus"
+age = "1 year"
+race = "Goblin"
+signature = "GoOBLiN"
+portrait = ExtResource("portrait")
+portrait_color = Color(0.42, 0.62, 0.28, 1)
+reaction_approved = "HEHEHEHE! BIGGER!"
+reaction_refused = "No fun. NO FUN AT ALL."
+greeting = "HEHEHE. The last one was GREAT. Now make it BIGGER!"
+item = "Greater Fireball"
+details = "Fire as big as the number in slot 000, TIMES ITSELF!\nThe village still makes noise!!"
+tags = PackedStringArray("offensive")
+spec = "READ slot 000 and print it squared."
+examples = Array[Dictionary]([{"memory": {0: 5}, "output": ["25"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 9}, "output": ["81"]}, {"memory": {0: 1}, "output": ["1"]}])
+par_runes = 4
+reward = 40
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])
+conditions = Array[ExtResource("3_condition")]([SubResource("condition_0")])

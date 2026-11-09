@@ -14,9 +14,10 @@ func _run() -> void:
 	await process_frame
 	var file_menu := canvas.get_node("FileToolbar/FileMenu") as MenuButton
 	assert(file_menu != null)
-	assert(file_menu.get_popup().get_item_text(0) == "Salvar runa...")
-	assert(file_menu.get_popup().get_item_text(1) == "Abrir runa...")
-	assert(file_menu.get_popup().get_item_text(3).begins_with("Exportar Assembly NASM"))
+	assert(file_menu.get_popup().get_item_id(0) == canvas.FILE_MENU_SAVE and file_menu.get_popup().get_item_text(0) == tr("IDE_MENU_SAVE"))
+	assert(file_menu.get_popup().get_item_id(1) == canvas.FILE_MENU_OPEN and file_menu.get_popup().get_item_text(1) == tr("IDE_MENU_OPEN"))
+	assert(file_menu.get_popup().is_item_disabled(3))
+	canvas.set_assembly_enabled(true)
 	assert(not file_menu.get_popup().is_item_disabled(3))
 	assert(canvas.call("_top_panel_rect").position.y >= 40.0)
 

@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
+
+[sub_resource type="Resource" id="on_delivered_0"]
+script = ExtResource("2_consequence")
+delay_days = 1
+headline = "ORE FRAUD IN THE LOWER MINES: someone used a forged order to empty Brom Ironvein's cart. The guild asks which shop sold the scroll."
+ledger_text = "Guild inquiry: forged order"
+reputation = -3
+flag_changes = Dictionary[String, int]({"guild_suspicion": 1})
+
+[resource]
+script = ExtResource("1_order")
+id = "brom_doubled_ore"
+client_name = "Brom Ironvein"
+age = "88"
+race = "Dwarf"
+signature = "Bronn Ironvein"
+portrait_color = Color(0.7, 0.45, 0.35, 1)
+greeting = "Quick now, the mine cart won't fill itself."
+item = "Scroll of Doubled Ore"
+details = "Doubles the ore in a cart. The cart count is in slot 000."
+spec = "READ slot 000 and print it doubled."
+examples = Array[Dictionary]([{"memory": {0: 6}, "output": ["12"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 40}, "output": ["80"]}])
+par_runes = 4
+reward = 18
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])

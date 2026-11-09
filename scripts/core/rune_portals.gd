@@ -16,7 +16,7 @@ static func resolve(instructions: Array) -> Dictionary:
 		var opcode := int(instruction["opcode"])
 		var groups: Dictionary
 		match opcode:
-			RuneCatalog.OPCODE_WARP:
+			RuneCatalog.OPCODE_WARP, RuneCatalog.OPCODE_WARP_FRAGILE:
 				groups = warp_groups
 			RuneCatalog.OPCODE_WARP_ENDPOINT:
 				groups = endpoint_groups

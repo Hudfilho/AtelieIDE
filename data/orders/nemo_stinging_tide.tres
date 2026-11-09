@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="AtelierScrollOrder" format=3]
+
+[ext_resource type="Script" path="res://scripts/game/data/scroll_order.gd" id="1_order"]
+[ext_resource type="Resource" path="res://data/portraits/nemo.tres" id="portrait"]
+[ext_resource type="Script" path="res://scripts/game/data/consequence.gd" id="2_consequence"]
+
+[sub_resource type="Resource" id="on_delivered_0"]
+script = ExtResource("2_consequence")
+delay_days = 1
+headline = "HARBOR HORROR: a pirate crew was found stung stiff on their own deck. The scroll that did it bore your seal."
+ledger_text = "Guild fine: the harbor stings"
+money = -20
+reputation = -3
+flag_changes = Dictionary[String, int]({"guild_suspicion": 1})
+
+[resource]
+script = ExtResource("1_order")
+id = "nemo_stinging_tide"
+client_name = "Nemo"
+age = "31"
+race = "Cnidarian"
+signature = "Nemo"
+portrait = ExtResource("portrait")
+portrait_color = Color(0.95, 0.6, 0.4, 1)
+greeting = "The ocean lives in many moods, and so do I. Today, a pleasant one."
+reaction_approved = "Splendid. The tide turns tonight."
+reaction_refused = "The sea never forgets a refusal."
+item = "Scroll of the Stinging Tide"
+details = "Pirates stole my pearls. I want them stung stiff as coral, every last one. The crew count is in slot 000; three stings each."
+tags = PackedStringArray("offensive")
+spec = "Print the number of stings: the crew times 3.
+READ the crew count from slot 000."
+examples = Array[Dictionary]([{"memory": {0: 5}, "output": ["15"]}])
+hidden_tests = Array[Dictionary]([{"memory": {0: 12}, "output": ["36"]}, {"memory": {0: 1}, "output": ["3"]}])
+par_runes = 4
+reward = 35
+on_delivered = Array[ExtResource("2_consequence")]([SubResource("on_delivered_0")])
